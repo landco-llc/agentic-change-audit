@@ -46,7 +46,7 @@ Repeat for every prior finding:
 
 ## Evidence Limitations
 
-- 
+- [List evidence limitations.]
 
 ## Findings
 

@@ -53,11 +53,11 @@ Otherwise, repeat:
 
 ### Checks not executed
 
-- 
+- [List checks not executed and explain why.]
 
 ### Evidence limitations
 
-- 
+- [List evidence limitations.]
 
 ## Human Verification
 
