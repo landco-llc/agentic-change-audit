@@ -1,0 +1,52 @@
+{
+  "schema_version": "0.1",
+  "audit_mode": "FULL",
+  "language": "en",
+  "audited_at": "1970-01-01T00:00:00Z",
+  "target": {
+    "repository": "REPLACE_ME",
+    "base": "REPLACE_ME",
+    "base_sha": null,
+    "target_branch_or_change_set": null,
+    "target_head": "REPLACE_ME",
+    "pull_request": null,
+    "working_tree_state": "NOT_APPLICABLE",
+    "reviewed_files": []
+  },
+  "requirements": {
+    "source": "REPLACE_ME",
+    "summary": "",
+    "approved_intent_established": false,
+    "limitations": []
+  },
+  "scope": {
+    "expected": [],
+    "actual": [],
+    "unrelated_changes_detected": false,
+    "notes": []
+  },
+  "evidence": {
+    "checks": [],
+    "checks_not_executed": [],
+    "limitations": []
+  },
+  "findings": [],
+  "human_verification": {
+    "required": false,
+    "items": []
+  },
+  "audit_validity": {
+    "status": "UNKNOWN",
+    "valid_for_base": "REPLACE_ME",
+    "valid_for_target_head": "REPLACE_ME",
+    "target_unchanged_at_end": false,
+    "invalidation_conditions": [
+      "Material target change",
+      "Material effective diff change",
+      "Material requirements change",
+      "Material required-evidence change"
+    ]
+  },
+  "verdict": "NOT AUDITABLE",
+  "next_permitted_action": "Establish the fixed audit target and requirements."
+}

@@ -1,0 +1,394 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/landco-llc/agentic-change-audit/blob/main/standard/output-schema.json",
+  "title": "Agentic Change Audit Result",
+  "description": "Structured evidence-first result for a fixed software change audit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "audit_mode",
+    "audited_at",
+    "target",
+    "requirements",
+    "scope",
+    "evidence",
+    "findings",
+    "human_verification",
+    "audit_validity",
+    "verdict",
+    "next_permitted_action"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "audit_mode": {
+      "type": "string",
+      "enum": [
+        "FULL",
+        "FOCUSED_REAUDIT",
+        "RELEASE",
+        "DOCS_ONLY"
+      ]
+    },
+    "language": {
+      "type": "string",
+      "description": "BCP 47 language tag for narrative fields.",
+      "default": "en"
+    },
+    "audited_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "base",
+        "target_head",
+        "reviewed_files"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_sha": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_branch_or_change_set": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_head": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pull_request": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "working_tree_state": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "CLEAN",
+            "DIRTY",
+            "NOT_APPLICABLE",
+            null
+          ]
+        },
+        "reviewed_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "summary",
+        "approved_intent_established"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string"
+        },
+        "approved_intent_established": {
+          "type": "boolean"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected",
+        "actual",
+        "unrelated_changes_detected"
+      ],
+      "properties": {
+        "expected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actual": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unrelated_changes_detected": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checks",
+        "checks_not_executed",
+        "limitations"
+      ],
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "method",
+              "purpose",
+              "status",
+              "source",
+              "target_attribution_verified",
+              "summary"
+            ],
+            "properties": {
+              "method": {
+                "type": "string",
+                "minLength": 1
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "PASSED",
+                  "FAILED",
+                  "BLOCKED",
+                  "NOT_RUN"
+                ]
+              },
+              "exit_code": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "OBSERVED",
+                  "REPORTED",
+                  "EXTERNAL"
+                ]
+              },
+              "target_attribution_verified": {
+                "type": "boolean"
+              },
+              "summary": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "checks_not_executed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "severity",
+          "title",
+          "locations",
+          "evidence",
+          "impact",
+          "required_remediation",
+          "blocking"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "Critical",
+              "High",
+              "Medium",
+              "Low",
+              "Comment"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "impact": {
+            "type": "string"
+          },
+          "required_remediation": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "human_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "items"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "description",
+              "status"
+            ],
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "PENDING",
+                  "COMPLETED",
+                  "NOT_APPLICABLE"
+                ]
+              },
+              "evidence": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "audit_validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "valid_for_base",
+        "valid_for_target_head",
+        "target_unchanged_at_end",
+        "invalidation_conditions"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "VALID",
+            "INVALIDATED",
+            "SUPERSEDED",
+            "EXPIRED",
+            "UNKNOWN"
+          ]
+        },
+        "valid_for_base": {
+          "type": "string"
+        },
+        "valid_for_target_head": {
+          "type": "string"
+        },
+        "target_unchanged_at_end": {
+          "type": "boolean"
+        },
+        "invalidation_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "PASS WITH COMMENTS",
+        "CHANGES REQUESTED",
+        "BLOCKED",
+        "NOT AUDITABLE"
+      ]
+    },
+    "next_permitted_action": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
