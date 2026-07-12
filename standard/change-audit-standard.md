@@ -21,6 +21,8 @@ The terms **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are no
 - **SHOULD / SHOULD NOT**: recommended unless a documented reason justifies deviation.
 - **MAY**: optional.
 
+Verdict names, severity names, and schema values are canonical in English.
+
 ## 3. Applicability
 
 The standard applies to:
