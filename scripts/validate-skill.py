@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import re
 import sys
 from pathlib import Path
@@ -11,14 +12,18 @@ from urllib.parse import unquote, urlparse
 
 try:
     import yaml
+    from markdown_it import MarkdownIt
+    from markdown_it.token import Token
 except ImportError as exc:  # pragma: no cover - exercised by user environments
     raise SystemExit(
-        "PyYAML is required. Install a compatible version with: "
-        "python -m pip install 'PyYAML>=6,<7'"
+        "PyYAML and markdown-it-py are required. Install validation "
+        "dependencies with: python -m pip install -r requirements-validation.txt"
     ) from exc
 
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
+FULL_REFERENCE_PATTERN = re.compile(
+    r"!?\[([^\]\n]+)\]\[([^\]\n]*)\]"
+)
 KNOWN_FIELDS = {
     "name",
     "description",
@@ -27,11 +32,15 @@ KNOWN_FIELDS = {
     "metadata",
     "allowed-tools",
 }
+MARKDOWN = MarkdownIt("commonmark")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate SKILL.md frontmatter, package naming, and relative links."
+        description=(
+            "Validate SKILL.md frontmatter, package naming, CommonMark file "
+            "references, heading fragments, and project document pairs."
+        )
     )
     parser.add_argument(
         "root",
@@ -61,36 +70,147 @@ def split_frontmatter(text: str) -> tuple[str, str]:
     return frontmatter, body
 
 
-def validate_relative_links(root: Path, source: Path, text: str) -> list[str]:
+def normalize_reference_label(label: str) -> str:
+    return " ".join(label.split()).casefold()
+
+
+def iter_tokens(tokens: list[Token]):
+    for token in tokens:
+        yield token
+        if token.children:
+            yield from iter_tokens(token.children)
+
+
+def inline_plain_text(token: Token) -> str:
+    if not token.children:
+        return token.content
+    parts: list[str] = []
+    for child in token.children:
+        if child.type in {"text", "code_inline"}:
+            parts.append(child.content)
+        elif child.type == "image":
+            parts.append(child.content)
+    return "".join(parts)
+
+
+def github_slug_base(text: str) -> str:
+    value = html.unescape(text).strip().lower()
+    value = re.sub(r"<[^>]+>", "", value)
+    value = re.sub(r"[^\w\-\s]", "", value, flags=re.UNICODE)
+    value = re.sub(r"\s+", "-", value)
+    return value.strip("-")
+
+
+def markdown_analysis(text: str) -> tuple[list[str], set[str], list[str]]:
+    env: dict[str, object] = {}
+    tokens = MARKDOWN.parse(text, env)
+    targets: list[str] = []
+    anchors: set[str] = set()
+    slug_counts: dict[str, int] = {}
+
+    for token in iter_tokens(tokens):
+        if token.type == "link_open":
+            href = token.attrGet("href")
+            if href:
+                targets.append(href)
+        elif token.type == "image":
+            src = token.attrGet("src")
+            if src:
+                targets.append(src)
+
+    for index, token in enumerate(tokens):
+        if token.type != "heading_open" or index + 1 >= len(tokens):
+            continue
+        inline = tokens[index + 1]
+        if inline.type != "inline":
+            continue
+        base = github_slug_base(inline_plain_text(inline))
+        if not base:
+            continue
+        count = slug_counts.get(base, 0)
+        slug_counts[base] = count + 1
+        anchors.add(base if count == 0 else f"{base}-{count}")
+
+    references = env.get("references")
+    reference_labels = {
+        normalize_reference_label(str(key))
+        for key in references
+    } if isinstance(references, dict) else set()
+
+    unresolved: list[str] = []
+    for match in FULL_REFERENCE_PATTERN.finditer(text):
+        visible_label, explicit_label = match.groups()
+        lookup = explicit_label or visible_label
+        if normalize_reference_label(lookup) not in reference_labels:
+            unresolved.append(match.group(0))
+
+    return targets, anchors, unresolved
+
+
+def validate_markdown_references(
+    root: Path,
+    source: Path,
+    text: str,
+    anchor_cache: dict[Path, set[str]],
+) -> list[str]:
     errors: list[str] = []
     root_resolved = root.resolve()
+    targets, source_anchors, unresolved = markdown_analysis(text)
+    anchor_cache[source.resolve()] = source_anchors
 
-    for raw_target in LINK_PATTERN.findall(text):
-        target = raw_target.strip().strip("<>")
+    for raw_reference in unresolved:
+        errors.append(
+            f"{source.relative_to(root)}: unresolved reference-style link: "
+            f"{raw_reference}"
+        )
+
+    for raw_target in targets:
+        target = raw_target.strip()
         parsed = urlparse(target)
 
-        if parsed.scheme or target.startswith("#") or target.startswith("//"):
+        if parsed.scheme or parsed.netloc or target.startswith("//"):
             continue
 
         path_text = unquote(parsed.path)
-        if not path_text:
-            continue
+        if path_text:
+            candidate = (source.parent / path_text).resolve()
+        else:
+            candidate = source.resolve()
 
-        candidate = (source.parent / path_text).resolve()
         try:
             candidate.relative_to(root_resolved)
         except ValueError:
-            errors.append(f"{source.relative_to(root)}: link escapes the skill root: {raw_target}")
+            errors.append(
+                f"{source.relative_to(root)}: reference escapes the skill root: "
+                f"{raw_target}"
+            )
             continue
 
         if not candidate.exists():
-            errors.append(f"{source.relative_to(root)}: referenced file does not exist: {raw_target}")
+            errors.append(
+                f"{source.relative_to(root)}: referenced file does not exist: "
+                f"{raw_target}"
+            )
+            continue
+
+        fragment = unquote(parsed.fragment)
+        if fragment and candidate.is_file() and candidate.suffix.lower() == ".md":
+            target_anchors = anchor_cache.get(candidate)
+            if target_anchors is None:
+                target_text = candidate.read_text(encoding="utf-8")
+                _, target_anchors, _ = markdown_analysis(target_text)
+                anchor_cache[candidate] = target_anchors
+            if fragment not in target_anchors:
+                errors.append(
+                    f"{source.relative_to(root)}: referenced Markdown heading "
+                    f"does not exist: {raw_target}"
+                )
 
     return errors
 
 
 def validate_project_documentation(root: Path) -> list[str]:
-    """Validate project-specific English/Japanese document pairs and README basics."""
+    """Validate project-specific document pairs without claiming translation parity."""
     errors: list[str] = []
     pairs = [
         ("README.md", "README.ja.md"),
@@ -226,11 +346,19 @@ def main() -> int:
     if line_count > 500:
         errors.append(f"SKILL.md has {line_count} lines; keep it at or below 500 lines.")
 
+    anchor_cache: dict[Path, set[str]] = {}
     for markdown_path in sorted(root.rglob("*.md")):
         if ".git" in markdown_path.parts:
             continue
         markdown_text = markdown_path.read_text(encoding="utf-8")
-        errors.extend(validate_relative_links(root, markdown_path, markdown_text))
+        errors.extend(
+            validate_markdown_references(
+                root,
+                markdown_path,
+                markdown_text,
+                anchor_cache,
+            )
+        )
 
     errors.extend(validate_project_documentation(root))
 
@@ -247,7 +375,9 @@ def main() -> int:
     print(f"- name: {name}")
     print(f"- description length: {len(description.strip())}")
     print(f"- SKILL.md lines: {line_count}")
-    print("- repository Markdown links: PASS")
+    print(
+        "- CommonMark file/image/reference links and Markdown heading fragments: PASS"
+    )
     print("- English/Japanese document pairs: PASS")
     return 0
 

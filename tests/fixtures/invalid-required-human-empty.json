@@ -1,0 +1,87 @@
+{
+  "schema_version": "0.1",
+  "schema_validation": {
+    "scope": "STRUCTURE_AND_SELECTED_GUARDRAILS",
+    "normative_source": "standard/verdict-criteria.md",
+    "performed": true,
+    "notes": [
+      "Canonical semantic validation completed."
+    ]
+  },
+  "audit_mode": "FULL",
+  "language": "en",
+  "audited_at": "2026-07-14T00:00:00Z",
+  "target": {
+    "repository": "example/repository",
+    "base": "main",
+    "base_sha": "1111111111111111111111111111111111111111",
+    "target_branch_or_change_set": "feature/example",
+    "target_head": "2222222222222222222222222222222222222222",
+    "pull_request": 123,
+    "working_tree_state": "NOT_APPLICABLE",
+    "reviewed_files": [
+      "src/example.py"
+    ]
+  },
+  "requirements": {
+    "source": "issue #98",
+    "summary": "Implement the approved example change.",
+    "approved_intent_established": true,
+    "limitations": []
+  },
+  "scope": {
+    "expected": [
+      "src/example.py"
+    ],
+    "actual": [
+      "src/example.py"
+    ],
+    "diff_summary": "One source file modified.",
+    "material_exclusions": [],
+    "unrelated_changes_detected": false,
+    "notes": []
+  },
+  "evidence": {
+    "checks": [
+      {
+        "method": "python -m pytest",
+        "purpose": "Run the relevant automated tests.",
+        "execution_directory": "/workspace/repository",
+        "target_context": "2222222222222222222222222222222222222222",
+        "started_at": "2026-07-14T00:00:00Z",
+        "completed_at": "2026-07-14T00:00:02Z",
+        "sequence": 1,
+        "status": "PASSED",
+        "exit_code": 0,
+        "source": "OBSERVED",
+        "target_attribution_verified": true,
+        "artifact_location": null,
+        "completeness": "COMPLETE",
+        "summary": "All relevant tests passed."
+      }
+    ],
+    "checks_not_executed": [],
+    "limitations": [],
+    "redactions": []
+  },
+  "findings": [],
+  "human_verification": {
+    "required": true,
+    "items": []
+  },
+  "focused_reaudit": null,
+  "audit_validity": {
+    "status": "VALID",
+    "valid_for_base": "1111111111111111111111111111111111111111",
+    "valid_for_target_head": "2222222222222222222222222222222222222222",
+    "target_unchanged_at_end": true,
+    "invalidation_conditions": [
+      "Material target change",
+      "Material effective diff change",
+      "Material requirements change",
+      "Material required-evidence change"
+    ]
+  },
+  "verdict": "BLOCKED",
+  "next_permitted_action": "Add the missing human-check record."
+}
