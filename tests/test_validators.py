@@ -159,6 +159,59 @@ class MarkdownReferenceTests(unittest.TestCase):
                 any("unresolved reference-style link" in error for error in errors)
             )
 
+    def test_unresolved_reference_image_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "source.md"
+            source.write_text(
+                "![Missing image][no-such-reference]\n",
+                encoding="utf-8",
+            )
+            errors = self.validate(root, source)
+            self.assertTrue(
+                any("unresolved reference-style link" in error for error in errors)
+            )
+
+    def test_inline_code_reference_syntax_is_ignored(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "source.md"
+            source.write_text(
+                "`[Inline example][missing-inline-definition]`\n",
+                encoding="utf-8",
+            )
+            self.assertEqual([], self.validate(root, source))
+
+    def test_fenced_code_reference_syntax_is_ignored(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "source.md"
+            source.write_text(
+                "```md\n[Fenced example][missing-fenced-definition]\n```\n",
+                encoding="utf-8",
+            )
+            self.assertEqual([], self.validate(root, source))
+
+    def test_indented_code_reference_syntax_is_ignored(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "source.md"
+            source.write_text(
+                "    [Indented example][missing-indented-definition]\n",
+                encoding="utf-8",
+            )
+            self.assertEqual([], self.validate(root, source))
+
+    def test_escaped_reference_syntax_is_ignored(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "source.md"
+            source.write_text(
+                "\\[Escaped example][missing-escaped-definition]\n",
+                encoding="utf-8",
+            )
+            self.assertEqual([], self.validate(root, source))
+
     def test_missing_fragment_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

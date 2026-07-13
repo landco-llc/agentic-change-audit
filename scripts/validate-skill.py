@@ -24,6 +24,9 @@ NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 FULL_REFERENCE_PATTERN = re.compile(
     r"!?\[([^\]\n]+)\]\[([^\]\n]*)\]"
 )
+ASCII_PUNCTUATION = frozenset(
+    "!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~"
+)
 KNOWN_FIELDS = {
     "name",
     "description",
@@ -101,6 +104,80 @@ def github_slug_base(text: str) -> str:
     return value.strip("-")
 
 
+def mask_non_live_inline_syntax(source: str) -> str:
+    """Mask CommonMark code spans and backslash escapes in inline source."""
+    masked = list(source)
+    index = 0
+
+    while index < len(source):
+        if (
+            source[index] == "\\"
+            and index + 1 < len(source)
+            and source[index + 1] in ASCII_PUNCTUATION
+        ):
+            masked[index] = " "
+            masked[index + 1] = " "
+            index += 2
+            continue
+
+        if source[index] != "`":
+            index += 1
+            continue
+
+        opening_end = index
+        while opening_end < len(source) and source[opening_end] == "`":
+            opening_end += 1
+        opening_length = opening_end - index
+
+        cursor = opening_end
+        closing_end: int | None = None
+        while cursor < len(source):
+            if source[cursor] != "`":
+                cursor += 1
+                continue
+
+            run_end = cursor
+            while run_end < len(source) and source[run_end] == "`":
+                run_end += 1
+
+            if run_end - cursor == opening_length:
+                closing_end = run_end
+                break
+            cursor = run_end
+
+        if closing_end is None:
+            index = opening_end
+            continue
+
+        for position in range(index, closing_end):
+            masked[position] = " "
+        index = closing_end
+
+    return "".join(masked)
+
+
+def unresolved_reference_candidates(
+    tokens: list[Token],
+    reference_labels: set[str],
+) -> list[str]:
+    """Find unresolved full/collapsed references only in live inline source."""
+    unresolved: list[str] = []
+
+    for token in tokens:
+        if token.type != "inline":
+            continue
+
+        live_source = mask_non_live_inline_syntax(token.content)
+        for match in FULL_REFERENCE_PATTERN.finditer(live_source):
+            visible_label, explicit_label = match.groups()
+            lookup = explicit_label or visible_label
+            if normalize_reference_label(lookup) not in reference_labels:
+                start, end = match.span()
+                unresolved.append(token.content[start:end])
+
+    return unresolved
+
+
 def markdown_analysis(text: str) -> tuple[list[str], set[str], list[str]]:
     env: dict[str, object] = {}
     tokens = MARKDOWN.parse(text, env)
@@ -137,15 +214,8 @@ def markdown_analysis(text: str) -> tuple[list[str], set[str], list[str]]:
         for key in references
     } if isinstance(references, dict) else set()
 
-    unresolved: list[str] = []
-    for match in FULL_REFERENCE_PATTERN.finditer(text):
-        visible_label, explicit_label = match.groups()
-        lookup = explicit_label or visible_label
-        if normalize_reference_label(lookup) not in reference_labels:
-            unresolved.append(match.group(0))
-
+    unresolved = unresolved_reference_candidates(tokens, reference_labels)
     return targets, anchors, unresolved
-
 
 def validate_markdown_references(
     root: Path,
