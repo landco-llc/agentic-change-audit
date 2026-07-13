@@ -21,6 +21,8 @@ agentic-change-audit/
 
 Cloning the repository into an arbitrary folder does not automatically make the skill discoverable. The whole folder must be copied or linked into a discovery location supported by the agent.
 
+The procedures in this guide are **local direct-folder installation** methods. For Codex, direct Skill folders are intended for local authoring and discovery. Codex recommends Plugins for reusable distribution beyond a single repository. This repository does not currently provide a Codex Plugin.
+
 The commands below use a shared source checkout so Claude Code and Codex can use the same files.
 
 Examples use a POSIX shell on macOS or Linux. Equivalent directory-copy or directory-link operations can be used on other platforms.
@@ -71,7 +73,7 @@ ln -s \
   "$HOME/.claude/skills/agentic-change-audit"
 ```
 
-Claude Code follows symlinked skill directories in current versions. On an older version that does not detect the link, use the copy method below or update Claude Code.
+Claude Code follows symlinked skill directories in v2.1.203 and later. On an older version, use the copy method below or update Claude Code.
 
 ### 2B. Personal installation by copying
 
@@ -80,12 +82,19 @@ Use this instead of a symlink when required by the environment.
 ```bash
 mkdir -p "$HOME/.claude/skills"
 
-cp -R \
-  "$HOME/.local/share/agentic-change-audit" \
-  "$HOME/.claude/skills/agentic-change-audit"
+destination="$HOME/.claude/skills/agentic-change-audit"
+
+if [ -e "$destination" ] || [ -L "$destination" ]; then
+  printf 'Destination already exists; move or remove it before copying: %s\n' \
+    "$destination" >&2
+else
+  cp -R \
+    "$HOME/.local/share/agentic-change-audit" \
+    "$destination"
+fi
 ```
 
-A copied installation does not update automatically when the source checkout changes.
+A copied installation does not update automatically when the source checkout changes. Do not rerun `cp -R` into an existing destination: it can create a nested package and leave an older root `SKILL.md` active. Replace the existing copy through a controlled update instead.
 
 ### 2C. Project-scoped installation
 
@@ -155,10 +164,19 @@ ln -s \
 ```bash
 mkdir -p "$HOME/.agents/skills"
 
-cp -R \
-  "$HOME/.local/share/agentic-change-audit" \
-  "$HOME/.agents/skills/agentic-change-audit"
+destination="$HOME/.agents/skills/agentic-change-audit"
+
+if [ -e "$destination" ] || [ -L "$destination" ]; then
+  printf 'Destination already exists; move or remove it before copying: %s\n' \
+    "$destination" >&2
+else
+  cp -R \
+    "$HOME/.local/share/agentic-change-audit" \
+    "$destination"
+fi
 ```
+
+Do not rerun `cp -R` into an existing destination. Use a controlled replacement so the Skill root does not retain stale files or gain a nested `agentic-change-audit/` directory.
 
 ### 4C. Repository-scoped installation
 

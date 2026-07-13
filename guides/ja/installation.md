@@ -21,6 +21,8 @@ agentic-change-audit/
 
 任意のフォルダへcloneしただけでは、Skillとして自動検出されません。repositoryフォルダ全体を、エージェントが対応する検出先へcopyまたはlinkする必要があります。
 
+本ガイドは**local direct-folder installation**の手順です。Codexのdirect Skill folderはlocal authoringとdiscoveryを目的とします。単一repositoryを超えて再利用配布する場合、CodexはPluginを推奨しています。本repositoryは現時点でCodex Pluginを提供していません。
+
 以下では、Claude CodeとCodexが同じファイルを利用できるように、共有source checkoutを使用します。
 
 コマンド例はmacOSまたはLinuxのPOSIX shellを前提とします。他のOSでは同等のdirectory copyまたはdirectory linkを使用してください。
@@ -71,7 +73,7 @@ ln -s \
   "$HOME/.claude/skills/agentic-change-audit"
 ```
 
-現行Claude CodeはsymlinkされたSkill directoryを読み取ります。古いversionで検出されない場合は、下記のcopy方式を使用するかClaude Codeを更新してください。
+Claude Code v2.1.203以降は、symlinkされたSkill directoryを読み取ります。それより古いversionでは、下記のcopy方式を使用するかClaude Codeを更新してください。
 
 ### 2B. Copyによる個人導入
 
@@ -80,12 +82,19 @@ ln -s \
 ```bash
 mkdir -p "$HOME/.claude/skills"
 
-cp -R \
-  "$HOME/.local/share/agentic-change-audit" \
-  "$HOME/.claude/skills/agentic-change-audit"
+destination="$HOME/.claude/skills/agentic-change-audit"
+
+if [ -e "$destination" ] || [ -L "$destination" ]; then
+  printf '導入先がすでに存在します。copy前に移動または削除してください: %s\n' \
+    "$destination" >&2
+else
+  cp -R \
+    "$HOME/.local/share/agentic-change-audit" \
+    "$destination"
+fi
 ```
 
-copyした導入先は、source checkoutを更新しても自動では更新されません。
+copyした導入先は、source checkoutを更新しても自動では更新されません。既存の導入先へ`cp -R`を再実行すると、入れ子のpackageが作られ、古いroot `SKILL.md`が残る可能性があります。管理された更新手順で既存copyを置き換えてください。
 
 ### 2C. プロジェクト限定導入
 
@@ -155,10 +164,19 @@ ln -s \
 ```bash
 mkdir -p "$HOME/.agents/skills"
 
-cp -R \
-  "$HOME/.local/share/agentic-change-audit" \
-  "$HOME/.agents/skills/agentic-change-audit"
+destination="$HOME/.agents/skills/agentic-change-audit"
+
+if [ -e "$destination" ] || [ -L "$destination" ]; then
+  printf '導入先がすでに存在します。copy前に移動または削除してください: %s\n' \
+    "$destination" >&2
+else
+  cp -R \
+    "$HOME/.local/share/agentic-change-audit" \
+    "$destination"
+fi
 ```
+
+既存の導入先へ`cp -R`を再実行しないでください。Skill rootへ古いfileが残ったり、入れ子の`agentic-change-audit/` directoryが作られたりしないよう、管理された置換を行ってください。
 
 ### 4C. Repository限定導入
 

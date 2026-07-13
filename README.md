@@ -53,6 +53,8 @@ See [Verdict Criteria](standard/verdict-criteria.md) for the normative definitio
 
 This repository is the **skill package directory itself**. Cloning it does not automatically make every agent discover it. Install or link the whole repository folder into a skill location supported by your agent.
 
+The instructions below cover **local direct-folder installation** and repository-scoped use. For Codex, `.agents/skills` locations are intended for authoring and local discovery. Codex recommends Plugins for reusable distribution beyond a single repository. This repository does not currently provide a Codex Plugin.
+
 ### Claude Code
 
 Personal skill location:
