@@ -1,5 +1,13 @@
 {
   "schema_version": "0.1",
+  "schema_validation": {
+    "scope": "STRUCTURE_AND_SELECTED_GUARDRAILS",
+    "normative_source": "standard/verdict-criteria.md",
+    "performed": false,
+    "notes": [
+      "Complete semantic validation against the canonical standards before issuing a final verdict."
+    ]
+  },
   "audit_mode": "FULL",
   "language": "en",
   "audited_at": "1970-01-01T00:00:00Z",
@@ -22,19 +30,29 @@
   "scope": {
     "expected": [],
     "actual": [],
+    "diff_summary": "",
+    "material_exclusions": [],
     "unrelated_changes_detected": false,
     "notes": []
   },
   "evidence": {
     "checks": [],
-    "checks_not_executed": [],
-    "limitations": []
+    "checks_not_executed": [
+      {
+        "check": "REPLACE_ME",
+        "reason": "REPLACE_ME",
+        "required": false
+      }
+    ],
+    "limitations": [],
+    "redactions": []
   },
   "findings": [],
   "human_verification": {
     "required": false,
     "items": []
   },
+  "focused_reaudit": null,
   "audit_validity": {
     "status": "UNKNOWN",
     "valid_for_base": "REPLACE_ME",

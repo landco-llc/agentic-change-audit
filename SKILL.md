@@ -37,7 +37,17 @@ Use one mode and record it in the result:
 - `RELEASE`: review a fixed release candidate and release-specific evidence.
 - `DOCS_ONLY`: review documentation changes without requiring irrelevant application checks.
 
-For `FOCUSED_REAUDIT`, require the previous audited HEAD, current target HEAD, prior findings, and an explicit remediation scope.
+For `FOCUSED_REAUDIT`, require and record:
+
+- the previous audited HEAD;
+- the current target HEAD;
+- every prior finding and its current resolution status;
+- the authorized remediation scope;
+- the actual remediation scope;
+- the previous-to-current diff summary;
+- unexpected or unrelated changes;
+- relevant checks repeated;
+- regression evidence outside the narrow remediation.
 
 ## Load the normative references
 
@@ -52,6 +62,8 @@ Before issuing a verdict, read the relevant files:
 Use the English files as canonical. Use the corresponding `.ja.md` files when Japanese explanation is needed.
 
 Use [the JSON Schema](standard/output-schema.json) when producing structured JSON.
+
+The JSON Schema validates structure and selected semantic guardrails. Schema-valid JSON is not, by itself, a valid audit result. Verdict meaning, required evidence, human-check effects, and merge or release readiness MUST also be validated against the canonical standards above. Set `schema_validation.performed` to `true` only after that semantic validation is complete.
 
 Use one of these output templates:
 
@@ -71,7 +83,8 @@ Record and verify, as applicable:
 - target HEAD or equivalent immutable identifier;
 - pull request identity;
 - working-tree state;
-- effective diff.
+- reviewed files;
+- effective diff and concise diff summary.
 
 A pull request number alone is not a fixed target.
 
@@ -90,7 +103,7 @@ Identify:
 
 Compare requested scope with the complete actual diff.
 
-Report omitted work, unrelated changes, unnecessary files, generated artifacts, sensitive files, and excessive implementation.
+Report omitted work, unrelated changes, unnecessary files, generated artifacts, sensitive files, excessive implementation, and material exclusions.
 
 ### 3. Inspect the complete change
 
@@ -128,17 +141,27 @@ Possible checks include:
 
 For docs-only changes, do not require unrelated application builds or tests. Check the diff, structure, links when applicable, internal consistency, and translation parity when applicable.
 
-Record:
+For each executed command or verification method, record when relevant:
 
-- exact command or verification method;
+- method or safely redacted command;
 - purpose;
+- execution directory;
+- target context;
+- timing or sequence;
 - observed result;
 - exit code when available;
+- log or artifact location;
+- whether the evidence is complete, partial, or truncated;
 - whether the evidence is observed, reported, or external;
-- whether the evidence is attributable to the fixed target;
-- checks not executed and why.
+- whether the evidence is attributable to the fixed target.
 
-### 5. Evaluate findings
+Also record:
+
+- checks not executed, why, and whether they were required;
+- evidence limitations;
+- redactions made to protect sensitive information.
+
+### 5. Evaluate findings and human checks
 
 For each finding, record:
 
@@ -150,6 +173,16 @@ For each finding, record:
 - impact;
 - required remediation;
 - whether it blocks acceptance.
+
+For each human check, record:
+
+- check description;
+- why automation is insufficient;
+- required role or capability;
+- status: `COMPLETE`, `PENDING`, `NOT REQUIRED`, or `DEFERRED TO APPROVED GATE`;
+- evidence or observation;
+- acceptance gate;
+- owner when known.
 
 Do not hide a required human check inside an unconditional `PASS`.
 
@@ -163,7 +196,21 @@ Immediately before issuing the result:
 
 If the target changed during the audit, stop with `NOT AUDITABLE` and request a new fixed-HEAD audit instruction.
 
-### 7. Issue one verdict
+### 7. Validate verdict semantics
+
+Before issuing any final result:
+
+- apply the decision order in `standard/verdict-criteria.md`;
+- confirm no blocking finding coexists with `PASS` or `PASS WITH COMMENTS`;
+- confirm no mandatory `PENDING` human check coexists with a passing verdict;
+- confirm `PASS` does not contain a human check deferred to a later gate;
+- confirm a passing verdict has `VALID` audit status and an unchanged final target;
+- confirm all required evidence and limitations are represented;
+- confirm focused re-audit fields are complete when `audit_mode` is `FOCUSED_REAUDIT`.
+
+For JSON output, set `schema_validation.performed` to `true` only after these checks pass. JSON Schema conformance does not replace this step.
+
+### 8. Issue one verdict
 
 Use exactly one:
 
@@ -182,11 +229,12 @@ A result applies only to its recorded target. Material changes to the target, ef
 
 ## Output rules
 
-- Keep verdict names, severity names, schema values, and audit status values in English.
+- Keep verdict names, severity names, schema values, human-check status values, and audit status values in English.
 - Narrative explanation may use the user's language.
 - Prefer concise evidence summaries over large raw logs.
 - Never include secret values.
 - State checks not performed and evidence limitations.
+- Record redactions without exposing the redacted values.
 - State the exact next permitted action.
 - If there are no findings, write: `No blocking or non-blocking findings.`
 

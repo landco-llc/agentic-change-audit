@@ -1,8 +1,16 @@
 # Agentic Change Audit Result
 
+> Schema or template conformance does not establish a valid audit verdict. Complete semantic validation against the canonical standards before issuing the result.
+
 ## Verdict
 
 `PASS | PASS WITH COMMENTS | CHANGES REQUESTED | BLOCKED | NOT AUDITABLE`
+
+## Semantic Validation
+
+- Performed:
+- Normative source: `standard/verdict-criteria.md`
+- Notes:
 
 ## Audited Identity
 
@@ -13,6 +21,7 @@
 - Target HEAD:
 - Pull Request:
 - Working-tree state:
+- Reviewed files:
 - Audit mode:
 - Audited at:
 - Audit validity:
@@ -21,10 +30,13 @@
 
 - Requirements source:
 - Approved intent established:
+- Requirements summary:
 - Expected scope:
 - Actual scope:
+- Diff summary:
 - Unrelated changes detected:
 - Material exclusions:
+- Requirements limitations:
 
 ## Findings
 
@@ -45,26 +57,56 @@ Otherwise, repeat:
 
 ## Evidence
 
-### Checks performed
+Repeat for each executed command or verification method:
 
-| Method | Purpose | Status | Exit code | Source | Target attribution | Summary |
-|---|---|---|---:|---|---|---|
-|  |  |  |  |  |  |  |
+### [Check name]
+
+- Method:
+- Purpose:
+- Execution directory:
+- Target context:
+- Start time:
+- Completion time:
+- Sequence:
+- Status: `PASSED | FAILED | BLOCKED | NOT_RUN`
+- Exit code:
+- Source: `OBSERVED | REPORTED | EXTERNAL`
+- Target attribution verified:
+- Artifact or log location:
+- Completeness: `COMPLETE | PARTIAL | TRUNCATED`
+- Summary:
 
 ### Checks not executed
 
-- [List checks not executed and explain why.]
+Repeat for each omitted check:
+
+- Check:
+- Reason:
+- Required:
 
 ### Evidence limitations
 
 - [List evidence limitations.]
 
+### Redactions
+
+Repeat for each redaction:
+
+- Description:
+- Reason:
+
 ## Human Verification
 
-- Required:
-- Pending items:
-- Completed items:
-- Evidence:
+Repeat for each human check:
+
+### [Human check]
+
+- Reason automation is insufficient:
+- Required role or capability:
+- Status: `COMPLETE | PENDING | NOT REQUIRED | DEFERRED TO APPROVED GATE`
+- Evidence or observation:
+- Acceptance gate:
+- Owner:
 
 ## Invalidation Conditions
 
