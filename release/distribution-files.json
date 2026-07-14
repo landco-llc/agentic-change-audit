@@ -1,0 +1,30 @@
+{
+  "archive_root": "agentic-change-audit",
+  "files": [
+    "LICENSE",
+    "README.ja.md",
+    "README.md",
+    "SKILL.md",
+    "docs/product-definition.ja.md",
+    "docs/product-definition.md",
+    "guides/en/installation.md",
+    "guides/ja/installation.md",
+    "standard/audit-invalidation.ja.md",
+    "standard/audit-invalidation.md",
+    "standard/change-audit-standard.ja.md",
+    "standard/change-audit-standard.md",
+    "standard/evidence-requirements.ja.md",
+    "standard/evidence-requirements.md",
+    "standard/human-check-boundary.ja.md",
+    "standard/human-check-boundary.md",
+    "standard/output-schema.json",
+    "standard/verdict-criteria.ja.md",
+    "standard/verdict-criteria.md",
+    "templates/audit-result.json",
+    "templates/audit-result.md",
+    "templates/focused-reaudit-result.md"
+  ],
+  "package_name": "agentic-change-audit",
+  "schema_version": 1,
+  "source_repository": "https://github.com/landco-llc/agentic-change-audit"
+}
