@@ -1,0 +1,73 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11"
+          - "3.13"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install validation dependencies
+        run: |
+          python -m pip install --disable-pip-version-check             -r requirements-validation.txt
+
+      - name: Validate Skill package
+        run: python scripts/validate-skill.py .
+
+      - name: Validate accepted audit-result fixtures
+        run: |
+          python scripts/validate-audit-result.py             tests/fixtures/valid-full.json             tests/fixtures/valid-focused-reaudit.json             tests/fixtures/valid-pass-with-comments-deferred.json             tests/fixtures/valid-not-auditable-required-check-not-run.json             tests/fixtures/valid-blocked-required-check-not-run.json             tests/fixtures/valid-changes-requested-blocking.json
+
+      - name: Validate rejected audit-result fixtures
+        run: |
+          python scripts/validate-audit-result.py             --expect-invalid             --expectations tests/fixtures/invalid-expectations.json             tests/fixtures/invalid-pass-blocking.json             tests/fixtures/invalid-pass-pending-human.json             tests/fixtures/invalid-pass-deferred-human.json             tests/fixtures/invalid-focused-missing-payload.json             tests/fixtures/invalid-pass-invalid-validity.json             tests/fixtures/invalid-required-check-not-run.json             tests/fixtures/invalid-date-time.json             tests/fixtures/invalid-pass-schema-validation-not-performed.json             tests/fixtures/invalid-pass-target-changed.json             tests/fixtures/invalid-pass-failed-check.json             tests/fixtures/invalid-required-human-empty.json
+
+      - name: Run validator unit tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Compile validation scripts without artifacts
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          for path in sorted(Path("scripts").glob("*.py")):
+              compile(path.read_text(encoding="utf-8"), str(path), "exec")
+              print(f"Compiled: {path}")
+          PY
+
+      - name: Check trailing whitespace
+        shell: bash
+        run: |
+          if git grep -nI -E '[[:blank:]]+$' --             '*.md' '*.json' '*.py' '*.txt' '*.yml' '*.yaml'; then
+            echo "Trailing whitespace detected." >&2
+            exit 1
+          fi

@@ -1,0 +1,68 @@
+{
+  "invalid-pass-blocking.json": [
+    {
+      "code": "PASS_BLOCKING_FINDING",
+      "path": "$.findings[0].blocking"
+    }
+  ],
+  "invalid-pass-pending-human.json": [
+    {
+      "code": "PASS_PENDING_HUMAN_CHECK",
+      "path": "$.human_verification.items[0].status"
+    }
+  ],
+  "invalid-pass-deferred-human.json": [
+    {
+      "code": "PASS_DEFERRED_HUMAN_CHECK",
+      "path": "$.human_verification.items[0].status"
+    }
+  ],
+  "invalid-focused-missing-payload.json": [
+    {
+      "code": "FOCUSED_REAUDIT_MISSING_PAYLOAD",
+      "path": "$.focused_reaudit"
+    }
+  ],
+  "invalid-pass-invalid-validity.json": [
+    {
+      "code": "PASS_AUDIT_VALIDITY_NOT_VALID",
+      "path": "$.audit_validity.status"
+    }
+  ],
+  "invalid-required-check-not-run.json": [
+    {
+      "code": "PASS_REQUIRED_CHECK_NOT_RUN",
+      "path": "$.evidence.checks_not_executed[0].required"
+    }
+  ],
+  "invalid-date-time.json": [
+    {
+      "code": "SCHEMA_FORMAT",
+      "path": "$.audited_at"
+    }
+  ],
+  "invalid-pass-schema-validation-not-performed.json": [
+    {
+      "code": "PASS_SCHEMA_VALIDATION_NOT_PERFORMED",
+      "path": "$.schema_validation.performed"
+    }
+  ],
+  "invalid-pass-target-changed.json": [
+    {
+      "code": "PASS_TARGET_CHANGED",
+      "path": "$.audit_validity.target_unchanged_at_end"
+    }
+  ],
+  "invalid-pass-failed-check.json": [
+    {
+      "code": "PASS_EXECUTED_CHECK_FAILED",
+      "path": "$.evidence.checks[0].status"
+    }
+  ],
+  "invalid-required-human-empty.json": [
+    {
+      "code": "HUMAN_REQUIRED_EMPTY_ITEMS",
+      "path": "$.human_verification.items"
+    }
+  ]
+}
