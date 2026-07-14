@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify an Agentic Change Audit distribution archive and its integrity files."""
+"""Verify an Agentic Change Audit distribution archive and integrity files."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 SEMVER_PATTERN = re.compile(
-    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
     r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
     r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
@@ -22,6 +22,9 @@ SOURCE_REF_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 CHECKSUM_LINE_PATTERN = re.compile(r"^([0-9a-f]{64})  ([^/\r\n]+)$")
 FIXED_ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 PACKAGE_MANIFEST_NAME = "PACKAGE-MANIFEST.json"
+VERIFIED_SOURCE_IDENTITY = "verified_git_clean"
+UNVERIFIED_SOURCE_IDENTITY = "unverified_test_fixture"
+SOURCE_IDENTITIES = {VERIFIED_SOURCE_IDENTITY, UNVERIFIED_SOURCE_IDENTITY}
 
 
 def parse_args() -> argparse.Namespace:
@@ -41,6 +44,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--expected-version", required=True)
     parser.add_argument("--expected-source-ref", required=True)
+    parser.add_argument(
+        "--expected-source-identity",
+        choices=sorted(SOURCE_IDENTITIES),
+        default=VERIFIED_SOURCE_IDENTITY,
+        help=(
+            "Required manifest source identity. Release verification defaults to "
+            "verified_git_clean. unverified_test_fixture is only for synthetic tests."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -70,14 +82,15 @@ def load_json(path: Path) -> Any:
 def validate_semver(value: str) -> None:
     match = SEMVER_PATTERN.fullmatch(value)
     if not match:
-        raise ValueError(f"Expected version is not valid SemVer: {value}")
+        raise ValueError(f"Expected version is not valid ASCII SemVer: {value}")
     prerelease = match.group(4)
     if prerelease:
         for identifier in prerelease.split("."):
-            if identifier.isdigit() and len(identifier) > 1 and identifier.startswith("0"):
-                raise ValueError(
-                    "Numeric prerelease identifiers must not contain leading zeros."
-                )
+            if re.fullmatch(r"[0-9]+", identifier) and len(identifier) > 1:
+                if identifier.startswith("0"):
+                    raise ValueError(
+                        "Numeric prerelease identifiers must not contain leading zeros."
+                    )
 
 
 def validate_source_ref(value: str) -> None:
@@ -153,6 +166,7 @@ def validate_manifest(
     config: dict[str, Any],
     expected_version: str,
     expected_source_ref: str,
+    expected_source_identity: str,
 ) -> list[dict[str, Any]]:
     if not isinstance(manifest, dict):
         raise ValueError("Package manifest must be a JSON object.")
@@ -170,6 +184,7 @@ def validate_manifest(
         "archive_root",
         "source_repository",
         "source_ref",
+        "source_identity",
     }
     if set(package) != expected_package_keys:
         raise ValueError("Manifest package keys do not match the required schema.")
@@ -180,6 +195,7 @@ def validate_manifest(
         "archive_root": config["archive_root"],
         "source_repository": config["source_repository"],
         "source_ref": expected_source_ref,
+        "source_identity": expected_source_identity,
     }
     for key, expected in expectations.items():
         if package[key] != expected:
@@ -231,9 +247,12 @@ def verify_distribution(
     config_path: Path,
     expected_version: str,
     expected_source_ref: str,
+    expected_source_identity: str = VERIFIED_SOURCE_IDENTITY,
 ) -> None:
     validate_semver(expected_version)
     validate_source_ref(expected_source_ref)
+    if expected_source_identity not in SOURCE_IDENTITIES:
+        raise ValueError(f"Unsupported expected source identity: {expected_source_identity}")
 
     config = load_config(config_path)
     expected_prefix = f"{config['package_name']}-{expected_version}"
@@ -271,16 +290,14 @@ def verify_distribution(
         config,
         expected_version,
         expected_source_ref,
+        expected_source_identity,
     )
     manifest_by_path = {item["path"]: item for item in manifest_files}
 
     expected_entries = {
-        f"{config['archive_root']}/{relative}"
-        for relative in config["files"]
+        f"{config['archive_root']}/{relative}" for relative in config["files"]
     }
-    internal_manifest_name = (
-        f"{config['archive_root']}/{PACKAGE_MANIFEST_NAME}"
-    )
+    internal_manifest_name = f"{config['archive_root']}/{PACKAGE_MANIFEST_NAME}"
     expected_entries.add(internal_manifest_name)
 
     try:
@@ -354,6 +371,7 @@ def main() -> int:
             config_path=Path(args.config),
             expected_version=args.expected_version,
             expected_source_ref=args.expected_source_ref,
+            expected_source_identity=args.expected_source_identity,
         )
     except (OSError, ValueError, UnicodeDecodeError) as exc:
         print(f"Distribution verification: FAIL: {exc}", file=sys.stderr)
@@ -363,6 +381,7 @@ def main() -> int:
     print(f"- archive: {args.archive}")
     print(f"- manifest: {args.manifest}")
     print(f"- checksums: {args.checksums}")
+    print(f"- source identity: {args.expected_source_identity}")
     return 0
 
 

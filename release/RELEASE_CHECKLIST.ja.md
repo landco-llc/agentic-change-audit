@@ -33,6 +33,8 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 
 指定versionで`Package` workflowをmanual実行するか、正確なrelease commitからlocal buildします。
 
+local buildではbuilderが`source identity: verified_git_clean`を出力する必要があります。`--test-only-unverified-source`は使用しません。`unverified_test_fixture`と記録されたpackageはtest dataであり、release candidateではありません。
+
 ```bash
 python scripts/build-distribution.py \
   --version <version> \
@@ -41,6 +43,7 @@ python scripts/build-distribution.py \
 ```
 
 - [ ] ZIP、external manifest、SHA256SUMSを生成
+- [ ] manifestに`source_identity: verified_git_clean`を記録
 - [ ] 同一入力による2回目のbuildとbyte単位で一致
 - [ ] ZIP rootが正確に`agentic-change-audit/`
 - [ ] allowlistのruntime fileと`PACKAGE-MANIFEST.json`だけを含む
@@ -77,7 +80,7 @@ git push origin "v<version>"
 
 [RELEASE_NOTES_TEMPLATE.ja.md](RELEASE_NOTES_TEMPLATE.ja.md)からrelease noteを作成します。
 
-review済みの3assetだけを添付してdraft releaseを作成します。
+GitHub Actions artifactをdownloadした場合、最初に外側のtransport ZIPを展開します。外側のtransport ZIPはGitHub Release assetには使用しないでください。review済みの内側3assetだけを添付してdraft releaseを作成します。
 
 ```bash
 gh release create "v<version>" \
@@ -94,9 +97,10 @@ stable releaseでは、stability判断が明示承認された後にだけ`--pre
 
 - [ ] tagが監査済みsource SHAを指す
 - [ ] asset確認中はreleaseをdraft維持
-- [ ] 添付assetは正確に3件
+- [ ] 添付assetは内側の正確な3件だけで、外側のActions transport ZIPを添付していない
 - [ ] release noteへpre-release/stable statusと既知制限を記載
 - [ ] この処理外のsource ZIPをSkill runtime archiveとして表示しない
+- [ ] downloadしたGitHub Actions transport ZIPをSkill runtime archiveまたはrelease assetとして表示しない
 
 ## 6. Upload済みassetを検証
 

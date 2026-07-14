@@ -49,8 +49,12 @@ The source repository remains the place for validation tooling and contribution 
 
 The builder:
 
-- requires a SemVer version without a `v` prefix;
+- requires ASCII SemVer without a `v` prefix;
 - requires an exact 40-character source commit SHA;
+- verifies that `--source-ref` equals the repository `HEAD`;
+- verifies that the allowlist, distribution config, runtime files, and canonical builder are tracked and byte-identical to that commit;
+- rejects package-affecting dirty or untracked files;
+- records `source_identity: verified_git_clean` in release-capable manifests;
 - rejects missing files, symlinks, hidden paths, duplicates, and path traversal;
 - sorts archive entries;
 - uses fixed ZIP timestamps and file modes;
@@ -59,6 +63,10 @@ The builder:
 - generates external SHA-256 checksums.
 
 The same source bytes, version, source SHA, and allowlist must produce byte-identical outputs.
+
+`--test-only-unverified-source` exists only for synthetic unit-test fixtures. It marks the manifest as `unverified_test_fixture`, and the verifier rejects that identity by default. Never use it for a release or release candidate.
+
+The three output files are published as one version set. If publication of any member fails, the builder removes the whole version set rather than leaving mixed old and new files.
 
 ## Local commands
 
@@ -93,5 +101,7 @@ For pull requests and ordinary pushes, it uses a commit-scoped development versi
 A manual run may supply an explicit SemVer version for release-candidate preparation.
 
 Workflow artifacts are temporary review evidence. They are not GitHub Releases and are not a guarantee that the package should be published.
+
+When downloaded through the GitHub web interface or artifact API, the workflow artifact is an **outer transport ZIP** containing the three release-candidate files. Extract that wrapper first. The outer transport ZIP is not the runtime Skill archive and must never be attached to a GitHub Release. Only the inner runtime ZIP, external manifest, and `SHA256SUMS` file are candidate release assets.
 
 See [Release Checklist](RELEASE_CHECKLIST.md) before publishing.

@@ -9,6 +9,7 @@ import json
 import os
 import re
 import stat
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -17,14 +18,15 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 SEMVER_PATTERN = re.compile(
-    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
     r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
     r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
 SOURCE_REF_PATTERN = re.compile(r"^[0-9a-f]{40}$")
-SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 FIXED_ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 PACKAGE_MANIFEST_NAME = "PACKAGE-MANIFEST.json"
+VERIFIED_SOURCE_IDENTITY = "verified_git_clean"
+UNVERIFIED_SOURCE_IDENTITY = "unverified_test_fixture"
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,7 @@ class BuildOutputs:
     archive: Path
     manifest: Path
     checksums: Path
+    source_identity: str
 
 
 def parse_args() -> argparse.Namespace:
@@ -56,29 +59,43 @@ def parse_args() -> argparse.Namespace:
         default="release/distribution-files.json",
         help="Distribution allowlist configuration.",
     )
-    parser.add_argument("--version", required=True, help="Semantic version without a v prefix.")
+    parser.add_argument(
+        "--version",
+        required=True,
+        help="ASCII Semantic Version without a v prefix.",
+    )
     parser.add_argument(
         "--source-ref",
         required=True,
         help="Exact 40-character lowercase source commit SHA.",
     )
     parser.add_argument("--output-dir", default="dist", help="Output directory.")
+    parser.add_argument(
+        "--test-only-unverified-source",
+        action="store_true",
+        help=(
+            "Allow a non-Git synthetic test fixture. The manifest is marked "
+            "unverified_test_fixture and normal verification rejects it. "
+            "Never use this option for release artifacts."
+        ),
+    )
     return parser.parse_args()
 
 
 def validate_semver(value: str) -> str:
     match = SEMVER_PATTERN.fullmatch(value)
     if not match:
-        raise ValueError(f"Version is not valid SemVer: {value}")
+        raise ValueError(f"Version is not valid ASCII SemVer: {value}")
 
     prerelease = match.group(4)
     if prerelease:
         for identifier in prerelease.split("."):
-            if identifier.isdigit() and len(identifier) > 1 and identifier.startswith("0"):
-                raise ValueError(
-                    "Numeric prerelease identifiers must not contain leading zeros: "
-                    f"{identifier}"
-                )
+            if re.fullmatch(r"[0-9]+", identifier) and len(identifier) > 1:
+                if identifier.startswith("0"):
+                    raise ValueError(
+                        "Numeric prerelease identifiers must not contain leading zeros: "
+                        f"{identifier}"
+                    )
     return value
 
 
@@ -92,8 +109,7 @@ def validate_source_ref(value: str) -> str:
 
 def canonical_json_bytes(value: Any) -> bytes:
     return (
-        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
-        + "\n"
+        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     ).encode("utf-8")
 
 
@@ -184,6 +200,107 @@ def load_config(path: Path) -> DistributionConfig:
     )
 
 
+def run_git(
+    root: Path,
+    arguments: list[str],
+    *,
+    binary: bool = False,
+) -> str | bytes:
+    result = subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=not binary,
+        check=False,
+    )
+    if result.returncode != 0:
+        stderr = (
+            result.stderr.decode("utf-8", errors="replace")
+            if binary
+            else result.stderr
+        )
+        raise ValueError(
+            f"Git source identity check failed for {' '.join(arguments)}: "
+            f"{stderr.strip()}"
+        )
+    return result.stdout
+
+
+def verified_identity_paths(
+    root: Path,
+    config_path: Path,
+    config: DistributionConfig,
+) -> tuple[str, ...]:
+    try:
+        config_relative = config_path.resolve().relative_to(root).as_posix()
+    except ValueError as exc:
+        raise ValueError("Distribution config must be inside the repository root.") from exc
+
+    builder_path = Path(__file__).resolve()
+    try:
+        builder_relative = builder_path.relative_to(root).as_posix()
+    except ValueError as exc:
+        raise ValueError(
+            "Verified builds must use the tracked scripts/build-distribution.py "
+            "from the repository being packaged."
+        ) from exc
+
+    if builder_relative != "scripts/build-distribution.py":
+        raise ValueError(
+            "Verified builds must use scripts/build-distribution.py at its canonical path."
+        )
+
+    return tuple(dict.fromkeys((builder_relative, config_relative, *config.files)))
+
+
+def verify_git_source_identity(
+    root: Path,
+    config_path: Path,
+    config: DistributionConfig,
+    source_ref: str,
+) -> str:
+    repository_root = Path(
+        str(run_git(root, ["rev-parse", "--show-toplevel"])).strip()
+    ).resolve()
+    if repository_root != root:
+        raise ValueError(
+            f"Repository root mismatch: expected {root}, found {repository_root}"
+        )
+
+    actual_head = str(run_git(root, ["rev-parse", "HEAD"])).strip()
+    if actual_head != source_ref:
+        raise ValueError(
+            f"source-ref does not match git HEAD: expected {actual_head}, "
+            f"received {source_ref}"
+        )
+
+    identity_paths = verified_identity_paths(root, config_path, config)
+    for relative in identity_paths:
+        path = root / PurePosixPath(relative)
+        if path.is_symlink():
+            raise ValueError(f"Source identity path must not be a symlink: {relative}")
+        run_git(root, ["ls-files", "--error-unmatch", "--", relative])
+        committed = run_git(root, ["show", f"{source_ref}:{relative}"], binary=True)
+        current = path.read_bytes()
+        if committed != current:
+            raise ValueError(
+                f"Source identity path differs from {source_ref}: {relative}"
+            )
+
+    status = str(
+        run_git(
+            root,
+            ["status", "--porcelain=v1", "--untracked-files=all", "--", *identity_paths],
+        )
+    ).strip()
+    if status:
+        raise ValueError(
+            "Package-affecting source paths are not clean:\n" + status
+        )
+
+    return VERIFIED_SOURCE_IDENTITY
+
+
 def read_source_files(root: Path, config: DistributionConfig) -> dict[str, bytes]:
     root_resolved = root.resolve()
     result: dict[str, bytes] = {}
@@ -214,6 +331,7 @@ def build_manifest(
     config: DistributionConfig,
     version: str,
     source_ref: str,
+    source_identity: str,
     file_bytes: dict[str, bytes],
 ) -> dict[str, Any]:
     return {
@@ -224,6 +342,7 @@ def build_manifest(
             "archive_root": config.archive_root,
             "source_repository": config.source_repository,
             "source_ref": source_ref,
+            "source_identity": source_identity,
         },
         "files": [
             {
@@ -243,23 +362,6 @@ def zip_info(name: str) -> zipfile.ZipInfo:
     info.external_attr = (stat.S_IFREG | 0o644) << 16
     info.flag_bits = 0
     return info
-
-
-def atomic_write(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temp_name = tempfile.mkstemp(
-        prefix=f".{path.name}.", dir=path.parent
-    )
-    temp_path = Path(temp_name)
-    try:
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(data)
-            handle.flush()
-            os.fsync(handle.fileno())
-        temp_path.replace(path)
-    except BaseException:
-        temp_path.unlink(missing_ok=True)
-        raise
 
 
 def build_archive_bytes(
@@ -282,6 +384,65 @@ def build_archive_bytes(
         return stream.read()
 
 
+def write_synced_file(path: Path, data: bytes) -> None:
+    with path.open("xb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def fsync_directory(path: Path) -> None:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    descriptor = os.open(path, flags)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def publish_output_set(
+    output_dir: Path,
+    output_bytes: dict[str, bytes],
+) -> dict[str, Path]:
+    """Publish all outputs, or remove the whole version set after any failure."""
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    targets = {name: output_dir / name for name in output_bytes}
+
+    with tempfile.TemporaryDirectory(
+        prefix=".agentic-change-audit-output-",
+        dir=output_dir.parent,
+    ) as temporary:
+        staging_dir = Path(temporary)
+        for name, data in output_bytes.items():
+            write_synced_file(staging_dir / name, data)
+        fsync_directory(staging_dir)
+
+        try:
+            for target in targets.values():
+                target.unlink(missing_ok=True)
+            for name, target in targets.items():
+                os.replace(staging_dir / name, target)
+            fsync_directory(output_dir)
+        except BaseException:
+            cleanup_errors: list[str] = []
+            for target in targets.values():
+                try:
+                    target.unlink(missing_ok=True)
+                except OSError as exc:
+                    cleanup_errors.append(f"{target}: {exc}")
+            if cleanup_errors:
+                raise RuntimeError(
+                    "Output publication failed and cleanup was incomplete: "
+                    + "; ".join(cleanup_errors)
+                )
+            raise
+
+    return targets
+
+
 def build_distribution(
     *,
     root: Path,
@@ -289,6 +450,7 @@ def build_distribution(
     version: str,
     source_ref: str,
     output_dir: Path,
+    test_only_unverified_source: bool = False,
 ) -> BuildOutputs:
     version = validate_semver(version)
     source_ref = validate_source_ref(source_ref)
@@ -297,29 +459,55 @@ def build_distribution(
     output_dir = output_dir if output_dir.is_absolute() else root / output_dir
 
     config = load_config(config_path)
+    if test_only_unverified_source:
+        source_identity = UNVERIFIED_SOURCE_IDENTITY
+    else:
+        source_identity = verify_git_source_identity(
+            root,
+            config_path,
+            config,
+            source_ref,
+        )
+
     file_bytes = read_source_files(root, config)
-    manifest = build_manifest(config, version, source_ref, file_bytes)
+
+    if not test_only_unverified_source:
+        verify_git_source_identity(root, config_path, config, source_ref)
+
+    manifest = build_manifest(
+        config,
+        version,
+        source_ref,
+        source_identity,
+        file_bytes,
+    )
     manifest_bytes = canonical_json_bytes(manifest)
     archive_bytes = build_archive_bytes(config, file_bytes, manifest_bytes)
 
     prefix = f"{config.package_name}-{version}"
-    archive_path = output_dir / f"{prefix}.zip"
-    manifest_path = output_dir / f"{prefix}.manifest.json"
-    checksums_path = output_dir / f"{prefix}.SHA256SUMS"
-
-    atomic_write(archive_path, archive_bytes)
-    atomic_write(manifest_path, manifest_bytes)
-
+    archive_name = f"{prefix}.zip"
+    manifest_name = f"{prefix}.manifest.json"
+    checksums_name = f"{prefix}.SHA256SUMS"
     checksum_lines = [
-        f"{sha256_bytes(archive_bytes)}  {archive_path.name}",
-        f"{sha256_bytes(manifest_bytes)}  {manifest_path.name}",
+        f"{sha256_bytes(archive_bytes)}  {archive_name}",
+        f"{sha256_bytes(manifest_bytes)}  {manifest_name}",
     ]
-    atomic_write(checksums_path, ("\n".join(checksum_lines) + "\n").encode("utf-8"))
+    checksums_bytes = ("\n".join(checksum_lines) + "\n").encode("utf-8")
+
+    published = publish_output_set(
+        output_dir,
+        {
+            archive_name: archive_bytes,
+            manifest_name: manifest_bytes,
+            checksums_name: checksums_bytes,
+        },
+    )
 
     return BuildOutputs(
-        archive=archive_path,
-        manifest=manifest_path,
-        checksums=checksums_path,
+        archive=published[archive_name],
+        manifest=published[manifest_name],
+        checksums=published[checksums_name],
+        source_identity=source_identity,
     )
 
 
@@ -333,8 +521,9 @@ def main() -> int:
             version=args.version,
             source_ref=args.source_ref,
             output_dir=Path(args.output_dir),
+            test_only_unverified_source=args.test_only_unverified_source,
         )
-    except (OSError, ValueError, zipfile.BadZipFile) as exc:
+    except (OSError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
         print(f"Distribution build: FAIL: {exc}", file=sys.stderr)
         return 1
 
@@ -342,11 +531,10 @@ def main() -> int:
     print(f"- archive: {outputs.archive}")
     print(f"- manifest: {outputs.manifest}")
     print(f"- checksums: {outputs.checksums}")
+    print(f"- source identity: {outputs.source_identity}")
     print(f"- archive sha256: {sha256_file(outputs.archive)}")
     return 0
 
 
 if __name__ == "__main__":
-    import sys
-
     raise SystemExit(main())

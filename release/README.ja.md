@@ -49,8 +49,12 @@ validation toolingと変更履歴の正本はsource repositoryに保持します
 
 builderは次を実施します。
 
-- `v` prefixを付けないSemVerを要求
+- `v` prefixを付けないASCII SemVerを要求
 - 正確な40文字のsource commit SHAを要求
+- `--source-ref`がrepositoryの`HEAD`と一致することを検証
+- allowlist、distribution config、runtime file、正本builderがtrackingされ、そのcommitのbytesと一致することを検証
+- packageへ影響するdirtyまたはuntracked fileを拒否
+- release可能なmanifestへ`source_identity: verified_git_clean`を記録
 - file不足、symlink、hidden path、重複、path traversalを拒否
 - archive entryをsort
 - ZIP timestampとfile modeを固定
@@ -59,6 +63,10 @@ builderは次を実施します。
 - 外部SHA-256 checksumを生成
 
 source bytes、version、source SHA、allowlistが同じ場合、出力もbyte単位で一致する必要があります。
+
+`--test-only-unverified-source`はsynthetic unit test fixture専用です。このoptionで生成したmanifestは`unverified_test_fixture`と記録され、通常のverifierは拒否します。releaseまたはrelease candidateへ使用してはいけません。
+
+3つの出力は1つのversion setとして公開します。いずれかのfile公開に失敗した場合、古いfileと新しいfileが混在しないよう、そのversion set全体を削除します。
 
 ## Local command
 
@@ -93,5 +101,7 @@ Pull Requestと通常pushでは、commit単位のdevelopment versionを使用し
 manual runでは、release candidate準備用のSemVerを指定できます。
 
 workflow artifactは一時的なreview evidenceです。GitHub Releaseではなく、公開可否を保証するものでもありません。
+
+GitHubのweb interfaceまたはartifact APIからdownloadしたworkflow artifactは、3つのrelease candidate fileを格納した**外側のtransport ZIP**です。最初にこのwrapperを展開してください。外側のtransport ZIPはruntime Skill archiveではなく、GitHub Release assetには使用しません。release候補となるのは、内側のruntime ZIP、external manifest、`SHA256SUMS`だけです。
 
 公開前に[Release Checklist](RELEASE_CHECKLIST.ja.md)を確認してください。
