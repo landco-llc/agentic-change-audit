@@ -212,6 +212,16 @@ class MarkdownReferenceTests(unittest.TestCase):
             )
             self.assertEqual([], self.validate(root, source))
 
+    def test_escaped_reference_image_syntax_is_ignored(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "source.md"
+            source.write_text(
+                "\\![Escaped image][missing-image-definition]\n",
+                encoding="utf-8",
+            )
+            self.assertEqual([], self.validate(root, source))
+
     def test_missing_fragment_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

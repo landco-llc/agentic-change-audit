@@ -113,6 +113,18 @@ def mask_non_live_inline_syntax(source: str) -> str:
         if (
             source[index] == "\\"
             and index + 1 < len(source)
+            and source[index + 1] == "!"
+        ):
+            escaped_image = FULL_REFERENCE_PATTERN.match(source, index + 1)
+            if escaped_image is not None and escaped_image.group(0).startswith("!"):
+                for position in range(index, escaped_image.end()):
+                    masked[position] = " "
+                index = escaped_image.end()
+                continue
+
+        if (
+            source[index] == "\\"
+            and index + 1 < len(source)
             and source[index + 1] in ASCII_PUNCTUATION
         ):
             masked[index] = " "
