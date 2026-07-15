@@ -1,165 +1,238 @@
-# Installation and Usage
+# Installation and Usage Guide
+
+[日本語](../ja/installation.md) | [繁體中文](../zh-Hant/installation.md)
 
 - Language: English
-- Last reviewed: 2026-07-13
-- Supported initial agents: Claude Code and Codex
+- Last reviewed: 2026-07-15
+- Public version covered: `v0.1.0-rc.1`
+- Direct-install targets: Claude Code and OpenAI Codex
 - Package name: `agentic-change-audit`
+- Status: Pre-release
 
-## Important concept
+## 1. What this package is
 
-This GitHub repository is the skill package directory itself.
+Agentic Change Audit is an open-source Agent Skill for auditing software changes before a human merge, release, or deployment decision.
 
-A valid installed package looks like:
+It can audit:
+
+- pull requests and fixed commits;
+- local working-tree changes;
+- release candidates;
+- AI-generated, human-written, and mixed changes;
+- applications, websites, automation, configuration, infrastructure, migrations, dependencies, and documentation.
+
+The skill is evidence-first. It records what was inspected, what checks were executed, what was not checked, remaining findings, human checks, and one final verdict.
+
+The skill supports decisions. It does not replace human authority and is not a security, legal, regulatory, or production-safety certification.
+
+## 2. Current compatibility
+
+This release includes direct installation instructions for:
+
+- Claude Code
+- OpenAI Codex
+
+The core is agent-neutral, but this release does not yet provide:
+
+- a Codex Plugin package;
+- a Claude Code Plugin package;
+- a one-click ChatGPT Web installation;
+- a Custom GPT;
+- dedicated Gemini CLI or GitHub Copilot packages.
+
+OpenAI direct Skill folders are intended for local authoring and discovery. For reusable installation across a workspace, OpenAI recommends packaging Skills as Plugins. Agentic Change Audit does not currently ship a Plugin.
+
+## 3. Required package layout
+
+A valid installation has `SKILL.md` at the package root:
 
 ```text
 agentic-change-audit/
 ├── SKILL.md
+├── README.md
+├── README.ja.md
+├── docs/
+├── guides/
 ├── standard/
-├── templates/
-└── ...
+└── templates/
 ```
 
-Cloning the repository into an arbitrary folder does not automatically make the skill discoverable. The whole folder must be copied or linked into a discovery location supported by the agent.
+Do not add the version to the root directory name.
 
-The procedures in this guide are **local direct-folder installation** methods. For Codex, direct Skill folders are intended for local authoring and discovery. Codex recommends Plugins for reusable distribution beyond a single repository. This repository does not currently provide a Codex Plugin.
+```text
+Correct:
+agentic-change-audit/
 
-The commands below use a shared source checkout so Claude Code and Codex can use the same files.
+Incorrect:
+agentic-change-audit-0.1.0-rc.1/
+```
 
-Examples use a POSIX shell on macOS or Linux. Equivalent directory-copy or directory-link operations can be used on other platforms.
+Avoid a nested package such as:
 
-## 1. Clone the source package
+```text
+agentic-change-audit/
+└── agentic-change-audit/
+    └── SKILL.md
+```
+
+## 4. Public source and release
+
+Repository:
+
+```text
+https://github.com/landco-llc/agentic-change-audit
+```
+
+Release:
+
+```text
+https://github.com/landco-llc/agentic-change-audit/releases/tag/v0.1.0-rc.1
+```
+
+Published assets:
+
+```text
+agentic-change-audit-0.1.0-rc.1.zip
+agentic-change-audit-0.1.0-rc.1.manifest.json
+agentic-change-audit-0.1.0-rc.1.SHA256SUMS
+```
+
+Published SHA-256 values:
+
+```text
+0e9fe576b2db43e29817df0a15d5e1eea2c07eeb8a0843c0b88117d81ac270ac  agentic-change-audit-0.1.0-rc.1.zip
+df12de142bc2e6207d3325902043a81563e6429bd783405cde8749c62a6edffe  agentic-change-audit-0.1.0-rc.1.manifest.json
+57327a19cecfc01ce5da924b0d02735b046dbddcffc2673fc70da50ea0e2c6bb  agentic-change-audit-0.1.0-rc.1.SHA256SUMS
+```
+
+The GitHub-generated `Source code (zip)` and `Source code (tar.gz)` downloads are not the runtime Skill archive. Use the three named release assets above.
+
+## 5. Recommended shared-source layout
+
+A convenient local setup is:
+
+```text
+Shared package:
+~/.local/share/agentic-change-audit/
+
+Codex link:
+~/.agents/skills/agentic-change-audit
+    -> ~/.local/share/agentic-change-audit/
+
+Claude Code link:
+~/.claude/skills/agentic-change-audit
+    -> ~/.local/share/agentic-change-audit/
+```
+
+This lets both agents read the same package and reduces version drift.
+
+## 6. Install the fixed release with Git
+
+Use this when Git is available and you want the exact tagged source.
+
+First confirm that the destination does not already exist:
+
+```bash
+test ! -e "$HOME/.local/share/agentic-change-audit" \
+  && test ! -L "$HOME/.local/share/agentic-change-audit"
+```
+
+Clone the fixed tag:
 
 ```bash
 mkdir -p "$HOME/.local/share"
 
 git clone \
+  --branch v0.1.0-rc.1 \
+  --depth 1 \
   https://github.com/landco-llc/agentic-change-audit.git \
   "$HOME/.local/share/agentic-change-audit"
 ```
 
-Confirm:
+Verify the identity:
 
 ```bash
-test -f "$HOME/.local/share/agentic-change-audit/SKILL.md"
+cd "$HOME/.local/share/agentic-change-audit"
+
+git describe --tags --exact-match
+git rev-parse HEAD
+git status --short
 ```
 
-Review the repository before enabling any third-party skill.
-
-## Claude Code
-
-Claude Code supports personal skills at:
+Expected:
 
 ```text
-~/.claude/skills/<skill-name>/SKILL.md
+Tag:
+v0.1.0-rc.1
+
+Commit:
+f421571f25d090cbd7b5e387e82db86a688cd229
+
+Working tree:
+clean
 ```
 
-and project skills at:
-
-```text
-<project>/.claude/skills/<skill-name>/SKILL.md
-```
-
-Claude Code can invoke a skill automatically when its description matches the request, or explicitly with `/skill-name`.
-
-### 2A. Personal installation with a symlink
-
-Use this to make the skill available across projects.
+Confirm the Skill entrypoint:
 
 ```bash
-mkdir -p "$HOME/.claude/skills"
-
-ln -s \
-  "$HOME/.local/share/agentic-change-audit" \
-  "$HOME/.claude/skills/agentic-change-audit"
+test -f "$HOME/.local/share/agentic-change-audit/SKILL.md" \
+  && echo "Agentic Change Audit package: OK"
 ```
 
-Claude Code follows symlinked skill directories in v2.1.203 and later. On an older version, use the copy method below or update Claude Code.
+## 7. Install from the release ZIP
 
-### 2B. Personal installation by copying
+Use this when you prefer the audited release archive.
 
-Use this instead of a symlink when required by the environment.
+Download the three named assets from the Release page, or use GitHub CLI:
 
 ```bash
-mkdir -p "$HOME/.claude/skills"
+mkdir -p "$HOME/Downloads/agentic-change-audit-v0.1.0-rc.1"
+cd "$HOME/Downloads/agentic-change-audit-v0.1.0-rc.1"
 
-destination="$HOME/.claude/skills/agentic-change-audit"
-
-if [ -e "$destination" ] || [ -L "$destination" ]; then
-  printf 'Destination already exists; move or remove it before copying: %s\n' \
-    "$destination" >&2
-else
-  cp -R \
-    "$HOME/.local/share/agentic-change-audit" \
-    "$destination"
-fi
+gh release download v0.1.0-rc.1 \
+  --repo landco-llc/agentic-change-audit \
+  --pattern 'agentic-change-audit-0.1.0-rc.1.zip' \
+  --pattern 'agentic-change-audit-0.1.0-rc.1.manifest.json' \
+  --pattern 'agentic-change-audit-0.1.0-rc.1.SHA256SUMS'
 ```
 
-A copied installation does not update automatically when the source checkout changes. Do not rerun `cp -R` into an existing destination: it can create a nested package and leave an older root `SKILL.md` active. Replace the existing copy through a controlled update instead.
+Verify the checksum records.
 
-### 2C. Project-scoped installation
-
-From the target project:
+macOS:
 
 ```bash
-mkdir -p .claude/skills
-
-ln -s \
-  "$HOME/.local/share/agentic-change-audit" \
-  .claude/skills/agentic-change-audit
+shasum -a 256 -c agentic-change-audit-0.1.0-rc.1.SHA256SUMS
 ```
 
-Do not commit an absolute machine-specific symlink into a shared repository. For a team-shared installation, copy the package into the project or define a repository-relative distribution method appropriate to the team.
-
-### 3. Verify in Claude Code
-
-Start Claude Code inside a Git project:
+Linux:
 
 ```bash
-claude
+sha256sum -c agentic-change-audit-0.1.0-rc.1.SHA256SUMS
 ```
 
-Invoke explicitly:
+Both listed files must report `OK`.
 
-```text
-/agentic-change-audit
-```
-
-Or ask a matching request:
-
-```text
-Audit the current pull request with Agentic Change Audit.
-Fix the result to the live target HEAD and do not modify the PR.
-```
-
-Claude Code watches existing skill directories for changes. If a newly created top-level skill directory is not detected, restart Claude Code.
-
-## Codex
-
-Codex supports user skills at:
-
-```text
-$HOME/.agents/skills/<skill-name>/SKILL.md
-```
-
-and repository skills under:
-
-```text
-<repository>/.agents/skills/<skill-name>/SKILL.md
-```
-
-Codex scans `.agents/skills` from the current working directory up to the repository root. It supports symlinked skill folders.
-
-### 4A. User installation with a symlink
+Extract and verify:
 
 ```bash
-mkdir -p "$HOME/.agents/skills"
+unzip agentic-change-audit-0.1.0-rc.1.zip
 
-ln -s \
-  "$HOME/.local/share/agentic-change-audit" \
-  "$HOME/.agents/skills/agentic-change-audit"
+test -f agentic-change-audit/SKILL.md \
+  && echo "Skill package: OK"
 ```
 
-### 4B. User installation by copying
+Move it into the shared location only after confirming that the destination is unused:
+
+```bash
+mkdir -p "$HOME/.local/share"
+
+mv agentic-change-audit \
+  "$HOME/.local/share/agentic-change-audit"
+```
+
+## 8. Install for Codex
+
+### 8.1 User-wide installation
 
 ```bash
 mkdir -p "$HOME/.agents/skills"
@@ -167,18 +240,22 @@ mkdir -p "$HOME/.agents/skills"
 destination="$HOME/.agents/skills/agentic-change-audit"
 
 if [ -e "$destination" ] || [ -L "$destination" ]; then
-  printf 'Destination already exists; move or remove it before copying: %s\n' \
-    "$destination" >&2
+  printf 'Destination already exists: %s\n' "$destination" >&2
 else
-  cp -R \
+  ln -s \
     "$HOME/.local/share/agentic-change-audit" \
     "$destination"
 fi
 ```
 
-Do not rerun `cp -R` into an existing destination. Use a controlled replacement so the Skill root does not retain stale files or gain a nested `agentic-change-audit/` directory.
+Verify:
 
-### 4C. Repository-scoped installation
+```bash
+test -f "$HOME/.agents/skills/agentic-change-audit/SKILL.md" \
+  && echo "Codex Skill: OK"
+```
+
+### 8.2 Repository-scoped installation
 
 From the target repository:
 
@@ -190,150 +267,373 @@ ln -s \
   .agents/skills/agentic-change-audit
 ```
 
-Do not commit an absolute machine-specific symlink into a shared repository.
+Do not commit an absolute machine-specific symlink into a shared repository. For team distribution, use a repository-relative arrangement or copy the complete package through a controlled process.
 
-### 5. Verify in Codex
+### 8.3 Invoke in Codex
 
-Start Codex in a Git repository.
+Start Codex inside the repository to audit.
 
-Use `/skills` to inspect available skills, or type `$` and select `agentic-change-audit`.
-
-Example:
+Explicit invocation:
 
 ```text
 $agentic-change-audit
 
-Audit PR #123 against issue #98.
-Fix the audit to the live base SHA and target HEAD.
-Do not modify the repository or PR.
-Return Markdown.
+Audit the current project.
+Fix the audit to the current commit and effective diff.
+Do not modify files, commit, push, merge, deploy, or release.
+Return the result in Markdown.
 ```
 
-Codex can also select the skill implicitly when the request matches its description. If a newly installed skill does not appear, restart Codex.
+You can also:
 
-## 6. Recommended first test
+- run `/skills`;
+- type `$` and select `agentic-change-audit`;
+- mention the Skill directly in the prompt;
+- allow Codex to select it implicitly when the request matches its description.
 
-Use a low-risk documentation-only change.
+If a newly installed Skill does not appear, restart Codex.
+
+### 8.4 Temporarily disable in Codex
+
+Add an entry to `~/.codex/config.toml`:
+
+```toml
+[[skills.config]]
+path = "/absolute/path/to/.agents/skills/agentic-change-audit/SKILL.md"
+enabled = false
+```
+
+Restart Codex after changing the configuration.
+
+## 9. Install for Claude Code
+
+### 9.1 Check the version
+
+Symlinked Skill directories require Claude Code `v2.1.203` or later.
+
+```bash
+claude --version
+```
+
+Use the copy method below or update Claude Code when using an older version.
+
+### 9.2 Personal installation with a symlink
+
+```bash
+mkdir -p "$HOME/.claude/skills"
+
+destination="$HOME/.claude/skills/agentic-change-audit"
+
+if [ -e "$destination" ] || [ -L "$destination" ]; then
+  printf 'Destination already exists: %s\n' "$destination" >&2
+else
+  ln -s \
+    "$HOME/.local/share/agentic-change-audit" \
+    "$destination"
+fi
+```
+
+Verify:
+
+```bash
+test -f "$HOME/.claude/skills/agentic-change-audit/SKILL.md" \
+  && echo "Claude Code Skill: OK"
+```
+
+### 9.3 Personal installation by copying
+
+Use this when symlinks are unavailable:
+
+```bash
+mkdir -p "$HOME/.claude/skills"
+
+destination="$HOME/.claude/skills/agentic-change-audit"
+
+if [ -e "$destination" ] || [ -L "$destination" ]; then
+  printf 'Destination already exists: %s\n' "$destination" >&2
+else
+  cp -R \
+    "$HOME/.local/share/agentic-change-audit" \
+    "$destination"
+fi
+```
+
+Do not rerun `cp -R` into an existing destination. It can leave stale files or create a nested package. Replace copied installations as complete versioned sets.
+
+### 9.4 Project-scoped installation
+
+From the target project:
+
+```bash
+mkdir -p .claude/skills
+
+ln -s \
+  "$HOME/.local/share/agentic-change-audit" \
+  .claude/skills/agentic-change-audit
+```
+
+Do not commit an absolute machine-specific symlink into a shared repository.
+
+### 9.5 Invoke in Claude Code
+
+Start Claude Code inside the project:
+
+```bash
+cd /path/to/project
+claude
+```
+
+Invoke explicitly:
 
 ```text
-Use Agentic Change Audit in DOCS_ONLY mode.
+/agentic-change-audit
 
+Audit this project as a release candidate.
+Fix the audit to the current commit.
+Do not modify files, commit, push, deploy, or release.
+Return the result in Markdown.
+```
+
+Claude Code may also load the Skill automatically when the request matches its description.
+
+Claude Code monitors existing Skill directories for `SKILL.md` changes. If the top-level Skills directory did not exist when the session started, restart Claude Code.
+
+## 10. ChatGPT desktop and ChatGPT Web
+
+OpenAI Skills are available in the ChatGPT desktop app, Codex CLI, and the Codex IDE extension. In the desktop app, use the Skills section in the sidebar to inspect Skills discovered across projects.
+
+This release is not a published ChatGPT Plugin and cannot be installed into ordinary ChatGPT Web with a one-click action.
+
+For a temporary Web-chat use, upload `SKILL.md` and the relevant standard files, then instruct ChatGPT to treat them as the audit authority. That is document-assisted use, not an installed Skill.
+
+Example:
+
+```text
+Use the attached Agentic Change Audit SKILL.md and standards as the governing audit instructions.
+
+Audit the current change without modifying files.
+Record the fixed target, checks performed, checks not performed, findings, human checks, one verdict, and the next permitted action.
+```
+
+## 11. Recommended first test
+
+Start with a low-risk documentation-only change.
+
+Codex:
+
+```text
+$agentic-change-audit
+
+Use DOCS_ONLY mode.
 Audit the current branch against main.
-Record repository, base SHA, target HEAD, and changed files.
-Run relevant read-only documentation and git checks.
+Record the repository, base SHA, target HEAD, and changed files.
+Run only relevant read-only documentation and Git checks.
 Do not modify files.
-Return the Markdown audit template.
+Return the Markdown audit result.
+```
+
+Claude Code:
+
+```text
+/agentic-change-audit
+
+Use DOCS_ONLY mode.
+Audit the current branch against main.
+Record the repository, base SHA, target HEAD, and changed files.
+Run only relevant read-only documentation and Git checks.
+Do not modify files.
+Return the Markdown audit result.
 ```
 
 Confirm that the result:
 
-- records a fixed base and target HEAD;
-- lists the reviewed files;
-- records commands and checks not executed;
+- fixes the base and target identity;
+- lists reviewed files;
+- records executed and unexecuted checks;
 - states evidence limitations;
-- uses exactly one allowed verdict;
+- uses exactly one verdict;
 - states the next permitted action;
 - includes an invalidation notice.
 
-## 7. Updating
+## 12. Common audit modes
 
-Update the shared source checkout:
+```text
+FULL
+Audit the complete change against its requirements.
+
+FOCUSED_REAUDIT
+Verify authorized remediation against a previous fixed audit.
+
+RELEASE
+Audit a fixed release candidate.
+
+DOCS_ONLY
+Audit documentation-only changes without unrelated application checks.
+```
+
+For an app built quickly by AI without independent review, use `RELEASE` mode to establish the current state and identify missing verification.
+
+## 13. Verdicts
+
+Agentic Change Audit returns exactly one:
+
+```text
+PASS
+Required verification is complete and no blocking issue remains.
+
+PASS WITH COMMENTS
+The change may proceed with only non-blocking observations.
+
+CHANGES REQUESTED
+Modification is required before acceptance.
+
+BLOCKED
+The target is fixed, but required verification cannot be completed.
+
+NOT AUDITABLE
+A reliable target or minimum audit contract cannot be established.
+```
+
+A passing verdict is not a certification or guarantee. Human review remains required for applicable visual, business, privacy, payment, legal, destructive-operation, deployment, and final-approval decisions.
+
+## 14. Permission boundary
+
+Begin audits with the least authority needed.
+
+Recommended audit prompt boundary:
+
+```text
+Work read-only during the audit.
+
+Do not modify files, commit, push, approve, merge, deploy, release, change a database, run a real payment, or notify real users.
+
+Do not reveal secret values. Report only the possible location and type of sensitive information.
+```
+
+Any later fix, merge, deployment, or release should be a separate explicitly authorized step after the audit.
+
+## 15. Updating
+
+For a fixed audited version, prefer a new tag or a new release asset set rather than silently tracking `main`.
+
+For a Git-based fixed installation, install and verify the next tag separately before replacing the shared package.
+
+For a copied installation, replace the complete directory. Do not mix old and new files.
+
+If intentionally following the development branch:
 
 ```bash
 cd "$HOME/.local/share/agentic-change-audit"
-
+git switch main
 git pull --ff-only origin main
 ```
 
-Symlink installations use the updated files immediately or after the agent reloads them.
+The development branch may differ from the published release candidate.
 
-For copied installations, remove or replace the copied folder using your normal controlled update process. Do not mix old and new files.
+## 16. Removing the Skill
 
-## 8. Removing the skill
-
-For a symlinked personal installation:
-
-### Claude Code
-
-```bash
-rm "$HOME/.claude/skills/agentic-change-audit"
-```
-
-### Codex
+Remove a Codex symlink:
 
 ```bash
 rm "$HOME/.agents/skills/agentic-change-audit"
 ```
 
-These commands remove the link, not the shared source checkout.
+Remove a Claude Code symlink:
 
-Review the target path before running removal commands.
+```bash
+rm "$HOME/.claude/skills/agentic-change-audit"
+```
 
-## 9. Troubleshooting
+These commands remove only the links.
+
+Delete the shared package only after checking the exact path:
+
+```bash
+printf '%s\n' "$HOME/.local/share/agentic-change-audit"
+```
+
+## 17. Troubleshooting
 
 ### Skill is not listed
 
-Check:
+Check the entrypoints:
 
 ```bash
-test -f "$HOME/.claude/skills/agentic-change-audit/SKILL.md"
 test -f "$HOME/.agents/skills/agentic-change-audit/SKILL.md"
+test -f "$HOME/.claude/skills/agentic-change-audit/SKILL.md"
 ```
 
-Then:
+Then confirm:
 
-- confirm the directory is named `agentic-change-audit`;
-- confirm `SKILL.md` is at the package root;
-- restart the agent;
-- confirm the correct user account and home directory;
-- confirm the link target exists;
-- confirm the agent has permission to read the package.
+- the directory is named `agentic-change-audit`;
+- `SKILL.md` is at the package root;
+- the package is not nested;
+- the symlink target exists;
+- the current user can read the files;
+- the agent was restarted when required.
 
-### Skill does not trigger automatically
+Inspect links:
 
-Invoke it explicitly first.
+```bash
+ls -la "$HOME/.agents/skills/agentic-change-audit"
+ls -la "$HOME/.claude/skills/agentic-change-audit"
+```
 
-For Claude Code:
+### Automatic invocation does not occur
+
+Invoke explicitly:
 
 ```text
+Codex:
+$agentic-change-audit
+
+Claude Code:
 /agentic-change-audit
 ```
 
-For Codex:
+### Destination already exists
 
-```text
-Type `$` and select `agentic-change-audit`.
+Do not overwrite it immediately.
+
+```bash
+ls -la "$HOME/.local/share/agentic-change-audit"
+ls -la "$HOME/.agents/skills/agentic-change-audit"
+ls -la "$HOME/.claude/skills/agentic-change-audit"
 ```
 
-Automatic selection depends on the task matching the skill description.
+Determine whether each path is an older copy, a symlink, or another installation before replacing anything.
 
-### The repository was cloned but the skill is unavailable
+## 18. Security and support
 
-A clone outside a supported discovery location is only a source checkout. Link or copy the complete folder into the appropriate skill location.
+Installing a Skill loads operational instructions into an AI agent.
 
-## 10. Security and authority
-
-Installing a skill loads operational instructions into an AI agent.
-
-Before use:
+Before enabling a third-party Skill:
 
 - review `SKILL.md` and referenced files;
-- confirm repository ownership and the exact version or commit;
-- keep agent tool permissions appropriately restricted;
-- do not assume a third-party audit result is correct merely because it matches the JSON Schema.
+- confirm the repository owner;
+- confirm the version, tag, and commit;
+- restrict tool permissions;
+- do not treat schema-valid output as proof that an audit is correct.
 
-This skill does not grant organizational authority to approve, merge, deploy, or release.
+Fixed public identity for this guide:
 
-## 11. Support
+```text
+Version:
+v0.1.0-rc.1
 
-The project is provided as is.
+Source commit:
+f421571f25d090cbd7b5e387e82db86a688cd229
 
-Free installation support, troubleshooting, response-time guarantees, and maintenance commitments are not provided.
+Tag object:
+b81907105e477d50bfc35d8b723a6614916fa868
+```
 
-Professional implementation support and organizational integration may be available separately as paid services under a separate agreement.
+The project is provided as is. Free installation support, troubleshooting, maintenance, and response-time guarantees are not provided. Professional implementation and organizational integration may be offered separately under a separate agreement.
 
-## Official references
+## 19. Official references
 
+- [Agentic Change Audit repository](https://github.com/landco-llc/agentic-change-audit)
+- [Agentic Change Audit v0.1.0-rc.1](https://github.com/landco-llc/agentic-change-audit/releases/tag/v0.1.0-rc.1)
+- [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills)
+- [Claude Code: Extend Claude with skills](https://code.claude.com/docs/en/skills)
 - [Agent Skills specification](https://agentskills.io/specification)
-- [Claude Code skills documentation](https://code.claude.com/docs/en/skills)
-- [Codex skills documentation](https://learn.chatgpt.com/docs/build-skills)
