@@ -1,0 +1,788 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/landco-llc/agentic-change-audit/blob/main/standard/output-schema.json",
+  "title": "Agentic Change Audit Result",
+  "description": "Structured evidence-first result for a fixed software change audit. This schema validates structure and selected semantic guardrails only. Schema-valid JSON is not sufficient to establish a valid audit verdict; semantic conformance must also be validated against the canonical standards.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schema_validation",
+    "audit_mode",
+    "audited_at",
+    "target",
+    "requirements",
+    "scope",
+    "evidence",
+    "findings",
+    "human_verification",
+    "focused_reaudit",
+    "audit_validity",
+    "verdict",
+    "next_permitted_action"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "schema_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "normative_source",
+        "performed",
+        "notes"
+      ],
+      "properties": {
+        "scope": {
+          "const": "STRUCTURE_AND_SELECTED_GUARDRAILS"
+        },
+        "normative_source": {
+          "const": "standard/verdict-criteria.md"
+        },
+        "performed": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "audit_mode": {
+      "type": "string",
+      "enum": [
+        "FULL",
+        "FOCUSED_REAUDIT",
+        "RELEASE",
+        "DOCS_ONLY"
+      ]
+    },
+    "language": {
+      "type": "string",
+      "description": "BCP 47 language tag for narrative fields.",
+      "default": "en"
+    },
+    "audited_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "base",
+        "target_head",
+        "reviewed_files"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_sha": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_branch_or_change_set": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_head": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pull_request": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "working_tree_state": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "CLEAN",
+            "DIRTY",
+            "NOT_APPLICABLE",
+            null
+          ]
+        },
+        "reviewed_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "summary",
+        "approved_intent_established"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string"
+        },
+        "approved_intent_established": {
+          "type": "boolean"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected",
+        "actual",
+        "diff_summary",
+        "material_exclusions",
+        "unrelated_changes_detected"
+      ],
+      "properties": {
+        "expected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actual": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "diff_summary": {
+          "type": "string"
+        },
+        "material_exclusions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unrelated_changes_detected": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checks",
+        "checks_not_executed",
+        "limitations",
+        "redactions"
+      ],
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "method",
+              "purpose",
+              "status",
+              "source",
+              "target_attribution_verified",
+              "completeness",
+              "summary"
+            ],
+            "properties": {
+              "method": {
+                "type": "string",
+                "minLength": 1
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "execution_directory": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "target_context": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "started_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "completed_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "sequence": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "PASSED",
+                  "FAILED",
+                  "BLOCKED",
+                  "NOT_RUN"
+                ]
+              },
+              "exit_code": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "OBSERVED",
+                  "REPORTED",
+                  "EXTERNAL"
+                ]
+              },
+              "target_attribution_verified": {
+                "type": "boolean"
+              },
+              "artifact_location": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "completeness": {
+                "type": "string",
+                "enum": [
+                  "COMPLETE",
+                  "PARTIAL",
+                  "TRUNCATED"
+                ]
+              },
+              "summary": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "checks_not_executed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "check",
+              "reason",
+              "required"
+            ],
+            "properties": {
+              "check": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "redactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "description",
+              "reason"
+            ],
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "severity",
+          "title",
+          "locations",
+          "evidence",
+          "expected_state",
+          "impact",
+          "required_remediation",
+          "blocking"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "Critical",
+              "High",
+              "Medium",
+              "Low",
+              "Comment"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_state": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string"
+          },
+          "required_remediation": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "human_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "items"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "description",
+              "reason_automation_insufficient",
+              "required_role",
+              "status",
+              "evidence",
+              "acceptance_gate",
+              "owner"
+            ],
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "reason_automation_insufficient": {
+                "type": "string"
+              },
+              "required_role": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "COMPLETE",
+                  "PENDING",
+                  "NOT REQUIRED",
+                  "DEFERRED TO APPROVED GATE"
+                ]
+              },
+              "evidence": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "acceptance_gate": {
+                "type": "string"
+              },
+              "owner": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "focused_reaudit": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "previous_target_head",
+        "prior_findings",
+        "authorized_remediation_scope",
+        "actual_remediation_scope",
+        "unexpected_files",
+        "unrelated_changes_detected",
+        "previous_to_current_diff_summary",
+        "checks_repeated"
+      ],
+      "properties": {
+        "previous_target_head": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prior_findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "previous_severity",
+              "status",
+              "previous_evidence",
+              "current_evidence",
+              "required_remediation",
+              "required_remediation_satisfied",
+              "regression_detected"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "previous_severity": {
+                "type": "string",
+                "enum": [
+                  "Critical",
+                  "High",
+                  "Medium",
+                  "Low",
+                  "Comment"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "RESOLVED",
+                  "NOT RESOLVED",
+                  "SUPERSEDED"
+                ]
+              },
+              "previous_evidence": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "current_evidence": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "required_remediation": {
+                "type": "string"
+              },
+              "required_remediation_satisfied": {
+                "type": "boolean"
+              },
+              "regression_detected": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "authorized_remediation_scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actual_remediation_scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unexpected_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unrelated_changes_detected": {
+          "type": "boolean"
+        },
+        "previous_to_current_diff_summary": {
+          "type": "string"
+        },
+        "checks_repeated": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "audit_validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "valid_for_base",
+        "valid_for_target_head",
+        "target_unchanged_at_end",
+        "invalidation_conditions"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "VALID",
+            "INVALIDATED",
+            "SUPERSEDED",
+            "EXPIRED",
+            "UNKNOWN"
+          ]
+        },
+        "valid_for_base": {
+          "type": "string"
+        },
+        "valid_for_target_head": {
+          "type": "string"
+        },
+        "target_unchanged_at_end": {
+          "type": "boolean"
+        },
+        "invalidation_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "PASS WITH COMMENTS",
+        "CHANGES REQUESTED",
+        "BLOCKED",
+        "NOT AUDITABLE"
+      ]
+    },
+    "next_permitted_action": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "audit_mode": {
+            "const": "FOCUSED_REAUDIT"
+          }
+        },
+        "required": [
+          "audit_mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "focused_reaudit": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "enum": [
+              "PASS",
+              "PASS WITH COMMENTS"
+            ]
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "schema_validation": {
+            "properties": {
+              "performed": {
+                "const": true
+              }
+            }
+          },
+          "audit_validity": {
+            "properties": {
+              "status": {
+                "const": "VALID"
+              },
+              "target_unchanged_at_end": {
+                "const": true
+              }
+            }
+          },
+          "findings": {
+            "not": {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "blocking": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "blocking"
+                ]
+              }
+            }
+          },
+          "human_verification": {
+            "properties": {
+              "items": {
+                "not": {
+                  "contains": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "const": "PENDING"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "human_verification": {
+            "properties": {
+              "items": {
+                "not": {
+                  "contains": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "const": "DEFERRED TO APPROVED GATE"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

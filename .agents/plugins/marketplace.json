@@ -1,0 +1,20 @@
+{
+  "name": "landco-llc-open-source",
+  "interface": {
+    "displayName": "L&Co.LLC Open Source"
+  },
+  "plugins": [
+    {
+      "name": "agentic-change-audit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/agentic-change-audit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
