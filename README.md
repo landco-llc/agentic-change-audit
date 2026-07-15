@@ -71,7 +71,7 @@ After installation, invoke it explicitly:
 
 Claude Code may also select it automatically when the request matches the `description`.
 
-See [Claude Code installation](guides/en/installation.md#claude-code).
+See [Claude Code installation](guides/en/installation.md#9-install-for-claude-code).
 
 ### Codex
 
@@ -83,7 +83,7 @@ $HOME/.agents/skills/agentic-change-audit/
 
 After installation, type `$` and select `agentic-change-audit`, or use the Skills picker.
 
-See [Codex installation](guides/en/installation.md#codex).
+See [Codex installation](guides/en/installation.md#8-install-for-codex).
 
 ## Example requests
 
@@ -183,7 +183,8 @@ agentic-change-audit/
 ├── docs/
 ├── guides/
 │   ├── en/
-│   └── ja/
+│   ├── ja/
+│   └── zh-Hant/
 ├── standard/
 └── templates/
 ```
@@ -201,6 +202,7 @@ agentic-change-audit/
 
 - [English](guides/en/installation.md)
 - [日本語](guides/ja/installation.md)
+- [繁體中文](guides/zh-Hant/installation.md)
 
 ## License
 
