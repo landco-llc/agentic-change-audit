@@ -6,7 +6,16 @@
 
 **Development preview.** This is the first installable Codex Plugin foundation for Agentic Change Audit. It is a **skills-only Plugin**: it bundles the existing Agentic Change Audit Skill so it can be installed through a repository-scoped local marketplace instead of only a direct Skill folder.
 
-This development Plugin is not submitted to, listed in, or available from OpenAI's public Plugins Directory. Public submission materials, publisher identity verification, and directory listing are a later phase and are out of scope for this foundation.
+This development Plugin is not submitted to, listed in, or available from OpenAI's public Plugins Directory.
+
+## Submission status
+
+- **Desktop gate: passed, for the development foundation.** The Plugin was verified in the ChatGPT desktop app: it registers through the CLI marketplace, appears and installs under the **L&Co.LLC Open Source** marketplace, responds to explicit `$agentic-change-audit` invocation, and leaves the Git working tree unchanged after an audit run. That gate covers this development foundation only.
+- **Official OpenAI submission is not complete.** No draft exists in the OpenAI submission portal, and nothing has been submitted.
+- **Public policy URLs are prepared.** [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md) and [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md) are published from this repository. Publisher identity verification, logo approval, and the submission itself all remain pending human decisions.
+- **No public Directory availability is claimed.** This Plugin is not listed in, available from, or approved for OpenAI's public Plugins Directory. Install it from this repository's local marketplace only.
+
+The repository-side preparation material is in the [submission package](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin). It is preparation material, not a submission.
 
 ## What this Plugin is
 
@@ -103,4 +112,7 @@ This Plugin uses a development version identifier, `0.1.0-dev.1`. It is not a pu
 - [Repository README](https://github.com/landco-llc/agentic-change-audit/blob/main/README.md)
 - [Installation guides](https://github.com/landco-llc/agentic-change-audit/tree/main/guides)
 - [Canonical Skill (`SKILL.md`)](https://github.com/landco-llc/agentic-change-audit/blob/main/SKILL.md)
+- [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)
+- [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)
+- [Submission package](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin)
 - [License](https://github.com/landco-llc/agentic-change-audit/blob/main/LICENSE)

@@ -1,0 +1,26 @@
+{
+  "submissionType": "skills-only",
+  "pluginName": "Agentic Change Audit",
+  "publisher": "L&Co.LLC",
+  "shortDescription": "Audit software changes with evidence before merge or release.",
+  "longDescription": "Agentic Change Audit reviews a fixed software change, records the checks and evidence actually available, identifies findings and required human checks, and returns one structured Verdict before merge, release, or deployment. It is evidence-first, agent-neutral, and read-only by default.",
+  "category": "Productivity",
+  "websiteUrl": "https://github.com/landco-llc/agentic-change-audit",
+  "supportUrl": "https://github.com/landco-llc/agentic-change-audit/issues",
+  "privacyUrl": "https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md",
+  "termsUrl": "https://github.com/landco-llc/agentic-change-audit/blob/main/LICENSE",
+  "developerIdentity": {
+    "type": "business",
+    "name": "L&Co.LLC",
+    "verificationStatus": "PENDING HUMAN CHECK"
+  },
+  "logoStatus": "PENDING APPROVED ASSET",
+  "skills": [
+    {
+      "name": "agentic-change-audit",
+      "path": "plugins/agentic-change-audit/skills/agentic-change-audit"
+    }
+  ],
+  "releaseStatus": "draft-materials-only",
+  "publicDirectoryStatus": "not-submitted"
+}

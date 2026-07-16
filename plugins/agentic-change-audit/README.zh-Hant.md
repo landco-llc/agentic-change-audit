@@ -6,7 +6,16 @@
 
 **Development preview。** 這是 Agentic Change Audit 第一個可安裝的 Codex Plugin 基礎版本。它是一個 **skills-only Plugin**：內含既有的 Agentic Change Audit Skill，讓使用者除了 direct Skill folder 之外，也能透過 repository 範圍的 local marketplace 進行安裝。
 
-這個 development Plugin 尚未提交、列入或公開於 OpenAI 的公開 Plugins Directory。公開申請資料、publisher identity verification 與 Directory 上架屬於後續 phase，不在此基礎版本範圍內。
+這個 development Plugin 尚未提交、列入或公開於 OpenAI 的公開 Plugins Directory。
+
+## 申請狀態
+
+- **Desktop gate：通過（僅就 development foundation 而言）。** 已在 ChatGPT desktop 應用程式中驗證：可透過 CLI marketplace 註冊，於 **L&Co.LLC Open Source** marketplace 下顯示並安裝，可回應 `$agentic-change-audit` 明確呼叫，且稽核執行後 Git working tree 未變更。此 gate 僅涵蓋此 development foundation。
+- **尚未完成向 OpenAI 的正式申請。** OpenAI submission portal 中沒有 draft，也未提交任何內容。
+- **公開政策 URL 已備妥。** [支援](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)與[隱私](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)已由本 repository 公開。publisher identity verification、logo 核准與申請本身，均仍待人工決定。
+- **不主張任何公開 Directory 上架。** 本 Plugin 未在 OpenAI 公開 Plugins Directory 上架、提供或取得核准。請僅由本 repository 的 local marketplace 安裝。
+
+repository 端的準備資料位於[申請套件](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin)。這是準備資料，並非申請。
 
 ## 這個 Plugin 提供什麼
 
@@ -103,4 +112,7 @@ $agentic-change-audit
 - [Repository README](https://github.com/landco-llc/agentic-change-audit/blob/main/README.md)
 - [安裝指南](https://github.com/landco-llc/agentic-change-audit/tree/main/guides)
 - [正本 Skill（`SKILL.md`）](https://github.com/landco-llc/agentic-change-audit/blob/main/SKILL.md)
+- [支援](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)
+- [隱私](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)
+- [申請套件](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin)
 - [License](https://github.com/landco-llc/agentic-change-audit/blob/main/LICENSE)
