@@ -5,7 +5,10 @@ The package is preparation material. This validator enforces that it stays
 that way: exact listing contract, no overclaimed status, no leaked local
 path, address, or secret, and an unchanged skills-only Plugin runtime.
 
-Standard library only. No network access.
+This module itself uses the standard library only and makes no network
+request. It does shell out to scripts/validate-codex-plugin.py, which needs
+the repository's existing validation dependencies from
+requirements-validation.txt.
 """
 
 from __future__ import annotations
@@ -30,9 +33,15 @@ HUMAN_PREREQUISITES_RELATIVE = f"{SUBMISSION_RELATIVE}/human-prerequisites.md"
 VISUAL_ASSETS_RELATIVE = f"{SUBMISSION_RELATIVE}/visual-assets.md"
 SUBMISSION_README_RELATIVE = f"{SUBMISSION_RELATIVE}/README.md"
 
-MANIFEST_RELATIVE = "plugins/agentic-change-audit/.codex-plugin/plugin.json"
+PLUGIN_RELATIVE = "plugins/agentic-change-audit"
+MANIFEST_RELATIVE = f"{PLUGIN_RELATIVE}/.codex-plugin/plugin.json"
 PLUGIN_VALIDATOR_RELATIVE = "scripts/validate-codex-plugin.py"
 
+PLUGIN_README_RELATIVE = f"{PLUGIN_RELATIVE}/README.md"
+PLUGIN_README_JA_RELATIVE = f"{PLUGIN_RELATIVE}/README.ja.md"
+PLUGIN_README_ZH_HANT_RELATIVE = f"{PLUGIN_RELATIVE}/README.zh-Hant.md"
+
+# Files the submission package must provide.
 REQUIRED_FILES = (
     SUPPORT_RELATIVE,
     PRIVACY_RELATIVE,
@@ -46,8 +55,23 @@ REQUIRED_FILES = (
     VISUAL_ASSETS_RELATIVE,
 )
 
+# Plugin-facing public content. These are not submission deliverables, but a
+# reader reaches them from the listing, so they carry the same claim and
+# leak boundaries and must exist.
+PLUGIN_README_FILES = (
+    PLUGIN_README_RELATIVE,
+    PLUGIN_README_JA_RELATIVE,
+    PLUGIN_README_ZH_HANT_RELATIVE,
+)
+
 # Files scanned for local paths, addresses, and secret-like values.
-SCANNED_FILES = REQUIRED_FILES
+SCANNED_FILES = REQUIRED_FILES + PLUGIN_README_FILES
+
+# Files scanned for product and submission status claims.
+CLAIM_SCAN_FILES = (
+    RELEASE_NOTES_RELATIVE,
+    SUBMISSION_README_RELATIVE,
+) + PLUGIN_README_FILES
 
 EXPECTED_LISTING_KEYS = {
     "submissionType",
@@ -139,15 +163,154 @@ HUMAN_PREREQUISITE_ITEMS = (
 )
 PENDING_HUMAN_CHECK = "PENDING HUMAN CHECK"
 
-PRIVACY_REQUIRED_PHRASES = (
-    "does not collect, transmit, sell, or share user data",
-    "no telemetry",
-    "no MCP server",
+# Each entry is one boundary: a label plus the accepted wordings. At least
+# one wording must survive, so a single deletion cannot be masked by the
+# other boundaries still being present.
+PRIVACY_REQUIRED_BOUNDARIES = (
+    ("skills-only Plugin", ("skills-only Plugin",)),
+    ("no MCP server", ("no MCP server",)),
+    ("no ChatGPT app", ("no ChatGPT app",)),
+    ("no connector", ("no connector",)),
+    ("no external service", ("no external service",)),
+    ("no telemetry", ("no telemetry",)),
+    ("no analytics", ("no analytics",)),
+    ("no authentication flow", ("no authentication flow",)),
+    ("no network client", ("no network client",)),
+    (
+        "the Plugin itself does not collect, transmit, sell, or share user data",
+        ("does not collect, transmit, sell, or share user data",),
+    ),
+    (
+        "L&Co.LLC does not receive task contents merely because the Plugin is installed",
+        ("does not receive your task contents merely because the Plugin is installed",),
+    ),
+    (
+        "the Plugin reads only data made available to the active task under the "
+        "user's environment and permissions",
+        ("reads only the data that is already made available to the active",),
+    ),
+    (
+        "host-product and configured-tool data remains governed by those products "
+        "and tools",
+        ("remains governed by the host product and by the tools you have configured",),
+    ),
+    (
+        "this policy does not change or override the host product's terms",
+        ("does not change or override those terms",),
+    ),
+    (
+        "users must not paste secrets unnecessarily",
+        ("unnecessarily",),
+    ),
+    (
+        "audit outputs may include paths, SHAs, branches, filenames, evidence, "
+        "and findings",
+        ("repository paths, commit SHAs, branch names, filenames",),
+    ),
+    (
+        "users control where outputs are stored or shared",
+        ("You control where those outputs are stored, pasted, or shared",),
+    ),
+    (
+        "a future stateful or hosted component requires a new policy and review",
+        ("requires a new privacy policy and a new review",),
+    ),
 )
-SUPPORT_REQUIRED_PHRASES = (
-    "best effort",
-    "no guaranteed response time",
+
+SUPPORT_REQUIRED_BOUNDARIES = (
+    ("the only support channel is GitHub Issues", ("only support channel", "GitHub Issues")),
+    (
+        "the public support URL",
+        ("https://github.com/landco-llc/agentic-change-audit/issues",),
+    ),
+    (
+        "secrets must not be published in a public report",
+        ("Do not publish secrets, credentials, tokens",),
+    ),
+    ("support is best effort", ("best effort",)),
+    ("no guaranteed response time", ("no guaranteed response time",)),
+    ("no guarantee of a reply", ("no guarantee of a reply",)),
+    (
+        "no free implementation or integration work",
+        ("free implementation work or integration work",),
+    ),
+    (
+        "no audit, security certification, or compliance certification service",
+        ("audit services, security certification, or compliance certification",),
+    ),
+    ("no legal advice", ("legal advice",)),
+    (
+        "no production support, incident response, or uptime commitment",
+        ("production support, incident response, or uptime commitments",),
+    ),
+    (
+        "no commercial or organization-specific support",
+        ("commercial or organization-specific support",),
+    ),
+    (
+        "paid professional services are separate from the open-source license",
+        ("They are not part of this repository's license",),
+    ),
 )
+
+SUPPORT_CHANNEL_HEADING = "## Support channel"
+CANONICAL_SUPPORT_URL = "https://github.com/landco-llc/agentic-change-audit/issues"
+SUPPORT_CHANNEL_DESCRIPTOR_PATTERN = re.compile(
+    r"\b(?:official|support channel|portal|help ?desk|support contact|support)\b",
+    re.IGNORECASE,
+)
+URL_PATTERN = re.compile(r"https?://[^\s<>()\[\]\"'`]+")
+
+# Material equivalents each Plugin README must still state. Presence alone is
+# not sufficient: the claim scan runs over the same files, so an appended
+# availability claim still fails even with every phrase below intact.
+PLUGIN_README_REQUIRED_BOUNDARIES = {
+    PLUGIN_README_RELATIVE: (
+        ("development preview", ("development preview",)),
+        (
+            "not submitted to, listed in, or available from the public Plugins Directory",
+            ("not submitted to, listed in, or available from",),
+        ),
+        (
+            "official OpenAI submission is not complete",
+            ("Official OpenAI submission is not complete",),
+        ),
+        (
+            "no public Directory availability is claimed",
+            ("No public Directory availability is claimed",),
+        ),
+        (
+            "identity verification, logo approval, and submission remain pending",
+            ("remain pending human decisions",),
+        ),
+    ),
+    PLUGIN_README_JA_RELATIVE: (
+        ("development preview", ("development preview",)),
+        (
+            "公開Plugins Directoryへ申請・登録・公開されていない",
+            ("公開Plugins Directoryへ申請・登録・公開されていません",),
+        ),
+        ("正式申請は完了していない", ("正式申請は完了していません",)),
+        ("公開Directoryでの提供を主張しない", ("公開Directoryでの提供は一切主張しません",)),
+        (
+            "identity verification、logo承認、申請が人間判断待ち",
+            ("人間の判断待ちです",),
+        ),
+    ),
+    PLUGIN_README_ZH_HANT_RELATIVE: (
+        ("development preview", ("development preview",)),
+        (
+            "尚未提交、列入或公開於公開Plugins Directory",
+            ("尚未提交、列入或公開於",),
+        ),
+        ("尚未完成正式申請", ("尚未完成向 OpenAI 的正式申請",)),
+        ("不主張任何公開Directory上架", ("不主張任何公開 Directory 上架",)),
+        (
+            "identity verification、logo核准與申請仍待人工決定",
+            ("均仍待人工決定",),
+        ),
+    ),
+}
 
 # A private local path leaking into a public submission artifact.
 LOCAL_PATH_PATTERNS = (
@@ -172,22 +335,55 @@ SECRET_PATTERNS = (
     re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b"),
 )
 
-# Words that only ever appear in release notes as a negated statement. A
-# sentence asserting any of them without a negation is an overclaim.
-RELEASE_CLAIM_PATTERNS = (
-    re.compile(r"\bstable\b", re.IGNORECASE),
-    re.compile(r"\bsubmitted\b", re.IGNORECASE),
-    re.compile(r"\bapproved\b", re.IGNORECASE),
-    re.compile(r"\bpublished\b", re.IGNORECASE),
-    re.compile(r"\bgenerally available\b", re.IGNORECASE),
-    re.compile(r"\bpublicly available\b", re.IGNORECASE),
-    re.compile(r"\bpublic release\b", re.IGNORECASE),
+# Product and submission status claims. These target the status of the
+# Plugin itself, not benign wording such as "Public policy URLs are
+# prepared." or "policies are published from this repository".
+CLAIM_PATTERNS = (
+    # English. Publishing a policy file from the repository is not a status
+    # claim about the Plugin, so that wording is excluded deliberately.
+    re.compile(
+        r"\b(?:is|are|was|were)\s+(?:now\s+)?published\b(?!\s+from\s+this\s+repository)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bhas\s+been\s+(?:published|approved|submitted|released)\b", re.IGNORECASE),
+    re.compile(r"\b(?:is|are)\s+(?:now\s+)?(?:approved|submitted)\b", re.IGNORECASE),
+    re.compile(r"\b(?:is|are)\s+(?:now\s+)?stable\b", re.IGNORECASE),
+    re.compile(r"\bstable\s+(?:release|version)\b", re.IGNORECASE),
+    re.compile(r"\bpublicly\s+available\b", re.IGNORECASE),
+    re.compile(r"\bgenerally\s+available\b", re.IGNORECASE),
+    re.compile(r"\bpublic\s+release\b", re.IGNORECASE),
+    re.compile(r"\blisted\s+in\b[^\n]{0,60}?\bDirectory\b", re.IGNORECASE),
+    re.compile(r"\bavailable\s+(?:from|in)\b[^\n]{0,60}?\bDirectory\b", re.IGNORECASE),
+    # Japanese.
+    re.compile(r"公開\s*Plugins\s*Directory[^\n]{0,20}?(?:掲載|提供|公開|上架)されています"),
+    re.compile(r"公開\s*Plugins\s*Directory[^\n]{0,20}?(?:から|で)[^\n]{0,10}?利用可能です"),
+    re.compile(r"(?:正式)?申請(?:は|が)?完了しています"),
+    re.compile(r"公開されています"),
+    re.compile(r"承認されています"),
+    # Traditional Chinese.
+    re.compile(r"公開\s*Plugins\s*Directory[^\n]{0,15}?(?:上架|提供)"),
+    re.compile(r"已(?:公開)?上架"),
+    re.compile(r"已(?:獲|取得)核准"),
+    re.compile(r"已(?:提交|送出)申請"),
 )
+
+# A claim is safe only when a negation applies inside its own clause.
 NEGATION_PATTERN = re.compile(
-    r"\b(?:not|no|never|without|nothing|neither|nor|pending|prohibited|unchanged)\b",
+    r"\b(?:not|no|never|without|nothing|neither|nor|cannot|none)\b"
+    r"|(?:ません|ない|ず|未|不|せん)"
+    r"|(?:尚未|沒|非|無)",
     re.IGNORECASE,
 )
-SENTENCE_SPLIT_PATTERN = re.compile(r"[.!?\n]")
+
+# Sentence boundaries plus contrastive connectors. A negation before "but"
+# does not license a claim after it, so each clause is inspected alone.
+CLAUSE_SPLIT_PATTERN = re.compile(
+    r"[.!?;:\n。！？；]"
+    r"|(?<![A-Za-z])(?:but|however|yet|although|though|whereas)(?![A-Za-z])"
+    r"|しかし|ただし|一方|とはいえ"
+    r"|但是|但|然而|不過",
+    re.IGNORECASE,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -487,14 +683,46 @@ def validate_availability(root: Path, errors: list[str]) -> None:
         errors.append(f"availability.json contains an empty string at: {location}")
 
 
+def check_boundaries(
+    errors: list[str],
+    label: str,
+    text: str,
+    boundaries: tuple[tuple[str, tuple[str, ...]], ...],
+) -> None:
+    lowered = text.lower()
+    for name, wordings in boundaries:
+        if not all(wording.lower() in lowered for wording in wordings):
+            errors.append(f"{label} must state the boundary: {name}")
+
+
 def validate_privacy(root: Path, errors: list[str]) -> None:
     path = root / PRIVACY_RELATIVE
     if not path.is_file():
         return
-    text = path.read_text(encoding="utf-8")
-    for phrase in PRIVACY_REQUIRED_PHRASES:
-        if phrase.lower() not in text.lower():
-            errors.append(f"PRIVACY.md must state the boundary phrase: {phrase!r}")
+    check_boundaries(
+        errors, "PRIVACY.md", path.read_text(encoding="utf-8"), PRIVACY_REQUIRED_BOUNDARIES
+    )
+
+
+def section_text(text: str, heading: str) -> str:
+    """Return the body under an exact Markdown heading, up to the next
+    heading of the same level."""
+    lines = text.splitlines()
+    level = len(heading) - len(heading.lstrip("#"))
+    collected: list[str] = []
+    inside = False
+    for line in lines:
+        if line.strip() == heading:
+            inside = True
+            continue
+        if inside:
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                current_level = len(stripped) - len(stripped.lstrip("#"))
+                if current_level <= level:
+                    break
+            collected.append(line)
+    return "\n".join(collected)
 
 
 def validate_support(root: Path, errors: list[str]) -> None:
@@ -502,9 +730,43 @@ def validate_support(root: Path, errors: list[str]) -> None:
     if not path.is_file():
         return
     text = path.read_text(encoding="utf-8")
-    for phrase in SUPPORT_REQUIRED_PHRASES:
-        if phrase.lower() not in text.lower():
-            errors.append(f"SUPPORT.md must state the support boundary phrase: {phrase!r}")
+    check_boundaries(errors, "SUPPORT.md", text, SUPPORT_REQUIRED_BOUNDARIES)
+
+    if not section_text(text, SUPPORT_CHANNEL_HEADING).strip():
+        errors.append(f"SUPPORT.md must contain a {SUPPORT_CHANNEL_HEADING!r} section.")
+
+    # GitHub Issues is the only support channel. A second URL presented as an
+    # official channel contradicts that. The whole file is checked, not just
+    # the Support channel section, because appending the same claim to the
+    # Japanese or Traditional Chinese section contradicts it just as much.
+    # Related-document links are relative and carry no URL, so they are unaffected.
+    for line in text.splitlines():
+        for match in URL_PATTERN.finditer(line):
+            url = match.group(0).rstrip(".,;)")
+            if url == CANONICAL_SUPPORT_URL:
+                continue
+            if SUPPORT_CHANNEL_DESCRIPTOR_PATTERN.search(line):
+                errors.append(
+                    "SUPPORT.md declares GitHub Issues as the only support channel, so "
+                    f"it must not present another support channel: {line.strip()!r}"
+                )
+
+
+def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
+    for relative in PLUGIN_README_FILES:
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"Required Plugin README is missing: {relative}")
+            continue
+        if path.stat().st_size == 0:
+            errors.append(f"Required Plugin README is empty: {relative}")
+            continue
+        check_boundaries(
+            errors,
+            relative,
+            path.read_text(encoding="utf-8"),
+            PLUGIN_README_REQUIRED_BOUNDARIES[relative],
+        )
 
 
 def validate_human_prerequisites(root: Path, errors: list[str]) -> None:
@@ -512,22 +774,57 @@ def validate_human_prerequisites(root: Path, errors: list[str]) -> None:
     if not path.is_file():
         return
     text = path.read_text(encoding="utf-8")
-    # Only the status table is normative; the prose below it names the same
-    # items without repeating their status.
-    rows = [line for line in text.splitlines() if line.lstrip().startswith("|")]
+    # Parse the status table structurally. Substring presence is not enough:
+    # "COMPLETE - previously PENDING HUMAN CHECK" contains the pending text
+    # while asserting the opposite, so the status cell must equal it exactly.
+    data_rows: list[list[str]] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if all(re.fullmatch(r":?-{2,}:?", cell) for cell in cells):
+            continue
+        if cells == ["#", "Item", "Status"]:
+            continue
+        data_rows.append(cells)
+
+    for row in data_rows:
+        if len(row) != 3:
+            errors.append(
+                "human-prerequisites.md status row must have exactly three cells "
+                f"(number, item, status); found {len(row)}: {row!r}"
+            )
+
+    seen: dict[str, int] = {}
+    for row in data_rows:
+        if len(row) != 3:
+            continue
+        item = row[1]
+        seen[item] = seen.get(item, 0) + 1
+        if item not in HUMAN_PREREQUISITE_ITEMS:
+            errors.append(
+                f"human-prerequisites.md status table has an unexpected item: {item!r}"
+            )
+            continue
+        status = row[2]
+        if status != PENDING_HUMAN_CHECK:
+            errors.append(
+                f"human-prerequisites.md status cell for {item!r} must equal "
+                f"{PENDING_HUMAN_CHECK!r} exactly; found {status!r}."
+            )
 
     for item in HUMAN_PREREQUISITE_ITEMS:
-        matching = [row for row in rows if item in row]
-        if not matching:
+        count = seen.get(item, 0)
+        if count == 0:
             errors.append(
                 f"human-prerequisites.md status table is missing the required item: {item}"
             )
-            continue
-        for row in matching:
-            if PENDING_HUMAN_CHECK not in row:
-                errors.append(
-                    f"human-prerequisites.md item must remain {PENDING_HUMAN_CHECK!r}: {item}"
-                )
+        elif count > 1:
+            errors.append(
+                f"human-prerequisites.md status table has {count} rows for {item!r}; "
+                "exactly one is required."
+            )
 
 
 def validate_visual_assets(root: Path, errors: list[str]) -> None:
@@ -551,16 +848,34 @@ def validate_release_notes(root: Path, errors: list[str]) -> None:
             f"{EXPECTED_MANIFEST_VERSION!r}."
         )
 
-    for sentence in SENTENCE_SPLIT_PATTERN.split(text):
-        stripped = sentence.strip()
-        if not stripped or NEGATION_PATTERN.search(stripped):
+
+def validate_status_claims(root: Path, errors: list[str]) -> None:
+    """Reject any product or submission status claim that is not negated
+    within its own clause.
+
+    A negation earlier in the sentence does not license a later claim:
+    "No approval has occurred, but this Plugin is published." asserts
+    publication. Splitting at contrastive connectors isolates each clause so
+    the negation only covers what it actually negates.
+    """
+    for relative in CLAIM_SCAN_FILES:
+        path = root / relative
+        if not path.is_file():
             continue
-        for pattern in RELEASE_CLAIM_PATTERNS:
-            match = pattern.search(stripped)
-            if match:
+        for clause in CLAUSE_SPLIT_PATTERN.split(path.read_text(encoding="utf-8")):
+            stripped = clause.strip()
+            if not stripped:
+                continue
+            for pattern in CLAIM_PATTERNS:
+                match = pattern.search(stripped)
+                if not match:
+                    continue
+                if NEGATION_PATTERN.search(stripped):
+                    continue
                 errors.append(
-                    "release-notes.md must not claim stable, submitted, approved, or "
-                    f"published status: {stripped!r} asserts {match.group(0)!r}."
+                    f"{relative} must not claim public Directory availability, or "
+                    f"submitted, published, approved, or stable status: "
+                    f"{stripped!r} asserts {match.group(0)!r}."
                 )
 
 
@@ -678,9 +993,11 @@ def main() -> int:
     validate_availability(root, errors)
     validate_privacy(root, errors)
     validate_support(root, errors)
+    validate_plugin_readmes(root, errors)
     validate_human_prerequisites(root, errors)
     validate_visual_assets(root, errors)
     validate_release_notes(root, errors)
+    validate_status_claims(root, errors)
     validate_no_local_paths(root, errors)
     validate_no_addresses(root, errors)
     validate_no_secrets(root, errors)
@@ -704,6 +1021,9 @@ def main() -> int:
     )
     print(f"- developer identity: {EXPECTED_VERIFICATION_STATUS}")
     print(f"- logo: {EXPECTED_LOGO_STATUS}")
+    print(f"- public content scanned: {len(SCANNED_FILES)} files")
+    print(f"- status claims: none unnegated in {len(CLAIM_SCAN_FILES)} files")
+    print(f"- human gates: {len(HUMAN_PREREQUISITE_ITEMS)} × {PENDING_HUMAN_CHECK}")
     print(f"- availability: {EXPECTED_AVAILABILITY_STATUS}")
     print(f"- public directory status: {EXPECTED_PUBLIC_DIRECTORY_STATUS}")
     print(f"- Plugin version: {EXPECTED_MANIFEST_VERSION} (unchanged)")

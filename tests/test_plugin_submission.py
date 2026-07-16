@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import shutil
@@ -57,6 +58,32 @@ def mutate_listing(root: Path, key: str, value) -> None:
     listing = load_json(path)
     listing[key] = value
     path.write_text(json.dumps(listing, indent=2) + "\n", encoding="utf-8")
+
+
+def claim_flagged(text: str) -> bool:
+    """Mirror the validator's clause-level claim rule for wording-level tests."""
+    for clause in submission_module.CLAUSE_SPLIT_PATTERN.split(text):
+        stripped = clause.strip()
+        if not stripped:
+            continue
+        if submission_module.NEGATION_PATTERN.search(stripped):
+            continue
+        if any(pattern.search(stripped) for pattern in submission_module.CLAIM_PATTERNS):
+            return True
+    return False
+
+
+def append_text(root: Path, relative: str, text: str) -> None:
+    path = root / relative
+    path.write_text(path.read_text(encoding="utf-8") + text, encoding="utf-8")
+
+
+def remove_text(root: Path, relative: str, needle: str) -> None:
+    path = root / relative
+    original = path.read_text(encoding="utf-8")
+    if needle not in original:
+        raise AssertionError(f"{relative} does not contain the text to remove: {needle!r}")
+    path.write_text(original.replace(needle, ""), encoding="utf-8")
 
 
 class SubmissionPackageTests(unittest.TestCase):
@@ -283,10 +310,8 @@ class SubmissionPackageTests(unittest.TestCase):
             result = run_validator(root)
 
             self.assertEqual(result.returncode, 1)
-            self.assertIn(
-                "must not claim stable, submitted, approved, or published status",
-                result.stderr,
-            )
+            self.assertIn("must not claim", result.stderr)
+            self.assertIn("is now stable", result.stderr)
 
     def test_availability_decided_claim_fails(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -316,7 +341,7 @@ class SubmissionPackageTests(unittest.TestCase):
             result = run_validator(root)
 
             self.assertEqual(result.returncode, 1)
-            self.assertIn("must remain 'PENDING HUMAN CHECK'", result.stderr)
+            self.assertIn("must equal 'PENDING HUMAN CHECK' exactly", result.stderr)
 
     def test_manifest_runtime_boundary_unchanged(self):
         manifest = load_json(MANIFEST_PATH)
@@ -339,6 +364,257 @@ class SubmissionPackageTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 1)
             self.assertIn("plugin.json interface.capabilities", result.stderr)
+
+
+class HardenedValidationTests(unittest.TestCase):
+    """Regression tests for the five mutations an independent audit found
+    the first validator false-PASSing, plus the false-positive controls that
+    keep the hardening honest.
+    """
+
+    def snapshot(self) -> dict[str, str]:
+        digests = {}
+        for relative in submission_module.SCANNED_FILES:
+            path = ROOT / relative
+            digests[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+        return digests
+
+    def setUp(self):
+        self.before = self.snapshot()
+
+    def tearDown(self):
+        self.assertEqual(
+            self.before, self.snapshot(), "a mutation test modified the real repository"
+        )
+
+    def assert_rejected(self, result: subprocess.CompletedProcess, needle: str) -> None:
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(needle, result.stderr)
+        # A caller must never see a PASS line alongside a nonzero exit.
+        self.assertNotIn("Plugin submission validation: PASS", result.stdout)
+        self.assertNotIn("Plugin submission validation: PASS", result.stderr)
+
+    def test_release_claim_after_negation_connector_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(
+                root,
+                submission_module.RELEASE_NOTES_RELATIVE,
+                "\nNo approval has occurred, but this Plugin is published.\n",
+            )
+
+            self.assert_rejected(run_validator(root), "must not claim")
+
+    def test_submission_readme_public_availability_claim_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(
+                root,
+                submission_module.SUBMISSION_README_RELATIVE,
+                "\nThis Plugin is publicly available from OpenAI's public Plugins Directory.\n",
+            )
+
+            self.assert_rejected(run_validator(root), "must not claim")
+
+    def test_plugin_readme_public_availability_claim_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(
+                root,
+                submission_module.PLUGIN_README_RELATIVE,
+                "\nThis Plugin is publicly available from OpenAI's public Plugins Directory.\n",
+            )
+
+            result = run_validator(root)
+
+            self.assert_rejected(result, "must not claim")
+            self.assertIn(submission_module.PLUGIN_README_RELATIVE, result.stderr)
+
+    def test_plugin_readme_ja_public_availability_claim_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(
+                root,
+                submission_module.PLUGIN_README_JA_RELATIVE,
+                "\nこのPluginはOpenAIの公開Plugins Directoryから利用可能です。\n",
+            )
+
+            result = run_validator(root)
+
+            self.assert_rejected(result, "must not claim")
+            self.assertIn(submission_module.PLUGIN_README_JA_RELATIVE, result.stderr)
+
+    def test_plugin_readme_zh_hant_public_availability_claim_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(
+                root,
+                submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+                "\n本 Plugin 已在 OpenAI 的公開 Plugins Directory 上架。\n",
+            )
+
+            result = run_validator(root)
+
+            self.assert_rejected(result, "must not claim")
+            self.assertIn(submission_module.PLUGIN_README_ZH_HANT_RELATIVE, result.stderr)
+
+    def test_plugin_readme_boundary_removal_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            remove_text(
+                root,
+                submission_module.PLUGIN_README_RELATIVE,
+                "No public Directory availability is claimed.",
+            )
+
+            self.assert_rejected(run_validator(root), "must state the boundary")
+
+    def test_missing_plugin_readme_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            (root / submission_module.PLUGIN_README_ZH_HANT_RELATIVE).unlink()
+
+            self.assert_rejected(run_validator(root), "Required Plugin README is missing")
+
+    def test_support_additional_official_channel_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            path = root / submission_module.SUPPORT_RELATIVE
+            # Placed inside the English Support channel section, which is
+            # where a second channel would most plausibly be added.
+            path.write_text(
+                path.read_text(encoding="utf-8").replace(
+                    "Please do not expect support through other channels.",
+                    "Official support is also available at https://example.com/support.\n\n"
+                    "Please do not expect support through other channels.",
+                ),
+                encoding="utf-8",
+            )
+
+            self.assert_rejected(run_validator(root), "must not present another support channel")
+
+    def test_support_additional_official_channel_in_translated_section_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nOfficial support is also available at https://example.com/support.\n",
+            )
+
+            self.assert_rejected(run_validator(root), "must not present another support channel")
+
+    def test_privacy_missing_host_product_boundary_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            remove_text(
+                root,
+                submission_module.PRIVACY_RELATIVE,
+                "Any repository, file, or tool data the host product accesses on your "
+                "behalf remains governed by the host product and by the tools you have "
+                "configured. This policy does not change or override those terms.",
+            )
+
+            self.assert_rejected(run_validator(root), "host-product")
+
+    def test_privacy_missing_l_and_co_receipt_boundary_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            remove_text(
+                root,
+                submission_module.PRIVACY_RELATIVE,
+                "L&Co.LLC does not receive your task contents merely because the "
+                "Plugin is installed.",
+            )
+
+            self.assert_rejected(run_validator(root), "L&Co.LLC does not receive task contents")
+
+    def test_privacy_missing_future_version_boundary_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            remove_text(
+                root,
+                submission_module.PRIVACY_RELATIVE,
+                "If a future version adds an MCP server, an app, a connector, "
+                "telemetry, analytics, an authentication flow, or any hosted service, "
+                "that version requires a new privacy policy and a new review. It is "
+                "not covered by this document.",
+            )
+
+            self.assert_rejected(run_validator(root), "new policy and review")
+
+    def test_human_status_cell_with_complete_and_pending_text_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            path = root / submission_module.HUMAN_PREREQUISITES_RELATIVE
+            path.write_text(
+                path.read_text(encoding="utf-8").replace(
+                    "| 3 | L&Co.LLC business identity verification | PENDING HUMAN CHECK |",
+                    "| 3 | L&Co.LLC business identity verification | "
+                    "COMPLETE — previously PENDING HUMAN CHECK |",
+                ),
+                encoding="utf-8",
+            )
+
+            result = run_validator(root)
+
+            self.assert_rejected(result, "must equal 'PENDING HUMAN CHECK' exactly")
+            self.assertIn("COMPLETE", result.stderr)
+
+    def test_human_duplicate_item_row_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(
+                root,
+                submission_module.HUMAN_PREREQUISITES_RELATIVE,
+                "\n| 14 | Logo approval | PENDING HUMAN CHECK |\n",
+            )
+
+            self.assert_rejected(run_validator(root), "exactly one is required")
+
+    def test_submission_readme_documents_existing_validation_dependencies(self):
+        text = (ROOT / submission_module.SUBMISSION_README_RELATIVE).read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("python -m pip install -r requirements-validation.txt", text)
+        self.assertIn("requirements-validation.txt", text)
+        self.assertIn("no new third-party dependency", text)
+        # The old wording claimed end-to-end validation was standard library only.
+        self.assertNotIn("runs offline, with the standard library only", text)
+
+    def test_valid_package_survives_false_positive_controls(self):
+        """Wording the instruction explicitly allows must not be rejected."""
+        allowed = (
+            "No submission has occurred.",
+            "This Plugin is not submitted to, listed in, or available from OpenAI's "
+            "public Plugins Directory.",
+            "Public policy URLs are prepared.",
+            "The Plugin is not a public release.",
+            "PENDING HUMAN CHECK",
+            "Support and Privacy are published from this repository.",
+            "公開ポリシーURLは準備済みです。",
+            "公開政策 URL 已備妥。",
+        )
+
+        for text in allowed:
+            with self.subTest(text=text):
+                self.assertFalse(
+                    claim_flagged(text), f"benign wording must not be flagged: {text}"
+                )
+
+    def test_claims_are_detected_per_clause(self):
+        """A negation only covers its own clause."""
+        rejected = (
+            "No approval has occurred, but this Plugin is published.",
+            "This Plugin is not submitted; however, it is publicly available.",
+            "The release is not stable yet, but it is approved.",
+            "This Plugin is publicly available from OpenAI's public Plugins Directory.",
+        )
+
+        for text in rejected:
+            with self.subTest(text=text):
+                self.assertTrue(claim_flagged(text), f"claim must be flagged: {text}")
 
 
 if __name__ == "__main__":

@@ -46,9 +46,9 @@ This is a fixed base, not a submission candidate. The commit that is actually su
 
 ## What is machine-validated
 
-`scripts/validate-plugin-submission.py` runs offline, with the standard library only, and enforces:
+`scripts/validate-plugin-submission.py` enforces:
 
-- every required file exists;
+- every required file exists, including the three Plugin READMEs;
 - `listing.json` has the exact key contract and the exact fixed values;
 - every public URL uses HTTPS;
 - developer identity verification status is still `PENDING HUMAN CHECK`;
@@ -57,19 +57,24 @@ This is a fixed base, not a submission candidate. The commit that is actually su
 - exactly five starter prompts, each with all required fields;
 - exactly eight test cases: five positive and three negative, with unique IDs and all required fields;
 - no empty string values anywhere in the package;
-- no private local filesystem paths;
+- no private local filesystem paths, in the package or the Plugin READMEs;
 - no email address other than an `example.invalid` placeholder in a test fixture;
 - no secret-like token;
-- `PRIVACY.md` states the no-collection, no-telemetry, and no-MCP boundaries;
-- `SUPPORT.md` states best-effort support with no guaranteed response;
+- `PRIVACY.md` states every canonical boundary, so removing any single one fails even while the others remain;
+- `SUPPORT.md` states every canonical boundary, and presents no second official support channel;
+- each Plugin README still states its development-preview and pending-submission boundaries;
 - availability status is still pending;
-- `release-notes.md` claims no stable, submitted, approved, or published status;
+- no unnegated claim of public Directory availability, or of submitted, published, approved, or stable status, in the release notes, this README, or the Plugin READMEs. Claims are checked per clause, so a negation before `but` or `however` does not license a claim after it;
+- every human prerequisite row parses to exactly three cells whose status equals `PENDING HUMAN CHECK` exactly, so `COMPLETE — previously PENDING HUMAN CHECK` fails;
 - the Plugin manifest still declares version `0.1.0-dev.1` and the `Read` capability only, with no MCP, app, or hooks field;
 - `scripts/validate-codex-plugin.py` still passes.
+
+The new submission validator itself uses only the Python standard library and makes no network requests. End-to-end validation also invokes the existing Codex Plugin and Skill validators, so install the repository's existing validation dependencies from `requirements-validation.txt` first. This PR adds no new third-party dependency; `requirements-validation.txt` is unchanged.
 
 Run it from the repository root:
 
 ```bash
+python -m pip install -r requirements-validation.txt
 python scripts/validate-plugin-submission.py
 ```
 
