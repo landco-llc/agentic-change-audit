@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from pathlib import Path, PurePosixPath
@@ -13,6 +14,17 @@ CONFIG_RELATIVE = "release/distribution-files.json"
 EXTRA_SOURCE = "guides/zh-Hant/installation.md"
 PLUGIN_SKILL_RELATIVE = "plugins/agentic-change-audit/skills/agentic-change-audit"
 EXPECTED_FILE_COUNT = 23
+
+# The exact, non-configurable destination-chain components that must be
+# real (non-symlink) directories before any destructive operation. Checked
+# lexically, shallowest first, before any path is resolved, so a symlink at
+# any level is rejected instead of silently followed.
+DESTINATION_CHAIN_RELATIVE = (
+    "plugins",
+    "plugins/agentic-change-audit",
+    "plugins/agentic-change-audit/skills",
+    "plugins/agentic-change-audit/skills/agentic-change-audit",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,11 +46,6 @@ def parse_args() -> argparse.Namespace:
         help="Recreate the mirror from canonical sources, then verify it.",
     )
     parser.add_argument("--root", default=".", help="Repository root.")
-    parser.add_argument(
-        "--plugin-root",
-        default=None,
-        help="Plugin package root (default: <root>/plugins/agentic-change-audit).",
-    )
     return parser.parse_args()
 
 
@@ -83,28 +90,28 @@ def load_source_list(root: Path) -> tuple[str, ...]:
     return tuple(normalized)
 
 
-def resolve_plugin_skill_root(root: Path, plugin_root: Path | None) -> Path:
-    if plugin_root is None:
-        skill_root = root / PLUGIN_SKILL_RELATIVE
-    else:
-        skill_root = plugin_root / "skills" / "agentic-change-audit"
+def derive_skill_root(root: Path) -> Path:
+    """Return the one permitted Plugin Skill mirror destination under root.
 
-    resolved = skill_root.resolve()
-    root_resolved = root.resolve()
-    try:
-        resolved.relative_to(root_resolved)
-    except ValueError as exc:
-        raise ValueError(
-            f"Plugin Skill mirror destination escapes the repository root: {resolved}"
-        ) from exc
+    This is the only way to obtain a destination for destructive operations:
+    there is no caller-supplied override. Every destination-chain component
+    is checked with a lexical, non-following symlink test before the final
+    path is used, so a symlink anywhere in the chain is rejected rather than
+    resolved and silently followed.
+    """
+    for relative in DESTINATION_CHAIN_RELATIVE:
+        candidate = root / PurePosixPath(relative)
+        if candidate.is_symlink():
+            raise ValueError(
+                f"Plugin destination component must not be a symlink: {candidate}"
+            )
 
-    if resolved.name != "agentic-change-audit" or resolved.parent.name != "skills":
+    skill_root = root / PurePosixPath(PLUGIN_SKILL_RELATIVE)
+    if skill_root.exists() and not skill_root.is_dir():
         raise ValueError(
-            "Plugin Skill mirror destination is not the expected "
-            f".../skills/agentic-change-audit directory: {resolved}"
+            f"Plugin Skill mirror destination exists and is not a directory: {skill_root}"
         )
-
-    return resolved
+    return skill_root
 
 
 def read_canonical_bytes(root: Path, relative: str) -> bytes:
@@ -130,26 +137,39 @@ def read_canonical_bytes(root: Path, relative: str) -> bytes:
     return data
 
 
-def collect_mirror_entries(skill_root: Path) -> dict[str, Path]:
+def collect_mirror_entries(skill_root: Path) -> tuple[dict[str, Path], list[str]]:
+    """Walk the mirror without following symlinks.
+
+    Returns the regular-file entries found, plus a separate problem list for
+    any symlinked file or directory encountered. A symlinked directory is not
+    descended into, so nothing reached only through it is ever compared.
+    """
     entries: dict[str, Path] = {}
-    if not skill_root.is_dir():
-        return entries
-    for path in sorted(skill_root.rglob("*")):
-        if path.is_symlink():
-            entries[path.relative_to(skill_root).as_posix()] = path
-            continue
-        if path.is_file():
-            entries[path.relative_to(skill_root).as_posix()] = path
-    return entries
-
-
-def check_mirror(
-    root: Path,
-    skill_root: Path,
-    sources: tuple[str, ...],
-) -> list[str]:
     problems: list[str] = []
-    actual = collect_mirror_entries(skill_root)
+    if not skill_root.is_dir():
+        return entries, problems
+
+    for current_dir, dir_names, file_names in os.walk(skill_root, followlinks=False):
+        current = Path(current_dir)
+        for name in sorted(dir_names):
+            candidate = current / name
+            if candidate.is_symlink():
+                relative = candidate.relative_to(skill_root).as_posix()
+                problems.append(f"symlink not allowed: {relative}")
+        for name in sorted(file_names):
+            candidate = current / name
+            relative = candidate.relative_to(skill_root).as_posix()
+            if candidate.is_symlink():
+                problems.append(f"symlink not allowed: {relative}")
+                continue
+            entries[relative] = candidate
+
+    return entries, problems
+
+
+def check_mirror(root: Path, sources: tuple[str, ...]) -> list[str]:
+    skill_root = derive_skill_root(root)
+    actual, problems = collect_mirror_entries(skill_root)
     expected = set(sources)
 
     missing = sorted(expected - set(actual))
@@ -162,9 +182,6 @@ def check_mirror(
 
     for relative in sorted(expected & set(actual)):
         destination = actual[relative]
-        if destination.is_symlink():
-            problems.append(f"symlink not allowed: {relative}")
-            continue
         canonical_bytes = read_canonical_bytes(root, relative)
         if destination.read_bytes() != canonical_bytes:
             problems.append(f"changed: {relative}")
@@ -172,8 +189,10 @@ def check_mirror(
     return problems
 
 
-def write_mirror(root: Path, skill_root: Path, sources: tuple[str, ...]) -> None:
-    if skill_root.exists() or skill_root.is_symlink():
+def write_mirror(root: Path, sources: tuple[str, ...]) -> None:
+    skill_root = derive_skill_root(root)
+
+    if skill_root.exists():
         shutil.rmtree(skill_root)
     skill_root.mkdir(parents=True, exist_ok=False)
 
@@ -187,18 +206,14 @@ def write_mirror(root: Path, skill_root: Path, sources: tuple[str, ...]) -> None
 def main() -> int:
     args = parse_args()
     root = Path(args.root).expanduser().resolve()
-    plugin_root = (
-        Path(args.plugin_root).expanduser().resolve() if args.plugin_root else None
-    )
 
     try:
         sources = load_source_list(root)
-        skill_root = resolve_plugin_skill_root(root, plugin_root)
 
         if args.write:
-            write_mirror(root, skill_root, sources)
+            write_mirror(root, sources)
 
-        problems = check_mirror(root, skill_root, sources)
+        problems = check_mirror(root, sources)
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -210,6 +225,7 @@ def main() -> int:
         return 1
 
     mode = "write" if args.write else "check"
+    skill_root = root / PurePosixPath(PLUGIN_SKILL_RELATIVE)
     print(f"Plugin Skill mirror ({mode}): PASS")
     print(f"- destination: {skill_root}")
     print(f"- files: {len(sources)}")
