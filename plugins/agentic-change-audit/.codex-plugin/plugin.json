@@ -1,0 +1,37 @@
+{
+  "name": "agentic-change-audit",
+  "version": "0.1.0-dev.1",
+  "description": "Evidence-first audits for AI-generated and human software changes before merge, release, or deployment.",
+  "author": {
+    "name": "L&Co.LLC",
+    "url": "https://github.com/landco-llc"
+  },
+  "homepage": "https://github.com/landco-llc/agentic-change-audit",
+  "repository": "https://github.com/landco-llc/agentic-change-audit",
+  "license": "Apache-2.0",
+  "keywords": [
+    "ai-agents",
+    "agent-skills",
+    "software-audit",
+    "change-audit",
+    "code-review",
+    "release-readiness"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agentic Change Audit",
+    "shortDescription": "Audit software changes with evidence before merge or release.",
+    "longDescription": "Review fixed software changes, verification evidence, remaining risks, and required human checks before merge, release, or deployment.",
+    "developerName": "L&Co.LLC",
+    "category": "Productivity",
+    "capabilities": [
+      "Read"
+    ],
+    "websiteURL": "https://github.com/landco-llc/agentic-change-audit",
+    "defaultPrompt": [
+      "Audit the current repository change without modifying files. Fix the result to the current base and target HEAD.",
+      "Audit this AI-built application as a release candidate and identify missing evidence and required human checks.",
+      "Re-audit the approved remediation against the previous findings and authorized scope."
+    ]
+  }
+}
