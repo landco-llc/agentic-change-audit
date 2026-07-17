@@ -255,11 +255,35 @@ SUPPORT_REQUIRED_BOUNDARIES = (
 
 SUPPORT_CHANNEL_HEADING = "## Support channel"
 CANONICAL_SUPPORT_URL = "https://github.com/landco-llc/agentic-change-audit/issues"
-SUPPORT_CHANNEL_DESCRIPTOR_PATTERN = re.compile(
-    r"\b(?:official|support channel|portal|help ?desk|support contact|support)\b",
-    re.IGNORECASE,
+
+# Phrases that materially assert a support/contact channel role, in English,
+# Japanese, and Traditional Chinese, including mixed-language forms such as
+# "公式help desk". Generic support vocabulary ("support terminology",
+# "customer-support vocabulary", "サポート用語", "支援術語") does not match,
+# and a URL path such as /help or /support is never proof by itself — the
+# assertion must appear in the text around the URL.
+SUPPORT_ASSERTION_PATTERNS = (
+    # English.
+    re.compile(r"\bofficial\s+(?:customer\s+)?support\b", re.IGNORECASE),
+    re.compile(r"\bsupport\s+is\s+(?:also\s+)?available\s+(?:at|via|through|from)\b", re.IGNORECASE),
+    re.compile(r"\bsupport\s+(?:channel|portal|contact)\b", re.IGNORECASE),
+    re.compile(r"\bcontact\s+support\b", re.IGNORECASE),
+    re.compile(r"\bhelp\s*desk\b", re.IGNORECASE),
+    re.compile(r"\bcustomer\s+support\s+(?:hotline|line|desk|team|portal)\b", re.IGNORECASE),
+    # Japanese.
+    re.compile(r"公式\s*(?:サポート|ヘルプデスク|help\s*desk)", re.IGNORECASE),
+    re.compile(r"サポート(?:窓口|チャネル|チャンネル|ポータル)"),
+    re.compile(r"問い?合わせ(?:窓口|先)"),
+    re.compile(r"ヘルプデスク"),
+    re.compile(r"支援窓口"),
+    # Traditional Chinese.
+    re.compile(r"官方(?:支援|客服)"),
+    re.compile(r"(?:支援|客服)(?:管道|入口)"),
+    re.compile(r"聯絡支援"),
+    re.compile(r"服務台"),
+    re.compile(r"協助中心"),
 )
-URL_PATTERN = re.compile(r"https?://[^\s<>()\[\]\"'`]+")
+URL_PATTERN = re.compile(r"https?://[^\s<>()\[\]\"'`。、，]+")
 
 # Material equivalents each Plugin README must still state. Presence alone is
 # not sufficient: the claim scan runs over the same files, so an appended
@@ -335,55 +359,132 @@ SECRET_PATTERNS = (
     re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b"),
 )
 
-# Product and submission status claims. These target the status of the
-# Plugin itself, not benign wording such as "Public policy URLs are
-# prepared." or "policies are published from this repository".
-CLAIM_PATTERNS = (
-    # English. Publishing a policy file from the repository is not a status
-    # claim about the Plugin, so that wording is excluded deliberately.
+# --- Product and submission status claims -----------------------------------
+#
+# Negation is bound to the specific claim it negates. Explicitly negated
+# status spans are masked out of the text first (replaced with spaces), and
+# every status claim remaining anywhere afterwards fails. There is no
+# sentence-, clause-, or window-level exemption: an unrelated negation cannot
+# license a later claim, so "No submission has occurred — this Plugin is
+# published." fails on the second span while "This Plugin is not published."
+# is fully consumed by the negated-span mask.
+
+# One coordinated status term inside an explicit English negation. The
+# repetition groups let a single negation cover a coordinated list such as
+# "not listed in, available from, or approved for" without consuming past
+# the coordination into an independent clause.
+_NEG_STATUS_TERM = (
+    r"(?:submitted(?:\s+to)?|listed(?:\s+in)?|available(?:\s+(?:from|in|on))?"
+    r"|approved(?:\s+for)?|published|released|stable|claimed"
+    r"|(?:generally|publicly)\s+available"
+    r"|a\s+(?:public|stable)\s+(?:release|version))"
+)
+_NEG_STATUS_COORD = (
+    rf"{_NEG_STATUS_TERM}(?:\s*,\s*{_NEG_STATUS_TERM})*"
+    rf"(?:\s*,?\s*(?:or|and|nor)\s+{_NEG_STATUS_TERM})*"
+)
+
+NEGATED_STATUS_PATTERNS = (
+    # English: "is not published", "has not been submitted to, listed in, or
+    # approved for", "not a public release".
     re.compile(
-        r"\b(?:is|are|was|were)\s+(?:now\s+)?published\b(?!\s+from\s+this\s+repository)",
+        rf"\b(?:is|are|was|were|has|have|had)\s+not\s+(?:yet\s+)?(?:been\s+)?"
+        rf"{_NEG_STATUS_COORD}",
+        re.IGNORECASE,
+    ),
+    re.compile(rf"\bnot\s+(?:yet\s+)?{_NEG_STATUS_COORD}", re.IGNORECASE),
+    # "No submission has occurred", "no listing has been published",
+    # "nothing has been submitted".
+    re.compile(
+        r"\b(?:no\s+[A-Za-z]+|nothing|none)\s+has\s+(?:yet\s+)?"
+        r"(?:been\s+[A-Za-z]+|occurred)\b",
+        re.IGNORECASE,
+    ),
+    # "Stable, approved, and published status are not claimed."
+    re.compile(r"[\w,\s-]{0,60}\bstatus\s+(?:is|are)\s+not\s+claimed\b", re.IGNORECASE),
+    re.compile(r"\bnever\s+(?:been\s+)?[A-Za-z]+\b", re.IGNORECASE),
+    # Japanese: "申請・登録・公開されていません", "完了していません",
+    # "提出していません", "未申請", "一切主張しません". The bounded eater
+    # covers a coordinated ・-list but cannot reach back across a positive
+    # claim, sentence punctuation, or a connector.
+    re.compile(r"[\w・]{0,12}(?:されて|して)?い?ません"),
+    re.compile(r"[\w・]{0,12}(?:されて|して)いない"),
+    re.compile(r"未(?:申請|承認|提出|公開|完了|提供|掲載|登録)"),
+    re.compile(r"[\w・]{0,16}(?:を|は)?(?:一切)?主張(?:しません|しない)"),
+    # Traditional Chinese: "尚未提交、列入或公開於", "未在…上架", "不主張…".
+    re.compile(r"尚未[\w、]{0,12}"),
+    re.compile(r"未(?:在|於)[^\n。，]{0,30}(?:上架|提供|核准|發布)"),
+    re.compile(r"不主張[^\n。]{0,20}"),
+    re.compile(r"(?:並未|並非|沒有|不會)[\w、]{0,12}"),
+)
+
+# Positive status claims scanned over the masked text. These target the
+# status of the Plugin itself, not benign wording such as "Public policy
+# URLs are prepared." or policy files "published from this repository".
+POSITIVE_STATUS_PATTERNS = (
+    # English.
+    re.compile(
+        r"\b(?:is|are|was|were)\s+(?:now\s+|currently\s+)?published\b"
+        r"(?!\s+from\s+this\s+repository)",
         re.IGNORECASE,
     ),
     re.compile(r"\bhas\s+been\s+(?:published|approved|submitted|released)\b", re.IGNORECASE),
-    re.compile(r"\b(?:is|are)\s+(?:now\s+)?(?:approved|submitted)\b", re.IGNORECASE),
-    re.compile(r"\b(?:is|are)\s+(?:now\s+)?stable\b", re.IGNORECASE),
+    re.compile(r"\b(?:is|are)\s+(?:now\s+|currently\s+)?(?:approved|submitted)\b", re.IGNORECASE),
+    re.compile(r"\b(?:is|are)\s+(?:now\s+|currently\s+)?stable\b", re.IGNORECASE),
     re.compile(r"\bstable\s+(?:release|version)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:is|are|was|were)\s+(?:now\s+|currently\s+)?(?:officially\s+)?released\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\bpublicly\s+available\b", re.IGNORECASE),
     re.compile(r"\bgenerally\s+available\b", re.IGNORECASE),
     re.compile(r"\bpublic\s+release\b", re.IGNORECASE),
     re.compile(r"\blisted\s+in\b[^\n]{0,60}?\bDirectory\b", re.IGNORECASE),
-    re.compile(r"\bavailable\s+(?:from|in)\b[^\n]{0,60}?\bDirectory\b", re.IGNORECASE),
+    re.compile(r"\bavailable\s+(?:from|in|on)\b[^\n]{0,60}?\bDirectory\b", re.IGNORECASE),
     # Japanese.
-    re.compile(r"公開\s*Plugins\s*Directory[^\n]{0,20}?(?:掲載|提供|公開|上架)されています"),
-    re.compile(r"公開\s*Plugins\s*Directory[^\n]{0,20}?(?:から|で)[^\n]{0,10}?利用可能です"),
+    re.compile(
+        r"公開\s*(?:Plugins\s*)?Directory\s*(?:で|から|に|上で)?[^\n。、]{0,12}?"
+        r"(?:利用可能|利用でき|提供されてい|入手でき|取得でき|インストールでき|installでき)"
+    ),
+    re.compile(r"正式公開済み"),
+    re.compile(r"申請完了"),
+    re.compile(r"承認済み"),
+    re.compile(r"上架済み"),
+    re.compile(r"(?:掲載|公開|承認|提供)されています"),
     re.compile(r"(?:正式)?申請(?:は|が)?完了しています"),
-    re.compile(r"公開されています"),
-    re.compile(r"承認されています"),
     # Traditional Chinese.
-    re.compile(r"公開\s*Plugins\s*Directory[^\n]{0,15}?(?:上架|提供)"),
-    re.compile(r"已(?:公開)?上架"),
-    re.compile(r"已(?:獲|取得)核准"),
-    re.compile(r"已(?:提交|送出)申請"),
+    re.compile(
+        r"可(?:從|在|由|自)[^\n。，]{0,20}公開\s*(?:Plugins\s*)?Directory"
+        r"[^\n。，]{0,10}(?:使用|取得|安裝|下載)"
+    ),
+    re.compile(r"已(?:於|在)[^\n。，]{0,25}Directory[^\n。，]{0,10}(?:提供|上架)"),
+    re.compile(r"目前已提供"),
+    re.compile(r"已上架"),
+    re.compile(r"已提交"),
+    re.compile(r"已核准"),
+    re.compile(r"正式發布"),
 )
 
-# A claim is safe only when a negation applies inside its own clause.
-NEGATION_PATTERN = re.compile(
-    r"\b(?:not|no|never|without|nothing|neither|nor|cannot|none)\b"
-    r"|(?:ません|ない|ず|未|不|せん)"
-    r"|(?:尚未|沒|非|無)",
+# Structural separators used after masking: sentence punctuation, em/en
+# dashes, and contrastive connectors in all three languages. Splitting keeps
+# gap-based positive patterns from reaching across independent clauses;
+# ordinary commas are not split so coordinated negations stay intact.
+SEGMENT_SPLIT_PATTERN = re.compile(
+    r"[.!?;:\n。！？；：]"
+    r"|[—–]"
+    r"|(?<![A-Za-z])(?:but|however|yet|although|though|whereas|nevertheless)(?![A-Za-z])"
+    r"|ですが|だが|しかし|ただし|一方で|一方|とはいえ|ものの|けれども|けれど|にもかかわらず"
+    r"|但是|但|然而|不過|可是|卻|雖然|儘管",
     re.IGNORECASE,
 )
 
-# Sentence boundaries plus contrastive connectors. A negation before "but"
-# does not license a claim after it, so each clause is inspected alone.
-CLAUSE_SPLIT_PATTERN = re.compile(
-    r"[.!?;:\n。！？；]"
-    r"|(?<![A-Za-z])(?:but|however|yet|although|though|whereas)(?![A-Za-z])"
-    r"|しかし|ただし|一方|とはいえ"
-    r"|但是|但|然而|不過",
-    re.IGNORECASE,
-)
+
+def mask_negated_status_spans(text: str) -> str:
+    """Blank every explicitly negated status span, preserving offsets."""
+    masked = text
+    for pattern in NEGATED_STATUS_PATTERNS:
+        masked = pattern.sub(lambda match: " " * len(match.group(0)), masked)
+    return masked
 
 
 def parse_args() -> argparse.Namespace:
@@ -735,21 +836,32 @@ def validate_support(root: Path, errors: list[str]) -> None:
     if not section_text(text, SUPPORT_CHANNEL_HEADING).strip():
         errors.append(f"SUPPORT.md must contain a {SUPPORT_CHANNEL_HEADING!r} section.")
 
-    # GitHub Issues is the only support channel. A second URL presented as an
-    # official channel contradicts that. The whole file is checked, not just
-    # the Support channel section, because appending the same claim to the
-    # Japanese or Traditional Chinese section contradicts it just as much.
-    # Related-document links are relative and carry no URL, so they are unaffected.
+    # GitHub Issues is the only support channel. A noncanonical URL is
+    # rejected only when its own line — or the meaningful line introducing
+    # it, as with a URL in a code block under an assertion — presents it as a
+    # support/contact channel. The whole file is checked, because the same
+    # assertion in the Japanese or Traditional Chinese section contradicts
+    # the policy just as much. Ordinary reference and documentation links
+    # carry no channel assertion and are unaffected.
+    previous_meaningful = ""
     for line in text.splitlines():
+        stripped_line = line.strip()
         for match in URL_PATTERN.finditer(line):
             url = match.group(0).rstrip(".,;)")
             if url == CANONICAL_SUPPORT_URL:
                 continue
-            if SUPPORT_CHANNEL_DESCRIPTOR_PATTERN.search(line):
+            asserted = any(
+                pattern.search(candidate)
+                for candidate in (line, previous_meaningful)
+                for pattern in SUPPORT_ASSERTION_PATTERNS
+            )
+            if asserted:
                 errors.append(
                     "SUPPORT.md declares GitHub Issues as the only support channel, so "
-                    f"it must not present another support channel: {line.strip()!r}"
+                    f"it must not present another support channel: {stripped_line!r}"
                 )
+        if stripped_line and not stripped_line.startswith("```"):
+            previous_meaningful = line
 
 
 def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
@@ -850,33 +962,34 @@ def validate_release_notes(root: Path, errors: list[str]) -> None:
 
 
 def validate_status_claims(root: Path, errors: list[str]) -> None:
-    """Reject any product or submission status claim that is not negated
-    within its own clause.
+    """Reject any product or submission status claim whose own span is not
+    explicitly negated.
 
-    A negation earlier in the sentence does not license a later claim:
-    "No approval has occurred, but this Plugin is published." asserts
-    publication. Splitting at contrastive connectors isolates each clause so
-    the negation only covers what it actually negates.
+    Negation binds to the specific claim: explicitly negated status spans are
+    masked out first, and every positive claim left anywhere in the remaining
+    text fails. A negation earlier in the sentence therefore never licenses a
+    later claim — "No submission has occurred — this Plugin is published."
+    fails on its second span, in any of English, Japanese, or Traditional
+    Chinese, across em dashes, commas, and contrastive connectors.
     """
     for relative in CLAIM_SCAN_FILES:
         path = root / relative
         if not path.is_file():
             continue
-        for clause in CLAUSE_SPLIT_PATTERN.split(path.read_text(encoding="utf-8")):
-            stripped = clause.strip()
-            if not stripped:
+        masked = mask_negated_status_spans(path.read_text(encoding="utf-8"))
+        for segment in SEGMENT_SPLIT_PATTERN.split(masked):
+            normalized = " ".join(segment.split())
+            if not normalized:
                 continue
-            for pattern in CLAIM_PATTERNS:
-                match = pattern.search(stripped)
-                if not match:
-                    continue
-                if NEGATION_PATTERN.search(stripped):
-                    continue
-                errors.append(
-                    f"{relative} must not claim public Directory availability, or "
-                    f"submitted, published, approved, or stable status: "
-                    f"{stripped!r} asserts {match.group(0)!r}."
-                )
+            for pattern in POSITIVE_STATUS_PATTERNS:
+                match = pattern.search(segment)
+                if match:
+                    errors.append(
+                        f"{relative} must not claim public Directory availability, "
+                        f"or submitted, published, approved, released, or stable "
+                        f"status: {normalized!r} asserts "
+                        f"{' '.join(match.group(0).split())!r}."
+                    )
 
 
 def validate_no_local_paths(root: Path, errors: list[str]) -> None:

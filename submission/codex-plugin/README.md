@@ -9,6 +9,7 @@ It is **preparation material only**. It is not a submission, and it does not cha
 ## Status
 
 - **No submission has occurred.** Nothing in this directory has been sent to OpenAI, and no draft exists in the OpenAI submission portal.
+- **Audit history: two independent audits returned `CHANGES REQUESTED`.** The first remediation fixed the originally reported false-PASS mutations; the second remediation addresses the remaining independent variants — multilingual and punctuation claim evasions, Support-channel classification, and test coverage. Final repository-side acceptance still requires a focused independent re-audit of the new fixed HEAD.
 - **No public availability is claimed.** The Plugin is not listed in, available from, or approved for OpenAI's public Plugins Directory.
 - The Plugin version remains `0.1.0-dev.1`, a development identifier.
 - The Plugin runtime is untouched by this package: the manifest, the marketplace entry, and the bundled Skill are all unchanged.
@@ -60,11 +61,11 @@ This is a fixed base, not a submission candidate. The commit that is actually su
 - no private local filesystem paths, in the package or the Plugin READMEs;
 - no email address other than an `example.invalid` placeholder in a test fixture;
 - no secret-like token;
-- `PRIVACY.md` states every canonical boundary, so removing any single one fails even while the others remain;
-- `SUPPORT.md` states every canonical boundary, and presents no second official support channel;
+- `PRIVACY.md` states every canonical boundary, so removing any single one fails even while the others remain — and every single boundary has its own independent removal regression test through the full validator;
+- `SUPPORT.md` states every canonical boundary. A noncanonical URL is rejected only when its own line, or the meaningful line introducing it, asserts an official support, contact, or help-desk channel — in English, Japanese, Traditional Chinese, or mixed-language phrasing. Ordinary reference and documentation links remain allowed, and a URL path alone is never treated as proof of a channel;
 - each Plugin README still states its development-preview and pending-submission boundaries;
 - availability status is still pending;
-- no unnegated claim of public Directory availability, or of submitted, published, approved, or stable status, in the release notes, this README, or the Plugin READMEs. Claims are checked per clause, so a negation before `but` or `however` does not license a claim after it;
+- no positive product-status claim survives in the release notes, this README, or the three Plugin READMEs. Negation is bound to the specific claim it negates: explicitly negated status spans are masked first, and any status claim remaining anywhere afterwards fails, so a negation in one span cannot license a claim after an em dash, an en dash, a comma, or a contrastive connector. The scan covers English, Japanese, and Traditional Chinese status claims about submission, approval, publication, release, stability, and public Directory availability, while coordinated negations and benign wording (prepared policy URLs, policies described as coming from this repository) continue to pass;
 - every human prerequisite row parses to exactly three cells whose status equals `PENDING HUMAN CHECK` exactly, so `COMPLETE — previously PENDING HUMAN CHECK` fails;
 - the Plugin manifest still declares version `0.1.0-dev.1` and the `Read` capability only, with no MCP, app, or hooks field;
 - `scripts/validate-codex-plugin.py` still passes.
@@ -78,7 +79,7 @@ python -m pip install -r requirements-validation.txt
 python scripts/validate-plugin-submission.py
 ```
 
-`tests/test_plugin_submission.py` covers the validator itself, including that each guardrail actually fails when it should.
+`tests/test_plugin_submission.py` covers the validator itself with 82 tests, including that each guardrail actually fails when it should; the repository's full suite is 146 tests. Every status-claim and Support-channel acceptance test runs the real validator as a subprocess against a fresh temporary repository copy — no test re-derives the validator's internal patterns. Hardened tests also snapshot every tracked repository file and the complete `git status` output before and after each test, proving that mutations happen only in the temporary copies.
 
 ## What is a human gate
 

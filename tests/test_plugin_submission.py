@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -40,17 +41,76 @@ def build_repo(temp: str) -> Path:
     validate-codex-plugin.py, which needs the whole Plugin tree present.
     """
     root = Path(temp) / "repo"
-    shutil.copytree(ROOT, root, ignore=shutil.ignore_patterns(".git"), symlinks=True)
+    shutil.copytree(
+        ROOT, root, ignore=shutil.ignore_patterns(".git", "__pycache__"), symlinks=True
+    )
     return root
 
 
 def run_validator(root: Path) -> subprocess.CompletedProcess:
+    # PYTHONDONTWRITEBYTECODE keeps validator subprocesses from creating new
+    # cache files anywhere, so repository-invariance checks stay exact.
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     return subprocess.run(
         [PYTHON, str(root / "scripts/validate-plugin-submission.py"), "--root", str(root)],
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
+
+
+def tracked_repo_state() -> tuple[dict[str, str], str]:
+    """Hash every git-tracked file and capture the full git status, so a test
+    can prove it mutated only its temporary copy — not the real repository.
+    """
+    listing = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, text=True, check=True
+    )
+    hashes: dict[str, str] = {}
+    for relative in listing.stdout.split("\0"):
+        if relative:
+            hashes[relative] = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+    status = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return hashes, status.stdout
+
+
+class RepoInvariantTestCase(unittest.TestCase):
+    """Base class proving whole-repository invariance around every test.
+
+    The checkout may legitimately hold pre-existing untracked entries (for
+    example __pycache__), so the check is before-vs-after equality of every
+    tracked file hash plus the complete status output, not tree cleanliness.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self._repo_state_before = tracked_repo_state()
+
+    def tearDown(self):
+        self.assertEqual(
+            self._repo_state_before,
+            tracked_repo_state(),
+            "a test modified the real repository instead of its temporary copy",
+        )
+        super().tearDown()
+
+    def assert_rejected(self, result: subprocess.CompletedProcess, needle: str) -> None:
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(needle, result.stderr)
+        # A caller must never see a PASS line alongside a nonzero exit.
+        self.assertNotIn("Plugin submission validation: PASS", result.stdout)
+        self.assertNotIn("Plugin submission validation: PASS", result.stderr)
+
+    def assert_accepted(self, result: subprocess.CompletedProcess) -> None:
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Plugin submission validation: PASS", result.stdout)
 
 
 def mutate_listing(root: Path, key: str, value) -> None:
@@ -58,19 +118,6 @@ def mutate_listing(root: Path, key: str, value) -> None:
     listing = load_json(path)
     listing[key] = value
     path.write_text(json.dumps(listing, indent=2) + "\n", encoding="utf-8")
-
-
-def claim_flagged(text: str) -> bool:
-    """Mirror the validator's clause-level claim rule for wording-level tests."""
-    for clause in submission_module.CLAUSE_SPLIT_PATTERN.split(text):
-        stripped = clause.strip()
-        if not stripped:
-            continue
-        if submission_module.NEGATION_PATTERN.search(stripped):
-            continue
-        if any(pattern.search(stripped) for pattern in submission_module.CLAIM_PATTERNS):
-            return True
-    return False
 
 
 def append_text(root: Path, relative: str, text: str) -> None:
@@ -86,7 +133,7 @@ def remove_text(root: Path, relative: str, needle: str) -> None:
     path.write_text(original.replace(needle, ""), encoding="utf-8")
 
 
-class SubmissionPackageTests(unittest.TestCase):
+class SubmissionPackageTests(RepoInvariantTestCase):
     def test_submission_package_passes(self):
         result = subprocess.run(
             [PYTHON, str(VALIDATE_SUBMISSION_SCRIPT), "--root", str(ROOT)],
@@ -366,33 +413,10 @@ class SubmissionPackageTests(unittest.TestCase):
             self.assertIn("plugin.json interface.capabilities", result.stderr)
 
 
-class HardenedValidationTests(unittest.TestCase):
-    """Regression tests for the five mutations an independent audit found
-    the first validator false-PASSing, plus the false-positive controls that
-    keep the hardening honest.
+class HardenedValidationTests(RepoInvariantTestCase):
+    """Regression tests for the five mutations the first independent audit
+    found the validator false-PASSing.
     """
-
-    def snapshot(self) -> dict[str, str]:
-        digests = {}
-        for relative in submission_module.SCANNED_FILES:
-            path = ROOT / relative
-            digests[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
-        return digests
-
-    def setUp(self):
-        self.before = self.snapshot()
-
-    def tearDown(self):
-        self.assertEqual(
-            self.before, self.snapshot(), "a mutation test modified the real repository"
-        )
-
-    def assert_rejected(self, result: subprocess.CompletedProcess, needle: str) -> None:
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn(needle, result.stderr)
-        # A caller must never see a PASS line alongside a nonzero exit.
-        self.assertNotIn("Plugin submission validation: PASS", result.stdout)
-        self.assertNotIn("Plugin submission validation: PASS", result.stderr)
 
     def test_release_claim_after_negation_connector_fails(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -583,38 +607,311 @@ class HardenedValidationTests(unittest.TestCase):
         # The old wording claimed end-to-end validation was standard library only.
         self.assertNotIn("runs offline, with the standard library only", text)
 
-    def test_valid_package_survives_false_positive_controls(self):
-        """Wording the instruction explicitly allows must not be rejected."""
-        allowed = (
-            "No submission has occurred.",
-            "This Plugin is not submitted to, listed in, or available from OpenAI's "
+class StatusClaimSubprocessTests(RepoInvariantTestCase):
+    """F-03 acceptance tests. Every case runs the real validator as a
+    subprocess against a fresh temporary repository copy — no test re-derives
+    the implementation's patterns.
+    """
+
+    def reject_claim(self, relative: str, text: str, needle: str = "must not claim"):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(root, relative, "\n" + text + "\n")
+
+            result = run_validator(root)
+
+            self.assert_rejected(result, needle)
+            self.assertIn(relative, result.stderr)
+
+    def accept_statement(self, relative: str, text: str):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(root, relative, "\n" + text + "\n")
+
+            self.assert_accepted(run_validator(root))
+
+    # --- English invalid variants -------------------------------------------
+
+    def test_en_claim_after_em_dash_negation_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "No submission has occurred — this Plugin is published.",
+        )
+
+    def test_en_claim_after_en_dash_negation_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "No submission has occurred – this Plugin is published.",
+        )
+
+    def test_en_claim_after_although_subordinate_comma_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "Although this Plugin is not submitted, it is publicly available.",
+        )
+
+    def test_en_claim_after_em_dash_approved_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "No approval has occurred — the Plugin is now approved.",
+        )
+
+    def test_en_claim_after_nevertheless_released_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "The Plugin is not stable, nevertheless it is officially released.",
+        )
+
+    # --- Japanese invalid variants ------------------------------------------
+
+    def test_ja_claim_after_desuga_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "このPluginは未申請ですが、公開Directoryで利用可能です。",
+        )
+
+    def test_ja_claim_after_sarete_imasen_ga_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "このPluginは申請されていませんが、OpenAIの公開Plugins Directoryから利用できます。",
+        )
+
+    def test_ja_claim_after_monono_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "未承認ではあるものの、このPluginは公開Directoryで提供されています。",
+        )
+
+    def test_ja_claim_after_nimokakawarazu_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "申請されていないにもかかわらず、公開Directoryで利用可能です。",
+        )
+
+    # --- Traditional Chinese invalid variants -------------------------------
+
+    def test_zh_claim_after_dan_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "本Plugin尚未提交，但目前可從OpenAI公開Plugins Directory使用。",
+        )
+
+    def test_zh_claim_after_buguo_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "本Plugin尚未送出申請，不過現在可在公開Directory取得。",
+        )
+
+    def test_zh_claim_after_suiran_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "雖然尚未核准，本Plugin目前已於公開Plugins Directory提供。",
+        )
+
+    # --- Valid controls: every allowed statement, through the validator -----
+
+    def test_valid_no_submission_statement_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE, "No submission has occurred."
+        )
+
+    def test_valid_not_published_statement_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE, "This Plugin is not published."
+        )
+
+    def test_valid_has_not_been_submitted_statement_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE, "This Plugin has not been submitted."
+        )
+
+    def test_valid_coordinated_negation_statement_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is not listed in, available from, or approved for OpenAI's "
             "public Plugins Directory.",
-            "Public policy URLs are prepared.",
-            "The Plugin is not a public release.",
-            "PENDING HUMAN CHECK",
-            "Support and Privacy are published from this repository.",
-            "公開ポリシーURLは準備済みです。",
-            "公開政策 URL 已備妥。",
         )
 
-        for text in allowed:
-            with self.subTest(text=text):
-                self.assertFalse(
-                    claim_flagged(text), f"benign wording must not be flagged: {text}"
-                )
-
-    def test_claims_are_detected_per_clause(self):
-        """A negation only covers its own clause."""
-        rejected = (
-            "No approval has occurred, but this Plugin is published.",
-            "This Plugin is not submitted; however, it is publicly available.",
-            "The release is not stable yet, but it is approved.",
-            "This Plugin is publicly available from OpenAI's public Plugins Directory.",
+    def test_valid_status_not_claimed_statement_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "Stable, approved, and published status are not claimed.",
         )
 
-        for text in rejected:
-            with self.subTest(text=text):
-                self.assertTrue(claim_flagged(text), f"claim must be flagged: {text}")
+    def test_valid_not_public_release_statement_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE, "The Plugin is not a public release."
+        )
+
+    def test_valid_policy_urls_prepared_statement_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE, "Public policy URLs are prepared."
+        )
+
+    def test_valid_ja_policy_urls_prepared_statement_passes(self):
+        self.accept_statement(
+            submission_module.PLUGIN_README_JA_RELATIVE, "公開ポリシーURLは準備済みです。"
+        )
+
+    def test_valid_zh_policy_urls_prepared_statement_passes(self):
+        self.accept_statement(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "公開政策 URL 已備妥。"
+        )
+
+
+class SupportChannelClassificationTests(RepoInvariantTestCase):
+    """F-04 acceptance tests: a noncanonical URL fails only when asserted as
+    a support/contact channel, in any of the three languages, at any
+    placement in the file.
+    """
+
+    SUPPORT_ERROR = "must not present another support channel"
+
+    def reject_support(self, mutate):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            mutate(root)
+
+            self.assert_rejected(run_validator(root), self.SUPPORT_ERROR)
+
+    def accept_support(self, text: str):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(root, submission_module.SUPPORT_RELATIVE, "\n" + text + "\n")
+
+            self.assert_accepted(run_validator(root))
+
+    def insert_before(self, root: Path, anchor: str, text: str):
+        path = root / submission_module.SUPPORT_RELATIVE
+        original = path.read_text(encoding="utf-8")
+        if anchor not in original:
+            raise AssertionError(f"SUPPORT.md does not contain the anchor: {anchor!r}")
+        path.write_text(original.replace(anchor, text + anchor, 1), encoding="utf-8")
+
+    # --- Invalid: channel assertions with a /help URL, all placements -------
+
+    def test_support_mixed_language_help_desk_in_japanese_section_fails(self):
+        self.reject_support(
+            lambda root: self.insert_before(
+                root,
+                "### セキュリティに関わる報告",
+                "公式help deskは https://example.com/help です。\n\n",
+            )
+        )
+
+    def test_support_official_zh_channel_in_zh_section_fails(self):
+        self.reject_support(
+            lambda root: self.insert_before(
+                root,
+                "### 涉及安全性的回報",
+                "官方支援可透過 https://example.com/help 取得。\n\n",
+            )
+        )
+
+    def test_support_official_customer_support_at_eof_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nFor official customer support, use https://example.com/help.\n",
+            )
+        )
+
+    def test_support_assertion_on_preceding_line_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n公式サポート窓口:\n\nhttps://example.com/help\n",
+            )
+        )
+
+    # --- Valid: reference and documentation links must stay allowed ---------
+
+    def test_support_glossary_reference_url_passes(self):
+        self.accept_support(
+            "For background on support terminology, see "
+            "https://example.com/docs/support-glossary."
+        )
+
+    def test_support_hyphenated_vocabulary_reference_passes(self):
+        self.accept_support(
+            "The implementation notes discuss customer-support vocabulary: "
+            "https://example.com/docs/glossary."
+        )
+
+    def test_support_ja_glossary_reference_passes(self):
+        self.accept_support(
+            "サポート用語の背景資料は https://example.com/docs/support-glossary "
+            "を参照してください。"
+        )
+
+    def test_support_zh_glossary_reference_passes(self):
+        self.accept_support(
+            "支援術語的背景資料請參閱 https://example.com/docs/support-glossary。"
+        )
+
+
+# Canonical fragments quoted from the actual PRIVACY.md, one per boundary in
+# the validator's normative list. Each is removed everywhere it appears in a
+# temporary copy; the validator must then fail on exactly that boundary.
+PRIVACY_REMOVAL_FIXTURES = {
+    "skills_only": "skills-only Plugin",
+    "no_mcp_server": "no MCP server",
+    "no_chatgpt_app": "no ChatGPT app",
+    "no_connector": "no connector",
+    "no_external_service": "no external service",
+    "no_telemetry": "no telemetry",
+    "no_analytics": "no analytics",
+    "no_authentication_flow": "no authentication flow",
+    "no_network_client": "no network client",
+    "no_collection": "does not collect, transmit, sell, or share user data",
+    "l_and_co_receipt": (
+        "L&Co.LLC does not receive your task contents merely because the Plugin "
+        "is installed."
+    ),
+    "active_task_scope": (
+        "The Plugin reads only the data that is already made available to the "
+        "active ChatGPT or Codex task, under your own environment and your own "
+        "permissions."
+    ),
+    "host_product_governance": (
+        "remains governed by the host product and by the tools you have configured"
+    ),
+    "terms_not_overridden": "This policy does not change or override those terms.",
+    "secret_input_warning": (
+        "Do not paste secrets, credentials, tokens, or personal data unnecessarily "
+        "into an audit task."
+    ),
+    "output_data_warning": "repository paths, commit SHAs, branch names, filenames",
+    "user_storage_control": "You control where those outputs are stored, pasted, or shared.",
+    "future_version_policy": "requires a new privacy policy and a new review",
+}
+
+
+class PrivacyBoundaryRemovalTests(RepoInvariantTestCase):
+    """F-05: every canonical Privacy boundary, independently removed and
+    verified through the full validator subprocess.
+    """
+
+
+def _make_privacy_removal_test(snippet: str):
+    def test(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            remove_text(root, submission_module.PRIVACY_RELATIVE, snippet)
+
+            self.assert_rejected(run_validator(root), "must state the boundary")
+
+    return test
+
+
+for _slug, _snippet in PRIVACY_REMOVAL_FIXTURES.items():
+    setattr(
+        PrivacyBoundaryRemovalTests,
+        f"test_privacy_boundary_{_slug}_removed_fails",
+        _make_privacy_removal_test(_snippet),
+    )
 
 
 if __name__ == "__main__":
