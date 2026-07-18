@@ -758,6 +758,95 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
             submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "公開政策 URL 已備妥。"
         )
 
+    # --- F-03: Markdown formatting must not hide a status claim -------------
+
+    def test_md_bold_published_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE, "This Plugin is **published**."
+        )
+
+    def test_md_dunder_approved_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE, "This Plugin is __approved__."
+        )
+
+    def test_md_italic_publicly_available_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE, "This Plugin is *publicly available*."
+        )
+
+    def test_md_strikethrough_negation_claim_fails(self):
+        # Struck-through text reads as deleted, so "~~not~~ published"
+        # asserts publication.
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE, "This Plugin is ~~not~~ published."
+        )
+
+    def test_md_html_strong_published_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is <strong>published</strong>.",
+        )
+
+    def test_md_inline_link_label_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is [published](https://example.com/status).",
+        )
+
+    def test_md_reference_link_label_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is [published][status].\n\n[status]: https://example.com/status",
+        )
+
+    def test_md_list_item_bold_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "- This Plugin is **generally available**.",
+        )
+
+    def test_md_heading_bold_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "## This Plugin is **officially released**",
+        )
+
+    def test_md_ja_bold_claim_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "このPluginは**正式公開済み**です。",
+        )
+
+    def test_md_zh_bold_claim_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "本Plugin目前已**正式發布**。",
+        )
+
+    def test_md_inline_code_example_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "Example only: `This Plugin is published.`",
+        )
+
+    def test_md_fenced_code_example_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "```text\nThis Plugin is published.\n```",
+        )
+
+    def test_md_emphasized_canonical_negative_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE, "**This Plugin is not published.**"
+        )
+
+    def test_md_neutral_link_label_with_claimy_destination_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "See the [status overview](https://example.com/published-release-status).",
+        )
+
 
 class SupportChannelClassificationTests(RepoInvariantTestCase):
     """F-04 acceptance tests: a noncanonical URL fails only when asserted as
@@ -850,6 +939,127 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
         self.accept_support(
             "支援術語的背景資料請參閱 https://example.com/docs/support-glossary。"
         )
+
+    # --- F-04: reference-style links resolve to their destinations ----------
+
+    def test_support_reference_link_official_support_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nUse [official support][alt-support].\n\n"
+                "[alt-support]: https://example.com/help\n",
+            )
+        )
+
+    def test_support_reference_link_separated_definition_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nUse [official support][alt-support].\n\n"
+                "The project remains open source.\n\n"
+                "[alt-support]: https://example.com/help\n",
+            )
+        )
+
+    def test_support_reference_link_ja_official_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n[公式サポート][help]\n\n[help]: https://example.com/help\n",
+            )
+        )
+
+    def test_support_reference_link_zh_official_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n[官方支援][help]\n\n[help]: https://example.com/help\n",
+            )
+        )
+
+    def test_support_inline_link_official_support_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nUse [official support](https://example.com/help).\n",
+            )
+        )
+
+    # --- F-04: previous-line carry, colon-introduced destinations -----------
+
+    def test_support_colon_carry_english_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nOfficial support:\nhttps://example.com/help\n",
+            )
+        )
+
+    def test_support_colon_carry_ja_toiawasesaki_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n問い合わせ先:\nhttps://example.com/help\n",
+            )
+        )
+
+    def test_support_colon_carry_zh_fullwidth_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n官方支援：\nhttps://example.com/help\n",
+            )
+        )
+
+    def test_support_multiple_links_canonical_does_not_hide_alternative_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nOfficial support: "
+                "https://github.com/landco-llc/agentic-change-audit/issues "
+                "or https://example.com/help\n",
+            )
+        )
+
+    # --- F-04: context precision and link false-positive controls -----------
+
+    def test_support_unused_reference_definition_passes(self):
+        self.accept_support("[unused-help]: https://example.com/help")
+
+    def test_support_reference_link_glossary_passes(self):
+        self.accept_support(
+            "Read the [support terminology glossary][glossary].\n\n"
+            "[glossary]: https://example.com/docs/support-glossary"
+        )
+
+    def test_support_ja_inline_link_glossary_passes(self):
+        self.accept_support("[ヘルプデスクという語の説明](https://example.com/docs/glossary)")
+
+    def test_support_zh_inline_link_glossary_passes(self):
+        self.accept_support("[支援術語的背景資料](https://example.com/docs/support-glossary)")
+
+    def test_support_ja_doc_prose_same_line_passes(self):
+        self.accept_support(
+            "ヘルプデスクという語の説明は https://example.com/docs/glossary にあります。"
+        )
+
+    def test_support_two_line_documentation_reference_passes(self):
+        self.accept_support(
+            "Official support remains GitHub Issues.\n"
+            "Documentation reference: https://example.com/help"
+        )
+
+    def test_support_zh_doc_prose_passes(self):
+        self.accept_support("本文件說明客服用語：https://example.com/docs/glossary。")
 
 
 # Canonical fragments quoted from the actual PRIVACY.md, one per boundary in

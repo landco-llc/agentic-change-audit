@@ -285,6 +285,66 @@ SUPPORT_ASSERTION_PATTERNS = (
 )
 URL_PATTERN = re.compile(r"https?://[^\s<>()\[\]\"'`。、，]+")
 
+# Explanatory wording: a line qualified as documentation, reference, or
+# terminology material is describing support concepts, not assigning the URL
+# a channel role.
+SUPPORT_DOC_QUALIFIER_PATTERN = re.compile(
+    r"\b(?:documentation|reference|background|terminology|vocabulary|glossary"
+    r"|implementation\s+notes|explains|discusses|compares)\b"
+    r"|説明|用語|背景資料|参照|参考資料|ドキュメント|実装ノート|解説"
+    r"|說明|術語|背景資料|參閱|參考資料|文件|詞彙|解說",
+    re.IGNORECASE,
+)
+
+
+def normalize_reference_label(label: str) -> str:
+    return " ".join(label.split()).lower()
+
+
+def parse_reference_definitions(text: str) -> dict[str, str]:
+    definitions: dict[str, str] = {}
+    for line in text.splitlines():
+        match = MD_DEFINITION_LINE_PATTERN.match(line)
+        if match:
+            definitions[normalize_reference_label(match.group(1))] = match.group(2)
+    return definitions
+
+
+def support_line_targets(line: str, definitions: dict[str, str]) -> tuple[str, list[str]]:
+    """Resolve a line to its visible text and every URL it points at:
+    raw URLs, inline links, and full/collapsed/shortcut reference links.
+    Image syntax is dropped; link labels stay in the visible text."""
+    targets: list[str] = []
+    work = MD_IMAGE_PATTERN.sub(" ", line)
+
+    def take_inline(match: re.Match) -> str:
+        destination = match.group(2)
+        if destination.startswith(("http://", "https://")):
+            targets.append(destination)
+        return match.group(1)
+
+    def take_reference(match: re.Match) -> str:
+        label, reference = match.group(1), match.group(2)
+        key = normalize_reference_label(reference) or normalize_reference_label(label)
+        destination = definitions.get(key)
+        if destination and destination.startswith(("http://", "https://")):
+            targets.append(destination)
+        return label
+
+    def take_shortcut(match: re.Match) -> str:
+        label = match.group(1)
+        destination = definitions.get(normalize_reference_label(label))
+        if destination and destination.startswith(("http://", "https://")):
+            targets.append(destination)
+        return label
+
+    work = MD_INLINE_LINK_PATTERN.sub(take_inline, work)
+    work = MD_REFERENCE_LINK_PATTERN.sub(take_reference, work)
+    work = MD_SHORTCUT_LINK_PATTERN.sub(take_shortcut, work)
+    for match in URL_PATTERN.finditer(work):
+        targets.append(match.group(0))
+    return work, targets
+
 # Material equivalents each Plugin README must still state. Presence alone is
 # not sufficient: the claim scan runs over the same files, so an appended
 # availability claim still fails even with every phrase below intact.
@@ -485,6 +545,70 @@ def mask_negated_status_spans(text: str) -> str:
     for pattern in NEGATED_STATUS_PATTERNS:
         masked = pattern.sub(lambda match: " " * len(match.group(0)), masked)
     return masked
+
+
+# --- Markdown visible-text normalization (standard library only) -------------
+
+MD_FENCE_MARKER_PATTERN = re.compile(r"^\s{0,3}(?:```|~~~)")
+MD_INLINE_CODE_PATTERN = re.compile(r"`[^`\n]*`")
+MD_IMAGE_PATTERN = re.compile(r"!\[[^\]]*\](?:\([^)\n]*\)|\[[^\]]*\])?")
+MD_DEFINITION_LINE_PATTERN = re.compile(r"^\s{0,3}\[([^\]]+)\]:\s*(\S+).*$")
+MD_INLINE_LINK_PATTERN = re.compile(r"\[([^\]]*)\]\((\S+?)(?:\s+\"[^\"]*\")?\)")
+MD_REFERENCE_LINK_PATTERN = re.compile(r"\[([^\]]*)\]\[([^\]]*)\]")
+MD_SHORTCUT_LINK_PATTERN = re.compile(r"\[([^\]]+)\](?![\[(:])")
+MD_HTML_EMPHASIS_PATTERN = re.compile(r"</?(?:strong|em|b|i)\s*/?>", re.IGNORECASE)
+MD_STRIKETHROUGH_PATTERN = re.compile(r"~~[^~\n]*~~")
+MD_SINGLE_ASTERISK_PATTERN = re.compile(r"(?<![\w*])\*([^*\n]+)\*(?![\w*])")
+MD_SINGLE_UNDERSCORE_PATTERN = re.compile(r"(?<![\w_])_([^_\n]+)_(?![\w_])")
+MD_HEADING_MARKER_PATTERN = re.compile(r"(?m)^\s{0,3}#{1,6}\s+")
+MD_LIST_MARKER_PATTERN = re.compile(r"(?m)^\s*(?:[-+*]|\d+[.)])\s+")
+MD_BLOCKQUOTE_MARKER_PATTERN = re.compile(r"(?m)^\s{0,3}>\s?")
+MD_BACKSLASH_ESCAPE_PATTERN = re.compile(r"\\([\\`*_{}\[\]()#+\-.!~|])")
+
+
+def markdown_visible_text(text: str) -> str:
+    """Reduce Markdown to the prose a reader actually sees, line-preserving.
+
+    Emphasis, strong, HTML emphasis, heading/list/blockquote markers, and
+    backslash escapes are removed with their contents retained; link labels
+    stay visible while destinations and reference definitions are dropped.
+    Inline code spans and fenced code blocks are excluded because they are
+    examples, not statements; strikethrough contents are excluded because
+    struck text reads as deleted, so it cannot negate a surviving claim.
+    Not a full CommonMark renderer — a conservative normalizer for the
+    status-claim scan.
+    """
+    lines: list[str] = []
+    in_fence = False
+    for line in text.splitlines():
+        if MD_FENCE_MARKER_PATTERN.match(line):
+            in_fence = not in_fence
+            lines.append("")
+            continue
+        if in_fence:
+            lines.append("")
+            continue
+        if MD_DEFINITION_LINE_PATTERN.match(line):
+            lines.append("")
+            continue
+        lines.append(line)
+
+    visible = "\n".join(lines)
+    visible = MD_INLINE_CODE_PATTERN.sub(" ", visible)
+    visible = MD_IMAGE_PATTERN.sub(" ", visible)
+    visible = MD_INLINE_LINK_PATTERN.sub(lambda m: m.group(1), visible)
+    visible = MD_REFERENCE_LINK_PATTERN.sub(lambda m: m.group(1), visible)
+    visible = MD_SHORTCUT_LINK_PATTERN.sub(lambda m: m.group(1), visible)
+    visible = MD_HTML_EMPHASIS_PATTERN.sub("", visible)
+    visible = MD_STRIKETHROUGH_PATTERN.sub(" ", visible)
+    visible = visible.replace("**", "").replace("__", "")
+    visible = MD_SINGLE_ASTERISK_PATTERN.sub(lambda m: m.group(1), visible)
+    visible = MD_SINGLE_UNDERSCORE_PATTERN.sub(lambda m: m.group(1), visible)
+    visible = MD_HEADING_MARKER_PATTERN.sub("", visible)
+    visible = MD_LIST_MARKER_PATTERN.sub("", visible)
+    visible = MD_BLOCKQUOTE_MARKER_PATTERN.sub("", visible)
+    visible = MD_BACKSLASH_ESCAPE_PATTERN.sub(lambda m: m.group(1), visible)
+    return visible
 
 
 def parse_args() -> argparse.Namespace:
@@ -836,32 +960,56 @@ def validate_support(root: Path, errors: list[str]) -> None:
     if not section_text(text, SUPPORT_CHANNEL_HEADING).strip():
         errors.append(f"SUPPORT.md must contain a {SUPPORT_CHANNEL_HEADING!r} section.")
 
-    # GitHub Issues is the only support channel. A noncanonical URL is
-    # rejected only when its own line — or the meaningful line introducing
-    # it, as with a URL in a code block under an assertion — presents it as a
-    # support/contact channel. The whole file is checked, because the same
-    # assertion in the Japanese or Traditional Chinese section contradicts
-    # the policy just as much. Ordinary reference and documentation links
-    # carry no channel assertion and are unaffected.
-    previous_meaningful = ""
+    # GitHub Issues is the only support channel. A noncanonical URL —
+    # written raw, as an inline link, or through a reference definition — is
+    # rejected only when visible prose or a link label on its own line
+    # materially assigns it a support/contact/help-desk role, or when the
+    # line immediately above (across blank lines or a fence marker only)
+    # asserts a channel and introduces a URL-only destination. Documentation
+    # and reference wording is explanatory and never a channel assertion; a
+    # URL path alone is never proof; an unused reference definition alone is
+    # never a finding.
+    definitions = parse_reference_definitions(text)
+    pending_assertion = ""
     for line in text.splitlines():
         stripped_line = line.strip()
-        for match in URL_PATTERN.finditer(line):
-            url = match.group(0).rstrip(".,;)")
+        if not stripped_line or MD_FENCE_MARKER_PATTERN.match(line):
+            continue
+        if MD_DEFINITION_LINE_PATTERN.match(line):
+            # Definitions are inert; findings attach to the lines that
+            # reference them. A definition also ends any pending context.
+            pending_assertion = ""
+            continue
+
+        visible, targets = support_line_targets(line, definitions)
+        line_asserts = any(
+            pattern.search(visible) for pattern in SUPPORT_ASSERTION_PATTERNS
+        ) and not SUPPORT_DOC_QUALIFIER_PATTERN.search(visible)
+        residue = URL_PATTERN.sub("", visible)
+        url_only = not re.search(r"[\w一-龠ぁ-んァ-ン]", residue)
+
+        for raw_url in targets:
+            url = raw_url.rstrip(".,;)。、，：:")
             if url == CANONICAL_SUPPORT_URL:
                 continue
-            asserted = any(
-                pattern.search(candidate)
-                for candidate in (line, previous_meaningful)
-                for pattern in SUPPORT_ASSERTION_PATTERNS
-            )
-            if asserted:
+            if line_asserts or (url_only and pending_assertion):
                 errors.append(
                     "SUPPORT.md declares GitHub Issues as the only support channel, so "
                     f"it must not present another support channel: {stripped_line!r}"
                 )
-        if stripped_line and not stripped_line.startswith("```"):
-            previous_meaningful = line
+
+        if targets:
+            # Any URL-bearing line consumes the pending context.
+            pending_assertion = ""
+        elif (
+            line_asserts
+            and stripped_line.endswith((":", "："))
+        ):
+            # The line materially introduces a destination that follows.
+            pending_assertion = stripped_line
+        else:
+            # Unrelated prose, headings, and list items end the context.
+            pending_assertion = ""
 
 
 def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
@@ -976,7 +1124,8 @@ def validate_status_claims(root: Path, errors: list[str]) -> None:
         path = root / relative
         if not path.is_file():
             continue
-        masked = mask_negated_status_spans(path.read_text(encoding="utf-8"))
+        visible = markdown_visible_text(path.read_text(encoding="utf-8"))
+        masked = mask_negated_status_spans(visible)
         for segment in SEGMENT_SPLIT_PATTERN.split(masked):
             normalized = " ".join(segment.split())
             if not normalized:
