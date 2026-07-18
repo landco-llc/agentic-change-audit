@@ -11,7 +11,7 @@
 ## 申請ステータス
 
 - **Desktop gate：合格（development foundationについて）。** ChatGPT desktopアプリで検証済みです。CLI marketplaceから登録でき、**L&Co.LLC Open Source** marketplace配下に表示・installでき、`$agentic-change-audit`の明示呼び出しに応答し、監査実行後もGit working treeが変更されないことを確認しました。このgateが対象とするのはこのdevelopment foundationのみです。
-- **OpenAIへの正式申請は完了していません。** OpenAI submission portalにdraftは存在せず、何も提出していません。
+- **OpenAIへの正式申請は完了していません。** このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません。申請ポータルの状態は人間が確認する必要があります。
 - **公開ポリシーURLは準備済みです。** [サポート](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)と[プライバシー](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)を本repositoryから公開しています。publisher identity verification、logo承認、申請そのものは、いずれも人間の判断待ちです。
 - **公開Directoryでの提供は一切主張しません。** このPluginはOpenAIの公開Plugins Directoryに掲載・提供・承認されていません。installは本repositoryのlocal marketplaceからのみ行ってください。
 

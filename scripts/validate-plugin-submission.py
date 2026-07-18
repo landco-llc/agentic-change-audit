@@ -74,6 +74,9 @@ CLAIM_SCAN_FILES = (
     SUBMISSION_README_RELATIVE,
 ) + PLUGIN_README_FILES
 
+# Files whose portal wording must stay inside the repository-evidence lane.
+PORTAL_STATE_SCAN_FILES = (SUBMISSION_README_RELATIVE,) + PLUGIN_README_FILES
+
 EXPECTED_LISTING_KEYS = {
     "submissionType",
     "pluginName",
@@ -389,6 +392,14 @@ PLUGIN_README_REQUIRED_BOUNDARIES = {
             ("Official OpenAI submission is not complete",),
         ),
         (
+            "repository lane neither performs nor evidences portal action",
+            ("No portal action is performed or evidenced by this repository lane",),
+        ),
+        (
+            "portal state remains a human verification gate",
+            ("Portal state remains a human verification gate",),
+        ),
+        (
             "no public Directory availability is claimed",
             ("No public Directory availability is claimed",),
         ),
@@ -404,6 +415,16 @@ PLUGIN_README_REQUIRED_BOUNDARIES = {
             ("公開Plugins Directoryへ申請・登録・公開されていません",),
         ),
         ("正式申請は完了していない", ("正式申請は完了していません",)),
+        (
+            "リポジトリ側で申請ポータルを操作せず証跡もない",
+            (
+                "このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません",
+            ),
+        ),
+        (
+            "申請ポータルの状態は人間が確認する",
+            ("申請ポータルの状態は人間が確認する必要があります",),
+        ),
         ("公開Directoryでの提供を主張しない", ("公開Directoryでの提供は一切主張しません",)),
         (
             "identity verification、logo承認、申請が人間判断待ち",
@@ -417,6 +438,14 @@ PLUGIN_README_REQUIRED_BOUNDARIES = {
             ("尚未提交、列入或公開於",),
         ),
         ("尚未完成正式申請", ("尚未完成向 OpenAI 的正式申請",)),
+        (
+            "儲存庫端未操作申請入口且沒有操作證據",
+            ("本次儲存庫端作業未操作申請入口，也沒有相關操作證據",),
+        ),
+        (
+            "申請入口狀態仍須人工確認",
+            ("申請入口的實際狀態仍須由人工確認",),
+        ),
         ("不主張任何公開Directory上架", ("不主張任何公開 Directory 上架",)),
         (
             "identity verification、logo核准與申請仍待人工決定",
@@ -424,6 +453,69 @@ PLUGIN_README_REQUIRED_BOUNDARIES = {
         ),
     ),
 }
+
+# External portal state is not observable from this repository lane. Reject
+# claims that a portal draft exists or does not exist, that the portal is
+# empty, or that nothing was submitted through it. These run on Markdown
+# visible text so formatting cannot turn the same assertion into a bypass.
+PORTAL_STATE_ASSERTION_PATTERNS = (
+    # English.
+    re.compile(
+        r"\bno\s+draft\s+exists?\s+in\s+(?:the\s+)?(?:OpenAI\s+)?submission\s+portal\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:the\s+)?(?:OpenAI\s+)?(?:submission\s+)?portal\s+has\s+no\s+draft\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:the\s+)?(?:OpenAI\s+)?submission\s+portal\s+is\s+empty\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bnothing\s+has\s+been\s+submitted\s+(?:through|via|in|to)\s+"
+        r"(?:the\s+)?(?:OpenAI\s+)?(?:submission\s+)?portal\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bthere\s+is\s+no\s+(?:OpenAI\s+)?(?:submission\s+)?portal\s+draft\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:a|the)\s+draft\s+exists?\s+in\s+(?:the\s+)?"
+        r"(?:OpenAI\s+)?submission\s+portal\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:the\s+)?(?:OpenAI\s+)?(?:submission\s+)?portal\s+"
+        r"(?:has|contains)\s+(?:a|the)\s+draft\b",
+        re.IGNORECASE,
+    ),
+    # Japanese, including the mixed-language sentence being remediated.
+    re.compile(
+        r"(?:OpenAI\s*)?submission\s+portal\s*に\s*draft\s*は\s*"
+        r"(?:存在せず|存在しません|存在しない)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"申請ポータル(?:に|には)\s*下書きは\s*存在しません"),
+    re.compile(r"申請ポータルには\s*何もありません"),
+    re.compile(r"ポータルからは\s*何も提出されていません"),
+    re.compile(r"下書きは\s*作成されていません"),
+    re.compile(r"申請ポータルに\s*下書きが\s*存在します"),
+    re.compile(r"申請(?:ポータルに)?\s*下書きが\s*作成されています"),
+    # Taiwan Traditional Chinese, including the mixed-language sentence
+    # being remediated.
+    re.compile(
+        r"(?:OpenAI\s*)?submission\s+portal\s*中\s*沒有\s*draft",
+        re.IGNORECASE,
+    ),
+    re.compile(r"申請入口中\s*沒有草稿"),
+    re.compile(r"申請入口\s*是空的"),
+    re.compile(r"尚未透過申請入口\s*提交任何內容"),
+    re.compile(r"沒有建立任何申請草稿"),
+    re.compile(r"申請入口中\s*有草稿"),
+    re.compile(r"已建立申請草稿"),
+)
 
 # A private local path leaking into a public submission artifact.
 LOCAL_PATH_PATTERNS = (
@@ -1204,6 +1296,22 @@ def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
         )
 
 
+def validate_portal_state_assertions(root: Path, errors: list[str]) -> None:
+    """Reject assertions about external portal contents or submission state."""
+    for relative in PORTAL_STATE_SCAN_FILES:
+        path = root / relative
+        if not path.is_file():
+            continue
+        visible = markdown_visible_text(path.read_text(encoding="utf-8"))
+        for pattern in PORTAL_STATE_ASSERTION_PATTERNS:
+            match = pattern.search(visible)
+            if match:
+                errors.append(
+                    f"{relative} must not assert unverified external portal state: "
+                    f"{' '.join(match.group(0).split())!r}."
+                )
+
+
 def validate_human_prerequisites(root: Path, errors: list[str]) -> None:
     path = root / HUMAN_PREREQUISITES_RELATIVE
     if not path.is_file():
@@ -1431,6 +1539,7 @@ def main() -> int:
     validate_privacy(root, errors)
     validate_support(root, errors)
     validate_plugin_readmes(root, errors)
+    validate_portal_state_assertions(root, errors)
     validate_human_prerequisites(root, errors)
     validate_visual_assets(root, errors)
     validate_release_notes(root, errors)

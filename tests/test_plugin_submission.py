@@ -607,6 +607,194 @@ class HardenedValidationTests(RepoInvariantTestCase):
         # The old wording claimed end-to-end validation was standard library only.
         self.assertNotIn("runs offline, with the standard library only", text)
 
+
+class PortalStateWordingTests(RepoInvariantTestCase):
+    """Portal-state regressions run only through the real validator process."""
+
+    SAFE_BOUNDARIES = {
+        submission_module.PLUGIN_README_RELATIVE: (
+            "No portal action is performed or evidenced by this repository lane.",
+            "Portal state remains a human verification gate.",
+        ),
+        submission_module.PLUGIN_README_JA_RELATIVE: (
+            "このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません。",
+            "申請ポータルの状態は人間が確認する必要があります。",
+        ),
+        submission_module.PLUGIN_README_ZH_HANT_RELATIVE: (
+            "本次儲存庫端作業未操作申請入口，也沒有相關操作證據。",
+            "申請入口的實際狀態仍須由人工確認。",
+        ),
+    }
+
+    def reject_portal_assertion(self, relative: str, text: str) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(root, relative, "\n" + text + "\n")
+
+            result = run_validator(root)
+
+            self.assert_rejected(result, "must not assert unverified external portal state")
+            self.assertIn(relative, result.stderr)
+
+    def assert_boundary_required(self, relative: str, boundary: str) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            remove_text(root, relative, boundary)
+
+            result = run_validator(root)
+
+            self.assert_rejected(result, "must state the boundary")
+            self.assertIn(relative, result.stderr)
+
+    # --- Exact unsafe sentences being remediated ----------------------------
+
+    def test_old_english_portal_sentence_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_RELATIVE,
+            "No draft exists in the OpenAI submission portal, and nothing has been submitted.",
+        )
+
+    def test_old_japanese_portal_sentence_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "OpenAI submission portalにdraftは存在せず、何も提出していません。",
+        )
+
+    def test_old_traditional_chinese_portal_sentence_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "OpenAI submission portal 中沒有 draft，也未提交任何內容。",
+        )
+
+    # --- Materially equivalent portal-state claims -------------------------
+
+    def test_english_portal_has_no_draft_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_RELATIVE, "The portal has no draft."
+        )
+
+    def test_english_portal_empty_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_RELATIVE,
+            "The submission portal is empty.",
+        )
+
+    def test_english_portal_draft_exists_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_RELATIVE,
+            "A draft exists in the OpenAI submission portal.",
+        )
+
+    def test_japanese_portal_has_no_draft_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "申請ポータルに下書きは存在しません。",
+        )
+
+    def test_japanese_nothing_submitted_through_portal_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "ポータルからは何も提出されていません。",
+        )
+
+    def test_japanese_portal_draft_exists_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "申請ポータルに下書きが存在します。",
+        )
+
+    def test_traditional_chinese_portal_has_no_draft_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "申請入口中沒有草稿。",
+        )
+
+    def test_traditional_chinese_portal_empty_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "申請入口是空的。",
+        )
+
+    def test_traditional_chinese_portal_draft_exists_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "申請入口中有草稿。",
+        )
+
+    # --- Every repository-lane boundary is independently required ----------
+
+    def test_english_repository_lane_boundary_required(self):
+        self.assert_boundary_required(
+            submission_module.PLUGIN_README_RELATIVE,
+            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_RELATIVE][0],
+        )
+
+    def test_english_human_gate_boundary_required(self):
+        self.assert_boundary_required(
+            submission_module.PLUGIN_README_RELATIVE,
+            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_RELATIVE][1],
+        )
+
+    def test_japanese_repository_lane_boundary_required(self):
+        self.assert_boundary_required(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_JA_RELATIVE][0],
+        )
+
+    def test_japanese_human_gate_boundary_required(self):
+        self.assert_boundary_required(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_JA_RELATIVE][1],
+        )
+
+    def test_traditional_chinese_repository_lane_boundary_required(self):
+        self.assert_boundary_required(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_ZH_HANT_RELATIVE][0],
+        )
+
+    def test_traditional_chinese_human_gate_boundary_required(self):
+        self.assert_boundary_required(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_ZH_HANT_RELATIVE][1],
+        )
+
+    def test_safe_wording_passes_in_all_three_plugin_readmes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            self.assert_accepted(run_validator(root))
+
+    def test_unsafe_english_assertion_after_safe_wording_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_RELATIVE, "There is no portal draft."
+        )
+
+    def test_unsafe_japanese_assertion_after_safe_wording_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "下書きは作成されていません。",
+        )
+
+    def test_unsafe_traditional_chinese_assertion_after_safe_wording_fails(self):
+        self.reject_portal_assertion(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "沒有建立任何申請草稿。",
+        )
+
+    def test_submission_readme_safe_portal_wording_passes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            text = (root / submission_module.SUBMISSION_README_RELATIVE).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn(
+                "No portal action is performed or evidenced by this repository lane.",
+                text,
+            )
+            self.assertIn("Portal state remains a human verification gate.", text)
+            self.assert_accepted(run_validator(root))
+
+
 class StatusClaimSubprocessTests(RepoInvariantTestCase):
     """F-03 acceptance tests. Every case runs the real validator as a
     subprocess against a fresh temporary repository copy — no test re-derives
