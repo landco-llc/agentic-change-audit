@@ -847,6 +847,132 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
             "See the [status overview](https://example.com/published-release-status).",
         )
 
+    # --- CommonMark edge cases: escapes, entities, comments -----------------
+
+    def test_md_backslash_escaped_emphasis_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            r"This Plugin is \*\*published\*\*.",
+        )
+
+    def test_md_named_entity_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is &ast;&ast;published&ast;&ast;.",
+        )
+
+    def test_md_decimal_entity_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is &#42;&#42;published&#42;&#42;.",
+        )
+
+    def test_md_hex_entity_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is &#x2A;&#x2A;published&#x2A;&#x2A;.",
+        )
+
+    def test_md_named_entity_underscore_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is &lowbar;&lowbar;approved&lowbar;&lowbar;.",
+        )
+
+    def test_md_single_line_html_comment_split_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is <!-- status -->published.",
+        )
+
+    def test_md_html_comment_splitting_a_word_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is pub<!-- split -->lished.",
+        )
+
+    def test_md_multiline_html_comment_split_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is <!--\nhidden\n-->approved.",
+        )
+
+    def test_md_claim_wholly_inside_html_comment_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "<!-- This Plugin is published. -->",
+        )
+
+    # --- CommonMark edge cases: soft line breaks ----------------------------
+
+    def test_md_soft_line_break_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is publicly\navailable.",
+        )
+
+    def test_md_emphasized_soft_line_break_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is **publicly\navailable**.",
+        )
+
+    def test_md_soft_line_break_ja_claim_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "このPluginは正式\n公開済みです。",
+        )
+
+    def test_md_soft_line_break_zh_claim_fails(self):
+        self.reject_claim(
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "本Plugin目前已正式\n發布。",
+        )
+
+    def test_md_paragraph_boundary_is_not_joined_passes(self):
+        # Two paragraphs must never be fused into one synthetic claim.
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "This Plugin is not publicly\n\navailable from the Directory.",
+        )
+
+    # --- CommonMark edge cases: indented code -------------------------------
+
+    def test_md_four_space_indented_code_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "Closing prose paragraph.\n\n    This Plugin is published.",
+        )
+
+    def test_md_tab_indented_code_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "Closing prose paragraph.\n\n\tThis Plugin is approved.",
+        )
+
+    def test_md_multiline_indented_code_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "Closing prose paragraph.\n\n    This Plugin is published.\n\n"
+            "    This Plugin is approved.",
+        )
+
+    def test_md_list_continuation_prose_is_still_scanned_fails(self):
+        # Indented text under a list item is item prose, not a code block, so
+        # it renders to the reader and must still be scanned.
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "- Item one.\n\n    This Plugin is published.",
+        )
+
+    def test_md_indent_cannot_interrupt_paragraph_fails(self):
+        # An indented code block cannot interrupt a paragraph, so this stays
+        # visible prose.
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "Closing prose paragraph.\n    This Plugin is published.",
+        )
+
 
 class SupportChannelClassificationTests(RepoInvariantTestCase):
     """F-04 acceptance tests: a noncanonical URL fails only when asserted as
@@ -1060,6 +1186,121 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
 
     def test_support_zh_doc_prose_passes(self):
         self.accept_support("本文件說明客服用語：https://example.com/docs/glossary。")
+
+    # --- Reference destination forms ----------------------------------------
+
+    def test_support_angle_bracket_reference_destination_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nUse [official support][help].\n\n"
+                "[help]: <https://example.com/help>\n",
+            )
+        )
+
+    def test_support_angle_destination_with_title_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nUse [official support][help].\n\n"
+                "[help]: <https://example.com/help> 'Help'\n",
+            )
+        )
+
+    def test_support_bare_destination_with_title_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nUse [official support][help].\n\n"
+                '[help]: https://example.com/help "Help"\n',
+            )
+        )
+
+    def test_support_unused_angle_definition_passes(self):
+        self.accept_support("[unused-help]: <https://example.com/help>")
+
+    # --- First definition wins ----------------------------------------------
+
+    def test_support_duplicate_definition_first_noncanonical_fails(self):
+        # CommonMark resolves the first definition, so the canonical URL on
+        # the second line does not rescue this.
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n[help]: https://example.com/help\n"
+                f"[help]: {submission_module.CANONICAL_SUPPORT_URL}\n\n"
+                "Use [official support][help].\n",
+            )
+        )
+
+    def test_support_duplicate_definition_first_canonical_passes(self):
+        self.accept_support(
+            f"[help]: {submission_module.CANONICAL_SUPPORT_URL}\n"
+            "[help]: https://example.com/help\n\n"
+            "Use [official support][help]."
+        )
+
+    # --- Label normalization and escapes ------------------------------------
+
+    def test_support_escaped_bracket_label_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n[help]: https://example.com/help\n\n"
+                "Use [official \\[support\\]][help].\n",
+            )
+        )
+
+    def test_support_case_and_whitespace_normalized_label_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n[help]: https://example.com/help\n\n"
+                "Use [Official   Support][  HELP  ].\n",
+            )
+        )
+
+    # --- Images -------------------------------------------------------------
+
+    def test_support_image_alt_official_support_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n![official support](https://example.com/help)\n",
+            )
+        )
+
+    def test_support_reference_image_alt_official_support_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n![公式サポート][help]\n\n[help]: https://example.com/help\n",
+            )
+        )
+
+    def test_support_linked_image_official_support_fails(self):
+        # The outer destination is the support destination.
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\n[![official support](https://example.com/logo.png)]"
+                "(https://example.com/help)\n",
+            )
+        )
+
+    def test_support_neutral_image_passes(self):
+        self.accept_support(
+            "![support terminology diagram](https://example.com/diagram.png)"
+        )
 
 
 # Canonical fragments quoted from the actual PRIVACY.md, one per boundary in

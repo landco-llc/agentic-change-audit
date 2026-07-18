@@ -14,6 +14,7 @@ requirements-validation.txt.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import subprocess
@@ -297,47 +298,75 @@ SUPPORT_DOC_QUALIFIER_PATTERN = re.compile(
 )
 
 
+def decode_label_punctuation(label: str) -> str:
+    """Decode backslash escapes in a label.
+
+    Escaped brackets become separators rather than literal characters, so
+    "official \\[support\\]" still classifies as an official-support
+    assertion instead of hiding the keyword behind punctuation. Unicode
+    letters are never removed.
+    """
+    decoded = re.sub(r"\\([\[\]])", " ", label)
+    return MD_BACKSLASH_ESCAPE_PATTERN.sub(lambda m: m.group(1), decoded)
+
+
 def normalize_reference_label(label: str) -> str:
-    return " ".join(label.split()).lower()
+    return " ".join(decode_label_punctuation(label).split()).lower()
 
 
 def parse_reference_definitions(text: str) -> dict[str, str]:
+    """Collect reference definitions, honouring CommonMark's first-wins rule.
+
+    Bare and angle-bracket destinations are both accepted; an optional title
+    is metadata and never becomes visible support prose.
+    """
     definitions: dict[str, str] = {}
     for line in text.splitlines():
         match = MD_DEFINITION_LINE_PATTERN.match(line)
         if match:
-            definitions[normalize_reference_label(match.group(1))] = match.group(2)
+            destination = match.group(2) if match.group(2) is not None else match.group(3)
+            # setdefault: a later duplicate definition never overrides the
+            # first, which is the one a CommonMark renderer resolves.
+            definitions.setdefault(normalize_reference_label(match.group(1)), destination)
     return definitions
 
 
 def support_line_targets(line: str, definitions: dict[str, str]) -> tuple[str, list[str]]:
-    """Resolve a line to its visible text and every URL it points at:
-    raw URLs, inline links, and full/collapsed/shortcut reference links.
-    Image syntax is dropped; link labels stay in the visible text."""
+    """Resolve a line to its visible text and every URL it points at.
+
+    Covers raw URLs, inline links, full, collapsed, and shortcut reference
+    links, and images. Image alt text stays visible and the image
+    destination is a target, because an image can present an alternative
+    support destination just as a link can; for a linked image the outer
+    destination is captured too. Each target is returned separately so a
+    canonical URL on the line cannot hide an alternative.
+    """
     targets: list[str] = []
-    work = MD_IMAGE_PATTERN.sub(" ", line)
+
+    def record(destination: str | None) -> None:
+        if destination and destination.startswith(("http://", "https://")):
+            targets.append(destination)
 
     def take_inline(match: re.Match) -> str:
-        destination = match.group(2)
-        if destination.startswith(("http://", "https://")):
-            targets.append(destination)
-        return match.group(1)
+        record(match.group(2))
+        return decode_label_punctuation(match.group(1))
 
     def take_reference(match: re.Match) -> str:
         label, reference = match.group(1), match.group(2)
         key = normalize_reference_label(reference) or normalize_reference_label(label)
-        destination = definitions.get(key)
-        if destination and destination.startswith(("http://", "https://")):
-            targets.append(destination)
-        return label
+        record(definitions.get(key))
+        return decode_label_punctuation(label)
 
     def take_shortcut(match: re.Match) -> str:
         label = match.group(1)
-        destination = definitions.get(normalize_reference_label(label))
-        if destination and destination.startswith(("http://", "https://")):
-            targets.append(destination)
-        return label
+        record(definitions.get(normalize_reference_label(label)))
+        return decode_label_punctuation(label)
 
+    # Images first, so a linked image reduces to a plain link whose outer
+    # destination is then captured by the inline-link pass.
+    work = MD_IMAGE_INLINE_PATTERN.sub(take_inline, line)
+    work = MD_IMAGE_REFERENCE_PATTERN.sub(take_reference, work)
+    work = MD_IMAGE_SHORTCUT_PATTERN.sub(take_shortcut, work)
     work = MD_INLINE_LINK_PATTERN.sub(take_inline, work)
     work = MD_REFERENCE_LINK_PATTERN.sub(take_reference, work)
     work = MD_SHORTCUT_LINK_PATTERN.sub(take_shortcut, work)
@@ -551,64 +580,210 @@ def mask_negated_status_spans(text: str) -> str:
 
 MD_FENCE_MARKER_PATTERN = re.compile(r"^\s{0,3}(?:```|~~~)")
 MD_INLINE_CODE_PATTERN = re.compile(r"`[^`\n]*`")
-MD_IMAGE_PATTERN = re.compile(r"!\[[^\]]*\](?:\([^)\n]*\)|\[[^\]]*\])?")
-MD_DEFINITION_LINE_PATTERN = re.compile(r"^\s{0,3}\[([^\]]+)\]:\s*(\S+).*$")
-MD_INLINE_LINK_PATTERN = re.compile(r"\[([^\]]*)\]\((\S+?)(?:\s+\"[^\"]*\")?\)")
+MD_IMAGE_INLINE_PATTERN = re.compile(r"!\[([^\]]*)\]\(\s*<?([^)\s>]*)>?(?:\s+[^)]*)?\)")
+MD_IMAGE_REFERENCE_PATTERN = re.compile(r"!\[([^\]]*)\]\[([^\]]*)\]")
+MD_IMAGE_SHORTCUT_PATTERN = re.compile(r"!\[([^\]]+)\](?![\[(:])")
+MD_DEFINITION_LINE_PATTERN = re.compile(
+    r"^\s{0,3}\[([^\]]+)\]:\s*(?:<([^>]*)>|(\S+))\s*"
+    r"(?:\"[^\"]*\"|'[^']*'|\([^)]*\))?\s*$"
+)
+MD_INLINE_LINK_PATTERN = re.compile(
+    r"\[([^\]]*)\]\(\s*<?([^)\s>]*)>?(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^)]*\)))?\s*\)"
+)
 MD_REFERENCE_LINK_PATTERN = re.compile(r"\[([^\]]*)\]\[([^\]]*)\]")
 MD_SHORTCUT_LINK_PATTERN = re.compile(r"\[([^\]]+)\](?![\[(:])")
 MD_HTML_EMPHASIS_PATTERN = re.compile(r"</?(?:strong|em|b|i)\s*/?>", re.IGNORECASE)
+MD_HTML_COMMENT_PATTERN = re.compile(r"<!--.*?-->", re.DOTALL)
 MD_STRIKETHROUGH_PATTERN = re.compile(r"~~[^~\n]*~~")
 MD_SINGLE_ASTERISK_PATTERN = re.compile(r"(?<![\w*])\*([^*\n]+)\*(?![\w*])")
 MD_SINGLE_UNDERSCORE_PATTERN = re.compile(r"(?<![\w_])_([^_\n]+)_(?![\w_])")
-MD_HEADING_MARKER_PATTERN = re.compile(r"(?m)^\s{0,3}#{1,6}\s+")
-MD_LIST_MARKER_PATTERN = re.compile(r"(?m)^\s*(?:[-+*]|\d+[.)])\s+")
-MD_BLOCKQUOTE_MARKER_PATTERN = re.compile(r"(?m)^\s{0,3}>\s?")
-MD_BACKSLASH_ESCAPE_PATTERN = re.compile(r"\\([\\`*_{}\[\]()#+\-.!~|])")
+MD_HEADING_LINE_PATTERN = re.compile(r"^\s{0,3}#{1,6}\s+")
+MD_LIST_MARKER_LINE_PATTERN = re.compile(r"^(\s*)(?:[-+*]|\d+[.)])\s+")
+MD_BLOCKQUOTE_LINE_PATTERN = re.compile(r"^\s{0,3}>\s?")
+MD_THEMATIC_BREAK_PATTERN = re.compile(r"^\s{0,3}(?:\*\s*){3,}$|^\s{0,3}(?:[-_]\s*){3,}$")
+MD_INDENTED_CODE_PATTERN = re.compile(r"^(?: {4}|\t)")
+# CommonMark allows a backslash to escape any ASCII punctuation character.
+MD_BACKSLASH_ESCAPE_PATTERN = re.compile(r"\\([!-/:-@\[-`{-~])")
+
+CJK_CHARACTER_PATTERN = re.compile(
+    r"[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]"
+)
 
 
-def markdown_visible_text(text: str) -> str:
-    """Reduce Markdown to the prose a reader actually sees, line-preserving.
+def strip_code_blocks(text: str) -> list[str]:
+    """Blank out fenced and top-level indented code blocks, keeping line count.
 
-    Emphasis, strong, HTML emphasis, heading/list/blockquote markers, and
-    backslash escapes are removed with their contents retained; link labels
-    stay visible while destinations and reference definitions are dropped.
-    Inline code spans and fenced code blocks are excluded because they are
-    examples, not statements; strikethrough contents are excluded because
-    struck text reads as deleted, so it cannot negate a surviving claim.
-    Not a full CommonMark renderer — a conservative normalizer for the
-    status-claim scan.
+    An indented code block cannot interrupt a paragraph and cannot appear
+    inside a list, where the same indentation is ordinary item continuation
+    prose. Both conditions are tracked so real examples are excluded while
+    list text is still scanned.
     """
     lines: list[str] = []
     in_fence = False
+    in_indented_code = False
+    in_list = False
+    previous_blank = True
+
     for line in text.splitlines():
+        stripped = line.strip()
+
         if MD_FENCE_MARKER_PATTERN.match(line):
             in_fence = not in_fence
             lines.append("")
+            previous_blank = False
             continue
         if in_fence:
             lines.append("")
             continue
-        if MD_DEFINITION_LINE_PATTERN.match(line):
-            lines.append("")
-            continue
-        lines.append(line)
 
+        if not stripped:
+            # A blank line continues an indented code block but ends nothing
+            # else that matters here; list context survives blank lines.
+            lines.append("")
+            previous_blank = True
+            continue
+
+        indent_match = MD_LIST_MARKER_LINE_PATTERN.match(line)
+        if indent_match:
+            in_list = True
+        elif not MD_INDENTED_CODE_PATTERN.match(line):
+            in_list = False
+
+        is_indented = bool(MD_INDENTED_CODE_PATTERN.match(line))
+        if is_indented and not in_list and (previous_blank or in_indented_code):
+            in_indented_code = True
+            lines.append("")
+            previous_blank = False
+            continue
+
+        in_indented_code = False
+        lines.append(line)
+        previous_blank = False
+
+    return lines
+
+
+def join_soft_line_breaks(lines: list[str]) -> str:
+    """Join soft line breaks inside a paragraph, as a renderer would.
+
+    Lines are joined with a space, except between two CJK characters where a
+    rendered soft break introduces no visible gap. Blank lines, headings,
+    list items, blockquotes, and thematic breaks all start a new block and
+    are never joined across.
+    """
+    blocks: list[str] = []
+    current: list[str] = []
+
+    def flush() -> None:
+        if not current:
+            return
+        joined = current[0]
+        for part in current[1:]:
+            left = joined.rstrip()
+            right = part.lstrip()
+            if not right:
+                continue
+            if not left:
+                joined = right
+                continue
+            if CJK_CHARACTER_PATTERN.match(left[-1]) and CJK_CHARACTER_PATTERN.match(
+                right[0]
+            ):
+                joined = left + right
+            else:
+                joined = left + " " + right
+        blocks.append(joined)
+        current.clear()
+
+    for line in lines:
+        if not line.strip():
+            flush()
+            continue
+
+        if MD_THEMATIC_BREAK_PATTERN.match(line):
+            flush()
+            continue
+
+        starts_block = False
+        content = line
+        if MD_HEADING_LINE_PATTERN.match(content):
+            content = MD_HEADING_LINE_PATTERN.sub("", content)
+            starts_block = True
+        elif MD_LIST_MARKER_LINE_PATTERN.match(content):
+            content = MD_LIST_MARKER_LINE_PATTERN.sub("", content)
+            starts_block = True
+        elif MD_BLOCKQUOTE_LINE_PATTERN.match(content):
+            content = MD_BLOCKQUOTE_LINE_PATTERN.sub("", content)
+            starts_block = True
+
+        if starts_block:
+            flush()
+        current.append(content)
+
+    flush()
+    return "\n".join(blocks)
+
+
+def markdown_visible_text(text: str) -> str:
+    """Reduce Markdown to the prose a reader actually sees.
+
+    Processing order, which the edge cases depend on:
+
+    1. exclude fenced code blocks;
+    2. exclude top-level indented code blocks;
+    3. remove HTML comments, so a comment cannot split a word or hide a claim;
+    4. decode named and numeric HTML character references;
+    5. resolve CommonMark backslash escapes for ASCII punctuation;
+    6. resolve visible link and image labels, dropping destinations and
+       reference definitions;
+    7. remove HTML emphasis tags;
+    8. process emphasis, strong, and strikethrough delimiters;
+    9. remove block markers, retaining visible prose;
+    10. join soft line breaks inside each paragraph;
+    11. keep paragraphs separated, so unrelated lines never fuse.
+
+    Inline code spans and fenced blocks are excluded because they are
+    examples, not statements; strikethrough contents are excluded because
+    struck text reads as deleted, so "~~not~~ published" asserts publication.
+
+    This is a conservative submission-policy normalizer, not a complete
+    CommonMark renderer.
+    """
+    # 1-2: code blocks.
+    lines = strip_code_blocks(text)
     visible = "\n".join(lines)
+
+    # 3: HTML comments, including multiline.
+    visible = MD_HTML_COMMENT_PATTERN.sub("", visible)
+
+    # 4: character references, before emphasis so &ast; behaves like *.
+    visible = html.unescape(visible)
+
+    # 5: backslash escapes, before emphasis for the same reason.
+    visible = MD_BACKSLASH_ESCAPE_PATTERN.sub(lambda m: m.group(1), visible)
+
+    # 6: inline code spans, then labels; reference definitions become blank.
     visible = MD_INLINE_CODE_PATTERN.sub(" ", visible)
-    visible = MD_IMAGE_PATTERN.sub(" ", visible)
+    visible = "\n".join(
+        "" if MD_DEFINITION_LINE_PATTERN.match(line) else line
+        for line in visible.splitlines()
+    )
+    visible = MD_IMAGE_INLINE_PATTERN.sub(lambda m: m.group(1), visible)
+    visible = MD_IMAGE_REFERENCE_PATTERN.sub(lambda m: m.group(1), visible)
+    visible = MD_IMAGE_SHORTCUT_PATTERN.sub(lambda m: m.group(1), visible)
     visible = MD_INLINE_LINK_PATTERN.sub(lambda m: m.group(1), visible)
     visible = MD_REFERENCE_LINK_PATTERN.sub(lambda m: m.group(1), visible)
     visible = MD_SHORTCUT_LINK_PATTERN.sub(lambda m: m.group(1), visible)
+
+    # 7-8: emphasis.
     visible = MD_HTML_EMPHASIS_PATTERN.sub("", visible)
     visible = MD_STRIKETHROUGH_PATTERN.sub(" ", visible)
     visible = visible.replace("**", "").replace("__", "")
     visible = MD_SINGLE_ASTERISK_PATTERN.sub(lambda m: m.group(1), visible)
     visible = MD_SINGLE_UNDERSCORE_PATTERN.sub(lambda m: m.group(1), visible)
-    visible = MD_HEADING_MARKER_PATTERN.sub("", visible)
-    visible = MD_LIST_MARKER_PATTERN.sub("", visible)
-    visible = MD_BLOCKQUOTE_MARKER_PATTERN.sub("", visible)
-    visible = MD_BACKSLASH_ESCAPE_PATTERN.sub(lambda m: m.group(1), visible)
-    return visible
+
+    # 9-11: block markers, soft line breaks, paragraph separation.
+    return join_soft_line_breaks(visible.splitlines())
 
 
 def parse_args() -> argparse.Namespace:
