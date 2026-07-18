@@ -454,67 +454,161 @@ PLUGIN_README_REQUIRED_BOUNDARIES = {
     ),
 }
 
-# External portal state is not observable from this repository lane. Reject
-# claims that a portal draft exists or does not exist, that the portal is
-# empty, or that nothing was submitted through it. These run on Markdown
-# visible text so formatting cannot turn the same assertion into a bypass.
-PORTAL_STATE_ASSERTION_PATTERNS = (
-    # English.
+# External portal state is not observable from this repository lane. Classify
+# normalized visible prose by semantic components instead of accumulating
+# whole-sentence deny-list phrases. A segment is rejected only when it has a
+# portal context, a material draft/submission/review object or action, and a
+# current-state predicate. Positive and negative polarity are equally
+# unverifiable here.
+PORTAL_CONTEXT_PATTERNS = {
+    "en": (
+        re.compile(
+            r"(?<![A-Za-z0-9_])(?:portal|(?:submission|application|review|developer|application[-\s]+review)\s+portal|(?:submission|application)\s+system)(?![A-Za-z0-9_])",
+            re.IGNORECASE,
+        ),
+    ),
+    "ja": (
+        re.compile(
+            r"(?:申請ポータル|提出ポータル|審査ポータル|申請入口|申請画面|申請ページ|申請サイト|申請システム|ポータル)"
+        ),
+    ),
+    "zh_hant": (
+        re.compile(
+            r"(?:申請入口|提交入口|送審入口|審核入口|申請平台|提交平台|送審平台|申請頁面|入口|平台)"
+        ),
+    ),
+}
+
+PORTAL_STATE_OBJECT_PATTERNS = {
+    "en": (
+        re.compile(
+            r"\b(?:drafts?|(?:saved|pending|existing|application|submission|review)\s+drafts?|pending\s+application|saved\s+application|(?:application|submission|submitted|uploaded)\s+content|materials?|applications?|submissions?|content|nothing)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    "ja": (
+        re.compile(
+            r"(?:下書き|草稿|ドラフト|保存済み|未保存|提出(?:済み)?|未提出|送信(?:済み)?|未送信|申請(?:済み)?|未申請|送審(?:済み|待ち)?|未送審|審査待ち|審査中|申請内容|提出内容|内容|資料|何も)"
+        ),
+    ),
+    "zh_hant": (
+        re.compile(
+            r"(?:草稿|已儲存草稿|待提交草稿|待送審草稿|待送審|已送審|未送審|提交|已提交|未提交|送出|已送出|未送出|送審|審核中|待審核|申請內容|提交內容|資料|內容|申請|任何)"
+        ),
+    ),
+}
+
+# In the submission-status files, these objects carry their own application
+# context even when a sentence omits the noun "portal". This is intentionally
+# limited to draft-specific Japanese/Traditional Chinese vocabulary so a
+# generic statement such as "This Plugin is not submitted" stays outside the
+# external-portal classifier.
+PORTAL_IMPLICIT_CONTEXT_PATTERNS = (
+    re.compile(r"(?:下書き|草稿|ドラフト)"),
+    re.compile(r"(?:申請草稿|待提交草稿|待送審草稿)"),
+)
+
+# The portal/system itself is the state object for empty/present/absent
+# assertions, so these do not require a separate draft/content noun.
+PORTAL_SELF_STATE_PATTERNS = (
     re.compile(
-        r"\bno\s+draft\s+exists?\s+in\s+(?:the\s+)?(?:OpenAI\s+)?submission\s+portal\b",
+        r"\b(?:portal|system)\s+(?:is|are)\s+(?:not\s+)?(?:present|absent|empty)\b",
         re.IGNORECASE,
     ),
+    re.compile(r"(?:ポータル|入口|画面|ページ|サイト|システム)(?:は|が)?空(?:です|ではありません)"),
+    re.compile(r"(?:入口|平台|頁面)(?:是|不是)空的"),
+)
+
+PORTAL_STATE_PREDICATE_PATTERNS = {
+    "en": (
+        re.compile(r"\bthere\s+(?:is|are)\s+(?:no\s+)?", re.IGNORECASE),
+        re.compile(r"\b(?:exists?|does\s+not\s+exist)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(?:is|are)\s+(?:not\s+)?(?:present|absent|empty|pending|approved|rejected)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:has|have|contains?|does\s+not\s+contain|do\s+not\s+contain)\s+(?:no\s+|an?\s+|the\s+|any\s+)?",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:has|have)\s+(?:not\s+|already\s+)?been\s+(?:saved|created|submitted|sent|uploaded|filed|approved|rejected)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:is|are|was|were)\s+(?:not\s+|already\s+)?(?:saved|created|submitted|sent|uploaded|filed|approved|rejected)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:not\s+|already\s+)?(?:saved|created|submitted|sent|uploaded|filed|approved|rejected)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:is|are|was|were)\s+(?:already\s+|not\s+)?under\s+review\b|\b(?:awaiting|queued\s+for)\s+review\b",
+            re.IGNORECASE,
+        ),
+        re.compile(r"\b(?:not\s+)?pending\b", re.IGNORECASE),
+    ),
+    "ja": (
+        re.compile(r"(?:ある|ない|あります|ありません)"),
+        re.compile(r"存在(?:する|します|しない|しません|せず)"),
+        re.compile(
+            r"(?:作成|保存|提出|送信|申請|送審)(?:済み|されています|されていません|された|されていない|していません|していない)"
+        ),
+        re.compile(r"未(?:保存|提出|送信|申請|送審)"),
+        re.compile(r"(?:審査中|審査待ち|送審待ち)"),
+        re.compile(r"空(?:です|ではありません)"),
+        re.compile(r"含まれて(?:います|いません|いる|いない)"),
+        re.compile(r"何も[^。！？；\n]{0,24}(?:提出|送信|申請|送審)[^。！？；\n]{0,12}(?:ていません|していない)"),
+    ),
+    "zh_hant": (
+        re.compile(r"(?:已有|有|沒有|尚未)"),
+        re.compile(r"(?:存在|不存在)"),
+        re.compile(r"(?:是空的|不是空的)"),
+        re.compile(r"(?:已|未)(?:建立|儲存|提交|送出|送審)"),
+        re.compile(r"沒有(?:建立|儲存|提交|送出|送審)"),
+        re.compile(r"已(?:透過|經由)[^。！？；\n]{0,24}(?:提交|送出|送審)"),
+        re.compile(r"(?:審核中|待審核|待送審|待提交)"),
+        re.compile(r"(?:包含|不包含)"),
+    ),
+}
+
+# Safe contexts are applied to one atomic segment only. Explanatory prose is
+# skipped only when it has no explicit current-state cue. Future/hypothetical
+# prose is skipped only when it has no current-state marker such as already,
+# 現在, or 已. This prevents a safe sentence from licensing a later assertion.
+PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS = (
     re.compile(
-        r"\b(?:the\s+)?(?:OpenAI\s+)?(?:submission\s+)?portal\s+has\s+no\s+draft\b",
+        r"\bno\s+portal\s+action\s+is\s+performed\s+or\s+evidenced\s+by\s+this\s+repository\s+lane\b",
         re.IGNORECASE,
     ),
+    re.compile(r"このリポジトリ側の作業では申請ポータルを操作して(?:いません|おらず)"),
+    re.compile(r"本次儲存庫端作業未操作申請入口"),
+)
+PORTAL_HUMAN_GATE_SAFE_PATTERNS = (
+    re.compile(r"\bportal\s+state\s+remains\s+a\s+human\s+verification\s+gate\b", re.IGNORECASE),
+    re.compile(r"\b(?:final\s+)?portal\s+state\s+must\s+be\s+checked\s+by\s+a\s+human\b", re.IGNORECASE),
+    re.compile(r"申請ポータルの状態は人間が確認"),
+    re.compile(r"申請入口の実際の状態は人間が確認"),
+    re.compile(r"申請入口的實際狀態仍須由人工確認"),
+)
+PORTAL_EXPLANATORY_SEGMENT_PATTERNS = (
+    re.compile(r"\b(?:documentation|schema|field|fixture|example|terminology|phrase|defines?|explains?)\b", re.IGNORECASE),
+    re.compile(r"(?:説明|項目|用語|例|テスト|フィクスチャ|文書)"),
+    re.compile(r"(?:文件|說明|欄位|詞彙|範例|測試|解釋)"),
+)
+PORTAL_FUTURE_SEGMENT_PATTERNS = (
+    re.compile(r"\b(?:future|may|might|could|after\s+human\s+approval|following\s+human\s+approval)\b", re.IGNORECASE),
+    re.compile(r"(?:将来|今後|可能性|承認後|場合)"),
+    re.compile(r"(?:未來|可能|核准後|若|如果|之後)"),
+)
+PORTAL_CURRENT_STATE_CUE_PATTERNS = (
     re.compile(
-        r"\b(?:the\s+)?(?:OpenAI\s+)?submission\s+portal\s+is\s+empty\b",
+        r"\b(?:already|currently|now|exists?|present|absent|empty|has\s+no|contains?\s+no|does\s+not\s+contain|has\s+been|was|were|under\s+review|awaiting\s+review|queued\s+for\s+review)\b",
         re.IGNORECASE,
     ),
-    re.compile(
-        r"\bnothing\s+has\s+been\s+submitted\s+(?:through|via|in|to)\s+"
-        r"(?:the\s+)?(?:OpenAI\s+)?(?:submission\s+)?portal\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"\bthere\s+is\s+no\s+(?:OpenAI\s+)?(?:submission\s+)?portal\s+draft\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"\b(?:a|the)\s+draft\s+exists?\s+in\s+(?:the\s+)?"
-        r"(?:OpenAI\s+)?submission\s+portal\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"\b(?:the\s+)?(?:OpenAI\s+)?(?:submission\s+)?portal\s+"
-        r"(?:has|contains)\s+(?:a|the)\s+draft\b",
-        re.IGNORECASE,
-    ),
-    # Japanese, including the mixed-language sentence being remediated.
-    re.compile(
-        r"(?:OpenAI\s*)?submission\s+portal\s*に\s*draft\s*は\s*"
-        r"(?:存在せず|存在しません|存在しない)",
-        re.IGNORECASE,
-    ),
-    re.compile(r"申請ポータル(?:に|には)\s*下書きは\s*存在しません"),
-    re.compile(r"申請ポータルには\s*何もありません"),
-    re.compile(r"ポータルからは\s*何も提出されていません"),
-    re.compile(r"下書きは\s*作成されていません"),
-    re.compile(r"申請ポータルに\s*下書きが\s*存在します"),
-    re.compile(r"申請(?:ポータルに)?\s*下書きが\s*作成されています"),
-    # Taiwan Traditional Chinese, including the mixed-language sentence
-    # being remediated.
-    re.compile(
-        r"(?:OpenAI\s*)?submission\s+portal\s*中\s*沒有\s*draft",
-        re.IGNORECASE,
-    ),
-    re.compile(r"申請入口中\s*沒有草稿"),
-    re.compile(r"申請入口\s*是空的"),
-    re.compile(r"尚未透過申請入口\s*提交任何內容"),
-    re.compile(r"沒有建立任何申請草稿"),
-    re.compile(r"申請入口中\s*有草稿"),
-    re.compile(r"已建立申請草稿"),
+    re.compile(r"(?:現在|すでに|既に|済み|存在|(?<!可能性が)あります|ありません|されています|されていません|審査中|審査待ち|空です)"),
+    re.compile(r"(?:目前|已有|已(?:建立|儲存|提交|送出|送審)|未(?:建立|儲存|提交|送出|送審)|沒有|存在|審核中|待審核|是空的|不是空的)"),
 )
 
 # A private local path leaking into a public submission artifact.
@@ -1296,6 +1390,65 @@ def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
         )
 
 
+def portal_atomic_segments(visible: str) -> list[str]:
+    """Split visible prose without allowing one safe sentence to mask another."""
+    return [
+        " ".join(segment.split())
+        for segment in SEGMENT_SPLIT_PATTERN.split(visible)
+        if segment.strip()
+    ]
+
+
+def portal_patterns_match(
+    patterns_by_language: dict[str, tuple[re.Pattern[str], ...]], segment: str
+) -> bool:
+    return any(
+        pattern.search(segment)
+        for patterns in patterns_by_language.values()
+        for pattern in patterns
+    )
+
+
+def portal_segment_is_safe(segment: str) -> bool:
+    if any(
+        pattern.search(segment)
+        for pattern in (
+            *PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS,
+            *PORTAL_HUMAN_GATE_SAFE_PATTERNS,
+        )
+    ):
+        return True
+
+    has_current_state_cue = any(
+        pattern.search(segment) for pattern in PORTAL_CURRENT_STATE_CUE_PATTERNS
+    )
+    if not has_current_state_cue and any(
+        pattern.search(segment) for pattern in PORTAL_EXPLANATORY_SEGMENT_PATTERNS
+    ):
+        return True
+    if not has_current_state_cue and any(
+        pattern.search(segment) for pattern in PORTAL_FUTURE_SEGMENT_PATTERNS
+    ):
+        return True
+    return False
+
+
+def portal_segment_asserts_external_state(segment: str) -> bool:
+    if portal_segment_is_safe(segment):
+        return False
+    has_portal_context = portal_patterns_match(PORTAL_CONTEXT_PATTERNS, segment) or any(
+        pattern.search(segment) for pattern in PORTAL_IMPLICIT_CONTEXT_PATTERNS
+    )
+    has_state_object = portal_patterns_match(PORTAL_STATE_OBJECT_PATTERNS, segment) or any(
+        pattern.search(segment) for pattern in PORTAL_SELF_STATE_PATTERNS
+    )
+    return (
+        has_portal_context
+        and has_state_object
+        and portal_patterns_match(PORTAL_STATE_PREDICATE_PATTERNS, segment)
+    )
+
+
 def validate_portal_state_assertions(root: Path, errors: list[str]) -> None:
     """Reject assertions about external portal contents or submission state."""
     for relative in PORTAL_STATE_SCAN_FILES:
@@ -1303,12 +1456,11 @@ def validate_portal_state_assertions(root: Path, errors: list[str]) -> None:
         if not path.is_file():
             continue
         visible = markdown_visible_text(path.read_text(encoding="utf-8"))
-        for pattern in PORTAL_STATE_ASSERTION_PATTERNS:
-            match = pattern.search(visible)
-            if match:
+        for segment in portal_atomic_segments(visible):
+            if portal_segment_asserts_external_state(segment):
                 errors.append(
                     f"{relative} must not assert unverified external portal state: "
-                    f"{' '.join(match.group(0).split())!r}."
+                    f"{segment!r}."
                 )
 
 

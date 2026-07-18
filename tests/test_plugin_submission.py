@@ -795,6 +795,163 @@ class PortalStateWordingTests(RepoInvariantTestCase):
             self.assert_accepted(run_validator(root))
 
 
+PORTAL_REQUIRED_INVALID_CASES = (
+    ("required_en_no_draft_exists", submission_module.PLUGIN_README_RELATIVE, "No draft exists in the OpenAI submission portal."),
+    ("required_en_portal_has_no_draft", submission_module.PLUGIN_README_RELATIVE, "The portal has no draft."),
+    ("required_en_no_portal_draft", submission_module.PLUGIN_README_RELATIVE, "There is no portal draft."),
+    ("required_en_portal_empty", submission_module.PLUGIN_README_RELATIVE, "The submission portal is empty."),
+    ("required_en_nothing_submitted", submission_module.PLUGIN_README_RELATIVE, "Nothing has been submitted through the portal."),
+    ("required_en_draft_exists", submission_module.PLUGIN_README_RELATIVE, "A draft exists in the submission portal."),
+    ("required_en_content_submitted", submission_module.PLUGIN_README_RELATIVE, "Content has already been submitted through the portal."),
+    ("required_ja_no_draft", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きは存在しません。"),
+    ("required_ja_portal_empty", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには何もありません。"),
+    ("required_ja_draft_not_created", submission_module.PLUGIN_README_JA_RELATIVE, "下書きは作成されていません。"),
+    ("required_ja_nothing_submitted", submission_module.PLUGIN_README_JA_RELATIVE, "ポータルからは何も提出されていません。"),
+    ("required_ja_draft_exists", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きが存在します。"),
+    ("required_ja_submitted_content", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには提出済みの内容があります。"),
+    ("required_zh_no_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中沒有草稿。"),
+    ("required_zh_portal_empty", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口是空的。"),
+    ("required_zh_draft_not_created", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "沒有建立任何申請草稿。"),
+    ("required_zh_nothing_submitted", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "尚未透過申請入口提交任何內容。"),
+    ("required_zh_draft_exists", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中已有草稿。"),
+    ("required_zh_content_submitted", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "已透過申請入口提交內容。"),
+)
+
+# The 15 concrete false-PASS cases observed by the independent focused
+# re-audit. Four deliberately overlap the canonical 19 so both evidence sets
+# stay explicitly traceable in the test report.
+PORTAL_OBSERVED_FALSE_PASS_CASES = (
+    ("observed_en_content_submitted", submission_module.PLUGIN_README_RELATIVE, "Content has already been submitted through the portal."),
+    ("observed_ja_submitted_content", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには提出済みの内容があります。"),
+    ("observed_zh_existing_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中已有草稿。"),
+    ("observed_zh_content_submitted", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "已透過申請入口提交內容。"),
+    ("observed_en_application_portal_saved_draft", submission_module.PLUGIN_README_RELATIVE, "The application portal contains a saved draft."),
+    ("observed_en_pending_application_draft", submission_module.PLUGIN_README_RELATIVE, "A pending draft exists in the application portal."),
+    ("observed_en_no_saved_application_draft", submission_module.PLUGIN_README_RELATIVE, "No saved draft exists in the application portal."),
+    ("observed_en_submitted_soft_break", submission_module.PLUGIN_README_RELATIVE, "Content has already been submitted through the\nportal."),
+    ("observed_ja_dorafuto", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルにドラフトが存在します。"),
+    ("observed_ja_soukou", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに草稿が存在します。"),
+    ("observed_ja_soushin", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには送審済みの内容があります。"),
+    ("observed_zh_pending_review_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中有待送審草稿。"),
+    ("observed_zh_existing_pending_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中已有待處理草稿。"),
+    ("observed_zh_not_reviewed", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "尚未透過申請入口送審任何內容。"),
+    ("observed_zh_reviewed", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "已透過申請入口送審內容。"),
+)
+
+PORTAL_SEMANTIC_REQUIRED_CASES = (
+    ("semantic_en_content_submitted", submission_module.PLUGIN_README_RELATIVE, "Content has already been submitted through the portal."),
+    ("semantic_en_saved_draft", submission_module.PLUGIN_README_RELATIVE, "The application portal has a saved draft."),
+    ("semantic_en_pending_draft_present", submission_module.PLUGIN_README_RELATIVE, "A pending draft is present in the submission portal."),
+    ("semantic_en_no_saved_draft", submission_module.PLUGIN_README_RELATIVE, "There is no saved draft in the application portal."),
+    ("semantic_en_awaiting_review", submission_module.PLUGIN_README_RELATIVE, "The portal contains an application awaiting review."),
+    ("semantic_en_no_pending_application", submission_module.PLUGIN_README_RELATIVE, "The review portal has no pending application."),
+    ("semantic_en_materials_uploaded", submission_module.PLUGIN_README_RELATIVE, "Materials were uploaded to the developer portal."),
+    ("semantic_en_nothing_filed", submission_module.PLUGIN_README_RELATIVE, "Nothing was filed through the application system."),
+    ("semantic_en_under_review", submission_module.PLUGIN_README_RELATIVE, "A submission is already under review in the portal."),
+    ("semantic_en_does_not_contain", submission_module.PLUGIN_README_RELATIVE, "The portal does not contain a draft."),
+    ("semantic_en_portal_not_empty", submission_module.PLUGIN_README_RELATIVE, "The developer portal is not empty."),
+    ("semantic_en_portal_absent", submission_module.PLUGIN_README_RELATIVE, "The review portal is absent."),
+    ("semantic_ja_submitted_content", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには提出済みの内容があります。"),
+    ("semantic_ja_draft_exists", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルにドラフトがあります。"),
+    ("semantic_ja_draft_absent", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに草稿は存在しません。"),
+    ("semantic_ja_saved_draft", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面には保存済みの下書きがあります。"),
+    ("semantic_ja_nothing_submitted", submission_module.PLUGIN_README_JA_RELATIVE, "申請サイトからは何も提出されていません。"),
+    ("semantic_ja_reviewed", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルで送審済みです。"),
+    ("semantic_ja_awaiting_review", submission_module.PLUGIN_README_JA_RELATIVE, "申請入口には送審待ちの内容があります。"),
+    ("semantic_ja_no_application_content", submission_module.PLUGIN_README_JA_RELATIVE, "審査ポータルには申請内容がありません。"),
+    ("semantic_ja_submitted_materials_saved", submission_module.PLUGIN_README_JA_RELATIVE, "申請システムに提出済み資料が保存されています。"),
+    ("semantic_ja_draft_not_created", submission_module.PLUGIN_README_JA_RELATIVE, "ポータルにはドラフトが作成されていません。"),
+    ("semantic_ja_portal_not_empty", submission_module.PLUGIN_README_JA_RELATIVE, "ポータルは空ではありません。"),
+    ("semantic_zh_existing_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中已有草稿。"),
+    ("semantic_zh_submitted_content", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "已透過申請入口提交內容。"),
+    ("semantic_zh_no_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請平台中沒有草稿。"),
+    ("semantic_zh_pending_submission_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "提交入口已有待提交草稿。"),
+    ("semantic_zh_pending_review_content", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "送審平台中已有待送審內容。"),
+    ("semantic_zh_not_reviewed", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口尚未送審。"),
+    ("semantic_zh_submitted_page_content", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請頁面已有提交內容。"),
+    ("semantic_zh_no_pending_application", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核入口沒有待審核申請。"),
+    ("semantic_zh_saved_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "平台中已儲存草稿。"),
+    ("semantic_zh_no_draft_exists", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中不存在任何草稿。"),
+    ("semantic_zh_platform_not_empty", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "平台不是空的。"),
+)
+
+PORTAL_FORMATTING_INVALID_CASES = (
+    ("format_en_markdown_emphasis", submission_module.PLUGIN_README_RELATIVE, "The **application portal** has a **saved draft**."),
+    ("format_en_html_emphasis", submission_module.PLUGIN_README_RELATIVE, "The <em>application portal</em> has a <strong>saved draft</strong>."),
+    ("format_en_link", submission_module.PLUGIN_README_RELATIVE, "[A saved draft exists in the application portal](https://example.com)."),
+    ("format_en_soft_break", submission_module.PLUGIN_README_RELATIVE, "A saved draft exists in the application\nportal."),
+    ("format_en_case", submission_module.PLUGIN_README_RELATIVE, "THE APPLICATION PORTAL HAS A SAVED DRAFT."),
+    ("format_en_whitespace", submission_module.PLUGIN_README_RELATIVE, "The application   portal has   a saved   draft."),
+    ("format_ja_markdown_emphasis", submission_module.PLUGIN_README_JA_RELATIVE, "**申請ポータル**に**ドラフト**があります。"),
+    ("format_ja_html_emphasis", submission_module.PLUGIN_README_JA_RELATIVE, "<em>申請ポータル</em>に<strong>草稿</strong>があります。"),
+    ("format_ja_link", submission_module.PLUGIN_README_JA_RELATIVE, "[申請ポータルにドラフトがあります](https://example.com)。"),
+    ("format_ja_soft_break", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに\nドラフトがあります。"),
+    ("format_zh_markdown_emphasis", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "**申請入口**中**已有草稿**。"),
+    ("format_zh_html_emphasis", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "<em>申請入口</em>中<strong>已有草稿</strong>。"),
+    ("format_zh_link", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "[申請入口中已有草稿](https://example.com)。"),
+    ("format_zh_soft_break", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中\n已有草稿。"),
+    ("format_explanatory_then_current", submission_module.PLUGIN_README_RELATIVE, "The portal documentation defines a field named \"draft\". A saved draft exists in the portal."),
+)
+
+PORTAL_SAFE_CONTROL_CASES = (
+    ("safe_en_repository_lane", submission_module.PLUGIN_README_RELATIVE, "No portal action is performed or evidenced by this repository lane."),
+    ("safe_en_human_gate", submission_module.PLUGIN_README_RELATIVE, "Portal state remains a human verification gate."),
+    ("safe_en_repository_material", submission_module.PLUGIN_README_RELATIVE, "The submission package contains repository-side preparation material."),
+    ("safe_en_human_check", submission_module.PLUGIN_README_RELATIVE, "The final portal state must be checked by a human."),
+    ("safe_en_no_api_client", submission_module.PLUGIN_README_RELATIVE, "The repository does not contain a portal API client."),
+    ("safe_en_documentation_field", submission_module.PLUGIN_README_RELATIVE, "The portal documentation defines a field named \"draft\"."),
+    ("safe_en_future_draft", submission_module.PLUGIN_README_RELATIVE, "A future portal draft may be created after human approval."),
+    ("safe_en_fixture_example", submission_module.PLUGIN_README_RELATIVE, "The test fixture contains the phrase \"pending draft\" as an example."),
+    ("safe_ja_repository_lane", submission_module.PLUGIN_README_JA_RELATIVE, "このリポジトリ側の作業では申請ポータルを操作していません。"),
+    ("safe_ja_human_gate", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルの状態は人間が確認します。"),
+    ("safe_ja_documentation_field", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルの「下書き」項目について説明します。"),
+    ("safe_ja_future_draft", submission_module.PLUGIN_README_JA_RELATIVE, "人間の承認後に下書きを作成する可能性があります。"),
+    ("safe_ja_term_explanation", submission_module.PLUGIN_README_JA_RELATIVE, "この文は「送審」という用語の説明です。"),
+    ("safe_zh_repository_lane", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本次儲存庫端作業未操作申請入口。"),
+    ("safe_zh_human_gate", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口的實際狀態仍須由人工確認。"),
+    ("safe_zh_documentation_field", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "文件說明申請入口的「草稿」欄位。"),
+    ("safe_zh_future_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "人工核准後可能建立草稿。"),
+    ("safe_zh_term_explanation", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段僅解釋「送審」這個詞彙。"),
+)
+
+
+def _make_portal_semantic_rejection_test(relative: str, text: str):
+    def test(self):
+        self.reject_portal_assertion(relative, text)
+
+    return test
+
+
+def _make_portal_semantic_safe_test(relative: str, text: str):
+    def test(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(root, relative, "\n" + text + "\n")
+            self.assert_accepted(run_validator(root))
+
+    return test
+
+
+for _name, _relative, _text in (
+    *PORTAL_REQUIRED_INVALID_CASES,
+    *PORTAL_OBSERVED_FALSE_PASS_CASES,
+    *PORTAL_SEMANTIC_REQUIRED_CASES,
+    *PORTAL_FORMATTING_INVALID_CASES,
+):
+    setattr(
+        PortalStateWordingTests,
+        f"test_portal_semantic_{_name}_fails",
+        _make_portal_semantic_rejection_test(_relative, _text),
+    )
+
+for _name, _relative, _text in PORTAL_SAFE_CONTROL_CASES:
+    setattr(
+        PortalStateWordingTests,
+        f"test_portal_semantic_{_name}_passes",
+        _make_portal_semantic_safe_test(_relative, _text),
+    )
+
+
 class StatusClaimSubprocessTests(RepoInvariantTestCase):
     """F-03 acceptance tests. Every case runs the real validator as a
     subprocess against a fresh temporary repository copy — no test re-derives
