@@ -19,6 +19,7 @@ import json
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any
@@ -474,14 +475,14 @@ PORTAL_CONTEXT_PATTERNS = {
     "ja": (
         re.compile(
             r"(?:申請ポータル|提出ポータル|審査ポータル|申請入口|申請画面|申請ページ|"
-            r"申請サイト|申請システム|申請ダッシュボード|管理画面|審査画面|申請一覧|"
-            r"審査一覧|審査キュー|ポータル)"
+            r"申請サイト|申請システム|申請ダッシュボード|申請フォーム|管理画面|審査画面|"
+            r"申請一覧|提出一覧|審査一覧|審査キュー|ポータル)"
         ),
     ),
     "zh_hant": (
         re.compile(
             r"(?:申請入口|提交入口|送審入口|審核入口|申請平台|提交平台|送審平台|"
-            r"審核平台|申請頁面|申請系統|申請後台|申請儀表板|申請介面|申請列表|"
+            r"審核平台|申請頁面|審核頁面|申請系統|申請後台|申請儀表板|申請介面|申請列表|"
             r"審核列表|審核佇列|入口)"
         ),
     ),
@@ -513,8 +514,8 @@ PORTAL_STATE_OBJECT_PATTERNS = {
         re.compile(
             r"\b(?:drafts?|(?:saved|pending|existing|application|submission|review)\s+drafts?|"
             r"(?:pending|saved)\s+applications?|(?:application|submission|submitted|uploaded)\s+"
-            r"(?:content|data|materials?|files?|records?|entries|packets?|forms?|cases?|requests?)|"
-            r"materials?|applications?|submissions?|content|files?|records?|entries|packets?|"
+            r"(?:content|data|materials?|files?|records?|entr(?:y|ies)|packets?|forms?|cases?|requests?)|"
+            r"materials?|applications?|submissions?|content|files?|records?|entr(?:y|ies)|packets?|"
             r"forms?|cases?|requests?|nothing)\b",
             re.IGNORECASE,
         ),
@@ -543,7 +544,7 @@ PORTAL_STATE_OBJECT_PATTERNS = {
 PORTAL_IMPLICIT_CONTEXT_PATTERNS = (
     re.compile(r"\b(?:saved\s+|pending\s+|existing\s+)?drafts?\b", re.IGNORECASE),
     re.compile(r"(?:下書き|草稿|ドラフト)"),
-    re.compile(r"(?:申請草稿|待提交草稿|待送審草稿)"),
+    re.compile(r"(?:申請草稿|待提交草稿|待送審草稿|提交內容|申請資料|送件資料)"),
 )
 
 # The portal/system itself is the state object for empty/present/absent
@@ -572,7 +573,7 @@ PORTAL_STATE_PREDICATE_PATTERNS = {
         ),
         re.compile(
             r"\b(?:has|have|had|holds?|held|holding|contains?|contained|containing|shows?|"
-            r"showed|display(?:s|ed|ing)?|stores?|stored|storing|retains?|retained|retaining|"
+            r"showed|showing|display(?:s|ed|ing)?|stores?|stored|storing|retains?|retained|retaining|"
             r"records?|recorded|recording|does\s+not\s+contain|do\s+not\s+contain)\s+"
             r"(?:no\s+|an?\s+|the\s+|any\s+)?",
             re.IGNORECASE,
@@ -620,7 +621,10 @@ PORTAL_STATE_PREDICATE_PATTERNS = {
         re.compile(r"未(?:作成|保存|登録|記録|受付|受理|提出|送信|送付|申請|送審|アップロード)"),
         re.compile(r"残(?:る|ります|っている|っています|っていない|っていません|った|存)"),
         re.compile(r"審査に回(?:る|ります|っている|っています|った)"),
-        re.compile(r"(?:審査中|審査待ち|送審待ち|処理中|完了|承認|却下|差し戻し)"),
+        re.compile(
+            r"(?:審査中|審査待ち|送審待ち|処理中|完了|承認|却下|"
+            r"差し戻し|差し戻され(?:る|ている|ています|た)|受け付けられ(?:ている|ています|た))"
+        ),
         re.compile(r"空(?:です|ではありません|ではない)"),
         re.compile(r"含まれて(?:います|いません|いる|いない)"),
         re.compile(r"何も[^。！？；\n]{0,24}(?:提出|送信|申請|送審)[^。！？；\n]{0,12}(?:ていません|していない)"),
@@ -637,6 +641,7 @@ PORTAL_STATE_PREDICATE_PATTERNS = {
         re.compile(r"沒有(?:保留|留存|保存|儲存|建立|建檔|登錄|登記|記錄|送件|送出|提交|送審|上傳)"),
         re.compile(r"已(?:透過|經由)[^。！？；\n]{0,24}(?:提交|送出|送審|上傳)"),
         re.compile(r"(?:正在審查|審核中|待審核|待審|待送審|待提交|處理中)"),
+        re.compile(r"(?:退回|駁回)(?:的)?|(?:已被|遭)(?:退回|駁回)"),
         re.compile(r"(?:包含|不包含)"),
     ),
 }
@@ -650,6 +655,18 @@ class DiscourseMode(Enum):
     DOCUMENTATION_OR_EXAMPLE = auto()
     REPOSITORY_EVIDENCE_BOUNDARY = auto()
     HUMAN_GATE = auto()
+
+
+@dataclass(frozen=True)
+class AssertionSpan:
+    """One predicate-bearing clause with its own attached discourse scope."""
+
+    text: str
+    start: int
+    end: int
+    language: str
+    predicate_kind: str
+    discourse_scope: DiscourseMode
 
 
 PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS = (
@@ -701,6 +718,7 @@ PORTAL_QUESTION_VERIFICATION_PATTERNS = (
         re.IGNORECASE,
     ),
     re.compile(r"(?:かどうか|か)(?:は|を)?[^。！？；\n]{0,32}(?:確認|判断)"),
+    re.compile(r"(?:です|ます|でしょう)?か[?？]$"),
     re.compile(r"(?:有無)[^。！？；\n]{0,24}(?:確認|判断)"),
     re.compile(r"(?:確認が必要|確認する必要|確認できません|確認できない|人間が確認|判断できません|判断できない|状態は不明)"),
     re.compile(r"(?:是否|有無)"),
@@ -800,6 +818,10 @@ NEGATED_STATUS_PATTERNS = (
     # claim, sentence punctuation, or a connector.
     re.compile(r"[\w・]{0,12}(?:されて|して)?い?ません"),
     re.compile(r"[\w・]{0,12}(?:されて|して)いない"),
+    re.compile(
+        r"(?:公開(?:済みで)?利用可能|一般公開で(?:利用可能|利用できる)|誰でも利用可能)"
+        r"(?:ではありません|ではない)"
+    ),
     re.compile(r"未(?:申請|承認|提出|公開|完了|提供|掲載|登録)"),
     re.compile(r"[\w・]{0,16}(?:を|は)?(?:一切)?主張(?:しません|しない)"),
     # Traditional Chinese: "尚未提交、列入或公開於", "未在…上架", "不主張…".
@@ -837,6 +859,8 @@ POSITIVE_STATUS_PATTERNS = (
         r"公開\s*(?:Plugins\s*)?Directory\s*(?:で|から|に|上で)?[^\n。、]{0,12}?"
         r"(?:利用可能|利用でき|提供されてい|入手でき|取得でき|インストールでき|installでき)"
     ),
+    re.compile(r"(?:現在)?公開(?:済みで)?利用可能(?:です)?"),
+    re.compile(r"(?:一般公開で|誰でも)(?:利用可能(?:です)?|利用でき(?:ます|る))"),
     re.compile(r"正式公開済み"),
     re.compile(r"申請完了"),
     re.compile(r"承認済み"),
@@ -872,6 +896,22 @@ STRUCTURAL_SEPARATOR_PATTERN = re.compile(
 )
 STRUCTURAL_BRACKET_PATTERN = re.compile(r"[()（）\[\]【】{}]")
 QUESTION_BOUNDARIES = {"?", "？"}
+
+# These are predicate/clause boundaries inside one structural segment. A
+# separator becomes active only when both sides contain either an assertion
+# candidate or a safe-scope operator. This avoids treating every comma or
+# conjunction as a boundary while still isolating independently governed
+# predicates such as "asks whether ... while the portal currently ...".
+ASSERTION_SCOPE_SEPARATOR_PATTERN = re.compile(
+    r"\b(?:even\s+though|at\s+the\s+same\s+time|simultaneously|while|whereas|"
+    r"although|though|and|but)\b"
+    r"|(?:けれども|けれど|しかし|一方で|一方|同時に|ながら|ものの|のに|また|そして|が)"
+    r"|(?:但是|然而|不過|一方面|並且|同時|但|且|而)"
+    r"|[,、，]",
+    re.IGNORECASE,
+)
+JAPANESE_SCRIPT_PATTERN = re.compile(r"[ぁ-ゟ゠-ヿ]")
+CJK_SCRIPT_PATTERN = re.compile(r"[㐀-䶿一-鿿豈-﫿]")
 
 
 def mask_negated_status_spans(text: str) -> str:
@@ -1559,64 +1599,182 @@ def matches_any(patterns: tuple[re.Pattern[str], ...], segment: str) -> bool:
     return any(pattern.search(segment) for pattern in patterns)
 
 
-def classify_discourse_mode(segment: str) -> DiscourseMode:
-    """Classify one atomic segment; no mode crosses a structural boundary."""
-    if matches_any(PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS, segment):
+def portal_text_materially_assertive(text: str) -> bool:
+    """Return whether one clause contains a complete portal-state predicate."""
+    has_state_object = portal_patterns_match(PORTAL_STATE_OBJECT_PATTERNS, text) or any(
+        pattern.search(text) for pattern in PORTAL_SELF_STATE_PATTERNS
+    )
+    has_portal_context = (
+        portal_patterns_match(PORTAL_CONTEXT_PATTERNS, text)
+        or any(pattern.search(text) for pattern in PORTAL_IMPLICIT_CONTEXT_PATTERNS)
+        or (
+            has_state_object
+            and portal_patterns_match(PORTAL_GENERIC_SURFACE_PATTERNS, text)
+        )
+    )
+    return (
+        has_portal_context
+        and has_state_object
+        and portal_patterns_match(PORTAL_STATE_PREDICATE_PATTERNS, text)
+    )
+
+
+def product_text_materially_assertive(text: str) -> bool:
+    return any(pattern.search(text) for pattern in POSITIVE_STATUS_PATTERNS)
+
+
+def text_has_safe_scope_operator(text: str) -> bool:
+    return any(
+        matches_any(patterns, text)
+        for patterns in (
+            PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS,
+            PORTAL_EXPLANATORY_SEGMENT_PATTERNS,
+            PORTAL_QUESTION_VERIFICATION_PATTERNS,
+            PORTAL_FUTURE_SEGMENT_PATTERNS,
+            PORTAL_HUMAN_GATE_SAFE_PATTERNS,
+        )
+    )
+
+
+def text_has_assertion_candidate(text: str) -> bool:
+    """A boundary is useful only when each side carries a proposition."""
+    return (
+        text_has_safe_scope_operator(text)
+        or portal_text_materially_assertive(text)
+        or product_text_materially_assertive(text)
+    )
+
+
+def quoted_text_ranges(text: str) -> list[tuple[int, int]]:
+    return [
+        (match.start(), match.end())
+        for pattern in QUOTED_TEXT_PATTERNS
+        for match in pattern.finditer(text)
+    ]
+
+
+def position_is_quoted(position: int, ranges: list[tuple[int, int]]) -> bool:
+    return any(start <= position < end for start, end in ranges)
+
+
+def trimmed_range(text: str, start: int, end: int) -> tuple[int, int] | None:
+    while start < end and text[start].isspace():
+        start += 1
+    while end > start and text[end - 1].isspace():
+        end -= 1
+    return (start, end) if start < end else None
+
+
+def predicate_clause_ranges(segment: str) -> list[tuple[int, int]]:
+    """Extract independently governed clauses inside one structural segment.
+
+    Commas and conjunctions are candidate boundaries, not unconditional ones.
+    A split is retained only when both sides contain an assertion or a
+    discourse operator, and separators inside quoted example text are ignored.
+    """
+    ranges: list[tuple[int, int]] = []
+    cursor = 0
+    quoted_ranges = quoted_text_ranges(segment)
+
+    for match in ASSERTION_SCOPE_SEPARATOR_PATTERN.finditer(segment):
+        if position_is_quoted(match.start(), quoted_ranges):
+            continue
+        left_range = trimmed_range(segment, cursor, match.start())
+        right_range = trimmed_range(segment, match.end(), len(segment))
+        if left_range is None or right_range is None:
+            continue
+        left = segment[left_range[0] : left_range[1]]
+        right = segment[right_range[0] : right_range[1]]
+        if not (
+            text_has_assertion_candidate(left)
+            and text_has_assertion_candidate(right)
+        ):
+            continue
+        ranges.append(left_range)
+        cursor = match.end()
+
+    final_range = trimmed_range(segment, cursor, len(segment))
+    if final_range is not None:
+        ranges.append(final_range)
+    return ranges
+
+
+def detect_span_language(text: str) -> str:
+    if JAPANESE_SCRIPT_PATTERN.search(text):
+        return "ja"
+    if CJK_SCRIPT_PATTERN.search(text):
+        return "zh_hant"
+    return "en"
+
+
+def classify_predicate_scope(text: str) -> DiscourseMode:
+    """Attach one safe operator only to the clause/predicate it governs."""
+    if matches_any(PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS, text):
         return DiscourseMode.REPOSITORY_EVIDENCE_BOUNDARY
-    if matches_any(PORTAL_EXPLANATORY_SEGMENT_PATTERNS, segment):
+    if matches_any(PORTAL_EXPLANATORY_SEGMENT_PATTERNS, text):
         return DiscourseMode.DOCUMENTATION_OR_EXAMPLE
-    if matches_any(PORTAL_QUESTION_VERIFICATION_PATTERNS, segment):
+    if matches_any(PORTAL_QUESTION_VERIFICATION_PATTERNS, text):
         return DiscourseMode.QUESTION_OR_VERIFICATION
-    if matches_any(PORTAL_FUTURE_SEGMENT_PATTERNS, segment):
+    if matches_any(PORTAL_FUTURE_SEGMENT_PATTERNS, text):
         return DiscourseMode.FUTURE_OR_HYPOTHETICAL
-    if matches_any(PORTAL_HUMAN_GATE_SAFE_PATTERNS, segment):
+    if matches_any(PORTAL_HUMAN_GATE_SAFE_PATTERNS, text):
         return DiscourseMode.HUMAN_GATE
     return DiscourseMode.CURRENT_ASSERTION
 
 
-def mask_documentation_example_terms(segment: str) -> str:
-    """Mask quoted terms only inside an explicit documentation/example mode."""
-    if classify_discourse_mode(segment) is not DiscourseMode.DOCUMENTATION_OR_EXAMPLE:
-        return segment
-    masked = segment
+def extract_assertion_spans(segment: str, predicate_kind: str) -> list[AssertionSpan]:
+    return [
+        AssertionSpan(
+            text=segment[start:end],
+            start=start,
+            end=end,
+            language=detect_span_language(segment[start:end]),
+            predicate_kind=predicate_kind,
+            discourse_scope=classify_predicate_scope(segment[start:end]),
+        )
+        for start, end in predicate_clause_ranges(segment)
+    ]
+
+
+def mask_documentation_example_terms(span: AssertionSpan) -> str:
+    """Mask quoted terms only in the predicate span governed as an example."""
+    if span.discourse_scope is not DiscourseMode.DOCUMENTATION_OR_EXAMPLE:
+        return span.text
+    masked = span.text
     for pattern in QUOTED_TEXT_PATTERNS:
         masked = pattern.sub(lambda match: " " * len(match.group(0)), masked)
     return masked
 
 
-def portal_segment_asserts_external_state(segment: str) -> bool:
-    has_state_object = portal_patterns_match(PORTAL_STATE_OBJECT_PATTERNS, segment) or any(
-        pattern.search(segment) for pattern in PORTAL_SELF_STATE_PATTERNS
-    )
-    has_portal_context = (
-        portal_patterns_match(PORTAL_CONTEXT_PATTERNS, segment)
-        or any(pattern.search(segment) for pattern in PORTAL_IMPLICIT_CONTEXT_PATTERNS)
-        or (
-            has_state_object
-            and portal_patterns_match(PORTAL_GENERIC_SURFACE_PATTERNS, segment)
-        )
-    )
-    materially_assertive = (
-        has_portal_context
-        and has_state_object
-        and portal_patterns_match(PORTAL_STATE_PREDICATE_PATTERNS, segment)
-    )
-    if not materially_assertive:
+def portal_assertion_span_is_unsafe(span: AssertionSpan) -> bool:
+    if not portal_text_materially_assertive(span.text):
         return False
 
-    mode = classify_discourse_mode(segment)
-    if mode in {
-        DiscourseMode.QUESTION_OR_VERIFICATION,
-        DiscourseMode.DOCUMENTATION_OR_EXAMPLE,
-        DiscourseMode.REPOSITORY_EVIDENCE_BOUNDARY,
-    }:
+    if span.discourse_scope is DiscourseMode.QUESTION_OR_VERIFICATION:
         return False
-    if mode is DiscourseMode.FUTURE_OR_HYPOTHETICAL:
-        return matches_any(PORTAL_CURRENT_STATE_CUE_PATTERNS, segment)
-    # A pure human gate has no material state predicate and returned above.
-    # If a segment classified as HUMAN_GATE reaches this point, it also makes
-    # an independent current-state assertion and must be rejected.
+    if span.discourse_scope is DiscourseMode.REPOSITORY_EVIDENCE_BOUNDARY:
+        # The exact repository-evidence predicate is itself the governed
+        # boundary. Clause extraction keeps a coordinated portal assertion in
+        # a different span, where this operator is absent.
+        return False
+    if span.discourse_scope is DiscourseMode.DOCUMENTATION_OR_EXAMPLE:
+        # Only the quoted/example predicate is governed. Any unquoted material
+        # current-state predicate left in the same clause remains unsafe.
+        return portal_text_materially_assertive(mask_documentation_example_terms(span))
+    if span.discourse_scope is DiscourseMode.FUTURE_OR_HYPOTHETICAL:
+        return matches_any(PORTAL_CURRENT_STATE_CUE_PATTERNS, span.text)
+    # A pure human-gate clause has no material state predicate and returned
+    # above. If HUMAN_GATE reaches this point, it contains an ungoverned
+    # current assertion and must reject.
     return True
+
+
+def portal_segment_asserts_external_state(segment: str) -> bool:
+    """Compatibility wrapper evaluating every predicate span independently."""
+    return any(
+        portal_assertion_span_is_unsafe(span)
+        for span in extract_assertion_spans(segment, "portal-state")
+    )
 
 
 def validate_portal_state_assertions(root: Path, errors: list[str]) -> None:
@@ -1627,11 +1785,12 @@ def validate_portal_state_assertions(root: Path, errors: list[str]) -> None:
             continue
         visible = markdown_visible_text(path.read_text(encoding="utf-8"))
         for segment in structural_atomic_segments(visible):
-            if portal_segment_asserts_external_state(segment):
-                errors.append(
-                    f"{relative} must not assert unverified external portal state: "
-                    f"{segment!r}."
-                )
+            for span in extract_assertion_spans(segment, "portal-state"):
+                if portal_assertion_span_is_unsafe(span):
+                    errors.append(
+                        f"{relative} must not assert unverified external portal state: "
+                        f"{span.text!r}."
+                    )
 
 
 def validate_human_prerequisites(root: Path, errors: list[str]) -> None:
@@ -1732,27 +1891,27 @@ def validate_status_claims(root: Path, errors: list[str]) -> None:
         visible = markdown_visible_text(path.read_text(encoding="utf-8"))
         masked = mask_negated_status_spans(visible)
         for segment in structural_atomic_segments(masked):
-            mode = classify_discourse_mode(segment)
-            if mode in {
-                DiscourseMode.QUESTION_OR_VERIFICATION,
-                DiscourseMode.FUTURE_OR_HYPOTHETICAL,
-                DiscourseMode.REPOSITORY_EVIDENCE_BOUNDARY,
-                DiscourseMode.HUMAN_GATE,
-            }:
-                continue
-            scan_segment = mask_documentation_example_terms(segment)
-            normalized = " ".join(scan_segment.split())
-            if not normalized:
-                continue
-            for pattern in POSITIVE_STATUS_PATTERNS:
-                match = pattern.search(scan_segment)
-                if match:
-                    errors.append(
-                        f"{relative} must not claim public Directory availability, "
-                        f"or submitted, published, approved, released, or stable "
-                        f"status: {normalized!r} asserts "
-                        f"{' '.join(match.group(0).split())!r}."
-                    )
+            for span in extract_assertion_spans(segment, "product-status"):
+                if span.discourse_scope is DiscourseMode.QUESTION_OR_VERIFICATION:
+                    continue
+                if (
+                    span.discourse_scope is DiscourseMode.FUTURE_OR_HYPOTHETICAL
+                    and not matches_any(PORTAL_CURRENT_STATE_CUE_PATTERNS, span.text)
+                ):
+                    continue
+                scan_span = mask_documentation_example_terms(span)
+                normalized = " ".join(scan_span.split())
+                if not normalized:
+                    continue
+                for pattern in POSITIVE_STATUS_PATTERNS:
+                    match = pattern.search(scan_span)
+                    if match:
+                        errors.append(
+                            f"{relative} must not claim public Directory availability, "
+                            f"or submitted, published, approved, released, or stable "
+                            f"status: {normalized!r} asserts "
+                            f"{' '.join(match.group(0).split())!r}."
+                        )
 
 
 def validate_no_local_paths(root: Path, errors: list[str]) -> None:

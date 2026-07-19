@@ -24,7 +24,14 @@ def load_module(name: str, path: Path):
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load {path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # dataclasses and other runtime type helpers resolve the defining module
+    # through sys.modules, matching normal import machinery semantics.
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(name, None)
+        raise
     return module
 
 
@@ -1068,6 +1075,94 @@ PRODUCT_STATUS_DISCOURSE_INVALID_CASES = (
     ("product_zh_bare_quoted_claim", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本 Plugin「已提交」。"),
 )
 
+# Eighth-remediation lexical closures. The six audited sentences and fresh
+# inflections each execute the real validator against an isolated repository.
+F06_PREDICATE_LEXICAL_INVALID_CASES = (
+    ("predicate_lexical_en_shows_no_entry", submission_module.PLUGIN_README_RELATIVE, "The developer console shows no pending entry."),
+    ("predicate_lexical_ja_sent_file", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧には送付済みファイルがあります。"),
+    ("predicate_lexical_ja_returned_case", submission_module.PLUGIN_README_JA_RELATIVE, "審査画面で案件が差し戻されています。"),
+    ("predicate_lexical_ja_accepted_form", submission_module.PLUGIN_README_JA_RELATIVE, "申請フォームはすでに受付済みです。"),
+    ("predicate_lexical_zh_shows_returned", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核頁面顯示退回的申請。"),
+    ("predicate_lexical_zh_was_rejected", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "提交內容已被駁回。"),
+    ("predicate_inflect_en_showing_entry", submission_module.PLUGIN_README_RELATIVE, "The application dashboard is showing a pending entry."),
+    ("predicate_inflect_en_showed_entries", submission_module.PLUGIN_README_RELATIVE, "The review console showed no pending entries."),
+    ("predicate_inflect_ja_file_was_sent", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧に送付されたファイルがあります。"),
+    ("predicate_inflect_ja_file_sent_complete", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面のファイルは送付済みです。"),
+    ("predicate_inflect_ja_case_will_return", submission_module.PLUGIN_README_JA_RELATIVE, "審査画面で案件が差し戻される。"),
+    ("predicate_inflect_ja_case_returned", submission_module.PLUGIN_README_JA_RELATIVE, "審査一覧の案件は差し戻されている。"),
+    ("predicate_inflect_ja_form_accepted", submission_module.PLUGIN_README_JA_RELATIVE, "申請フォームは受け付けられている。"),
+    ("predicate_inflect_ja_application_received", submission_module.PLUGIN_README_JA_RELATIVE, "申請フォームの申請は受付されています。"),
+    ("predicate_inflect_zh_displayed_returned", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核頁面顯示已退回的申請。"),
+    ("predicate_inflect_zh_list_returned", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核列表呈現退回的案件。"),
+    ("predicate_inflect_zh_content_rejected", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "提交內容遭駁回。"),
+    ("predicate_inflect_zh_material_returned", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請資料已被退回。"),
+)
+
+# Safe operators and independent current predicates deliberately share one
+# structural segment. Each named case proves that only the governed predicate
+# is exempt, including cross-language coordination.
+F06_PREDICATE_SCOPE_INVALID_CASES = (
+    ("predicate_question_en_while", submission_module.PLUGIN_README_RELATIVE, "The reviewer asks whether a draft exists while the review portal currently contains submitted material."),
+    ("predicate_question_ja_ga", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きがあるか確認しますが、申請画面には提出済み資料があります。"),
+    ("predicate_question_zh_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要確認申請入口是否有草稿，但申請資料已上傳至平台。"),
+    ("predicate_example_en_while", submission_module.PLUGIN_README_RELATIVE, "This is an explanatory example, while the portal currently contains a saved application."),
+    ("predicate_example_ja_comma", submission_module.PLUGIN_README_JA_RELATIVE, "これは説明例で、申請画面には提出済み資料があります。"),
+    ("predicate_example_zh_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "這只是說明範例，但申請入口中已有草稿。"),
+    ("predicate_repository_en_while", submission_module.PLUGIN_README_RELATIVE, "No portal action is performed or evidenced by this repository lane while a saved draft exists in the portal."),
+    ("predicate_human_ja_ga", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルの状態は人間が確認しますが、申請画面には下書きがあります。"),
+    ("predicate_human_zh_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口的狀態仍須人工確認，但申請資料已提交。"),
+    ("predicate_future_en_while", submission_module.PLUGIN_README_RELATIVE, "A draft may be created later while the portal currently holds submitted material."),
+    ("predicate_future_ja_ga", submission_module.PLUGIN_README_JA_RELATIVE, "将来下書きを作成する可能性がありますが、現在は申請画面に下書きがあります。"),
+    ("predicate_future_zh_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "未來可能建立草稿，但申請入口中已有草稿。"),
+    ("predicate_cross_en_ja", submission_module.PLUGIN_README_JA_RELATIVE, "This is only a hypothetical example, 申請ポータルには提出済み資料があります。"),
+    ("predicate_cross_ja_zh", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "これは用語の説明です，但申請入口中已有草稿。"),
+    ("predicate_cross_zh_en", submission_module.PLUGIN_README_RELATIVE, "本段僅為範例, but a saved draft exists in the application portal."),
+    ("predicate_coord_en_whereas", submission_module.PLUGIN_README_RELATIVE, "The reviewer asks whether a draft exists whereas the portal currently stores submitted material."),
+    ("predicate_coord_en_and", submission_module.PLUGIN_README_RELATIVE, "Human verification is required and a saved draft exists in the portal."),
+    ("predicate_coord_en_comma", submission_module.PLUGIN_README_RELATIVE, "This is a documentation example, the application console currently holds a saved record."),
+    ("predicate_coord_ja_simultaneous", submission_module.PLUGIN_README_JA_RELATIVE, "下書きがあるか確認すると同時に、申請画面には提出済み資料があります。"),
+    ("predicate_coord_ja_one_side", submission_module.PLUGIN_README_JA_RELATIVE, "これは用語の説明である一方、申請一覧には案件が登録されています。"),
+    ("predicate_coord_ja_nagara", submission_module.PLUGIN_README_JA_RELATIVE, "将来の操作を説明しながら、現在は申請画面に下書きがあります。"),
+    ("predicate_coord_ja_plain_ga", submission_module.PLUGIN_README_JA_RELATIVE, "下書きの有無は人間が確認するが申請画面には提出物があります。"),
+    ("predicate_coord_zh_simultaneous", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要確認是否有草稿，同時申請資料已上傳至平台。"),
+    ("predicate_coord_zh_er", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段只是範例，而申請入口中已有草稿。"),
+    ("predicate_coord_zh_and", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "仍須人工確認且提交內容已被駁回。"),
+)
+
+F06_PREDICATE_SAFE_CASES = (
+    ("predicate_safe_en_question", submission_module.PLUGIN_README_RELATIVE, "The reviewer asks whether a draft exists in the portal."),
+    ("predicate_safe_en_human_question", submission_module.PLUGIN_README_RELATIVE, "Human verification is required to determine whether the portal contains submitted material."),
+    ("predicate_safe_en_example", submission_module.PLUGIN_README_RELATIVE, "This example explains the phrase \"submitted material is present in the portal\"."),
+    ("predicate_safe_en_hypothetical", submission_module.PLUGIN_README_RELATIVE, "If a draft is created later, a human must review it."),
+    ("predicate_safe_ja_question", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きがあるかを人間が確認します。"),
+    ("predicate_safe_ja_verification", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面に提出物があるかどうかは確認が必要です。"),
+    ("predicate_safe_ja_example", submission_module.PLUGIN_README_JA_RELATIVE, "これは「申請画面に提出済み資料があります」という例文の説明です。"),
+    ("predicate_safe_ja_future", submission_module.PLUGIN_README_JA_RELATIVE, "将来下書きを作成する場合は、人間が確認します。"),
+    ("predicate_safe_zh_question", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口是否已有草稿，仍須人工確認。"),
+    ("predicate_safe_zh_verification", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要確認平台中是否有待審案件。"),
+    ("predicate_safe_zh_example", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段說明「申請資料已提交」這個範例句。"),
+    ("predicate_safe_zh_future", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "若未來建立草稿，仍須人工審核。"),
+)
+
+F06_JA_AVAILABILITY_INVALID_CASES = (
+    ("availability_ja_public_available", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開利用可能です。"),
+    ("availability_ja_current_public_available", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは現在公開利用可能です。"),
+    ("availability_ja_general_public", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは一般公開で利用できます。"),
+    ("availability_ja_published_available", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開済みで利用可能です。"),
+    ("availability_ja_anyone", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは誰でも利用可能です。"),
+    ("availability_ja_public_progressive", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開利用可能になっています。"),
+    ("availability_ja_general_possible", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは一般公開で利用可能です。"),
+    ("availability_ja_anyone_became", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは誰でも利用可能になりました。"),
+)
+
+F06_JA_AVAILABILITY_SAFE_CASES = (
+    ("availability_safe_ja_future", submission_module.PLUGIN_README_JA_RELATIVE, "将来公開できる可能性があります。"),
+    ("availability_safe_ja_question", submission_module.PLUGIN_README_JA_RELATIVE, "公開できるかどうかは人間が判断します。"),
+    ("availability_safe_ja_direct_question", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開利用可能ですか？"),
+    ("availability_safe_ja_negated", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開利用可能ではありません。"),
+    ("availability_safe_ja_explanation", submission_module.PLUGIN_README_JA_RELATIVE, "これは「公開利用可能」という表現の説明です。"),
+)
+
 
 def _make_portal_semantic_rejection_test(relative: str, text: str):
     def test(self):
@@ -1095,6 +1190,8 @@ for _name, _relative, _text in (
     *F06_MORPHOLOGY_INVALID_CASES,
     *F06_STRUCTURE_INVALID_CASES,
     *F06_SAFE_PLUS_UNSAFE_INVALID_CASES,
+    *F06_PREDICATE_LEXICAL_INVALID_CASES,
+    *F06_PREDICATE_SCOPE_INVALID_CASES,
 ):
     setattr(
         PortalStateWordingTests,
@@ -1102,7 +1199,12 @@ for _name, _relative, _text in (
         _make_portal_semantic_rejection_test(_relative, _text),
     )
 
-for _name, _relative, _text in (*PORTAL_SAFE_CONTROL_CASES, *F06_DISCOURSE_SAFE_CASES):
+for _name, _relative, _text in (
+    *PORTAL_SAFE_CONTROL_CASES,
+    *F06_DISCOURSE_SAFE_CASES,
+    *F06_PREDICATE_SAFE_CASES,
+    *F06_JA_AVAILABILITY_SAFE_CASES,
+):
     setattr(
         PortalStateWordingTests,
         f"test_portal_semantic_{_name}_passes",
@@ -1120,7 +1222,10 @@ def _make_product_status_discourse_rejection_test(relative: str, text: str):
     return test
 
 
-for _name, _relative, _text in PRODUCT_STATUS_DISCOURSE_INVALID_CASES:
+for _name, _relative, _text in (
+    *PRODUCT_STATUS_DISCOURSE_INVALID_CASES,
+    *F06_JA_AVAILABILITY_INVALID_CASES,
+):
     setattr(
         PortalStateWordingTests,
         f"test_portal_semantic_{_name}_fails",
