@@ -476,7 +476,7 @@ PORTAL_CONTEXT_PATTERNS = {
         re.compile(
             r"(?:申請ポータル|提出ポータル|審査ポータル|申請入口|申請画面|申請ページ|"
             r"申請サイト|申請システム|申請ダッシュボード|申請フォーム|管理画面|審査画面|"
-            r"申請一覧|提出一覧|審査一覧|審査キュー|ポータル)"
+            r"申請一覧|提出一覧|審査一覧|審査キュー|申請状態|審査状態|ポータル)"
         ),
     ),
     "zh_hant": (
@@ -667,6 +667,40 @@ class AssertionSpan:
     language: str
     predicate_kind: str
     discourse_scope: DiscourseMode
+    structure_id: int = -1
+    paragraph_id: int = 0
+    sentence_id: int = 0
+    parent_bracket_id: int | None = None
+    nesting_depth: int = 0
+    boundary_before: str = ""
+    boundary_after: str = ""
+    quoted_ranges: tuple[tuple[int, int], ...] = ()
+
+
+@dataclass
+class StructuredSpan:
+    """Visible-source span retaining the relationships needed after splitting."""
+
+    span_id: int
+    text: str
+    start: int
+    end: int
+    paragraph_id: int
+    sentence_id: int
+    parent_bracket_id: int | None
+    nesting_depth: int
+    boundary_before: str
+    boundary_after: str
+    quoted_ranges: tuple[tuple[int, int], ...]
+    previous_sibling: int | None = None
+    next_sibling: int | None = None
+
+
+@dataclass(frozen=True)
+class StructuredSpanGraph:
+    spans: tuple[StructuredSpan, ...]
+    bracket_antecedents: dict[int, int | None]
+    bracket_parents: dict[int, int | None]
 
 
 PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS = (
@@ -718,6 +752,7 @@ PORTAL_QUESTION_VERIFICATION_PATTERNS = (
         re.IGNORECASE,
     ),
     re.compile(r"(?:かどうか|か)(?:は|を)?[^。！？；\n]{0,32}(?:確認|判断)"),
+    re.compile(r"(?:かどうか)$"),
     re.compile(r"(?:です|ます|でしょう)?か[?？]$"),
     re.compile(r"(?:有無)[^。！？；\n]{0,24}(?:確認|判断)"),
     re.compile(r"(?:確認が必要|確認する必要|確認できません|確認できない|人間が確認|判断できません|判断できない|状態は不明)"),
@@ -734,6 +769,11 @@ PORTAL_CURRENT_STATE_CUE_PATTERNS = (
     re.compile(r"(?:現在|すでに|既に|実際|済み|存在|残って|(?<!可能性が)あります|ありません|されています|されていません|審査中|審査待ち|空です)"),
     re.compile(r"(?:目前|已有|實際|正在|仍(?:保留|留存|有)|已(?:建立|儲存|保存|提交|送出|送件|送審|上傳)|未(?:建立|儲存|保存|提交|送出|送件|送審|上傳)|沒有|存在|審核中|待審核|是空的|不是空的)"),
 )
+PORTAL_EXPLICIT_CURRENT_TIME_PATTERNS = (
+    re.compile(r"\b(?:already|currently|now|actually)\b", re.IGNORECASE),
+    re.compile(r"(?:現在|すでに|既に|実際)"),
+    re.compile(r"(?:目前|已有|實際|正在)"),
+)
 
 QUOTED_TEXT_PATTERNS = (
     re.compile(r'"[^"\n]*"'),
@@ -743,6 +783,7 @@ QUOTED_TEXT_PATTERNS = (
     re.compile(r"「[^」\n]*」"),
     re.compile(r"『[^』\n]*』"),
     re.compile(r"《[^》\n]*》"),
+    re.compile(r"〈[^〉\n]*〉"),
 )
 
 # A private local path leaking into a public submission artifact.
@@ -888,7 +929,7 @@ STRUCTURAL_SEPARATOR_PATTERN = re.compile(
     r"([.!?;:\n。！？；：]"
     r"|[—–]"
     r"|,\s*(?:and|or)\s+"
-    r"|(?<![A-Za-z])(?:but|however|yet|although|though|whereas|nevertheless)(?![A-Za-z])"
+    r"|(?<![A-Za-z])(?:even\s+though|but|however|yet|although|though|whereas|nevertheless)(?![A-Za-z])"
     r"|が[、,]"
     r"|ですが|だが|しかし|ただし|一方で|一方|とはいえ|ものの|けれども|けれど|にもかかわらず"
     r"|但是|但|然而|不過|可是|卻|雖然|儘管)",
@@ -896,6 +937,9 @@ STRUCTURAL_SEPARATOR_PATTERN = re.compile(
 )
 STRUCTURAL_BRACKET_PATTERN = re.compile(r"[()（）\[\]【】{}]")
 QUESTION_BOUNDARIES = {"?", "？"}
+STRUCTURAL_OPENING_BRACKETS = {"(": ")", "（": "）", "[": "]", "【": "】", "{": "}"}
+MAX_PORTAL_CONTEXT_SOURCE_DISTANCE = 240
+MAX_PORTAL_BRACKET_CONTEXT_DEPTH = 4
 
 # These are predicate/clause boundaries inside one structural segment. A
 # separator becomes active only when both sides contain either an assertion
@@ -1553,36 +1597,132 @@ def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
         )
 
 
-def structural_atomic_segments(visible: str) -> list[str]:
-    """Return independent visible segments, recursively isolating brackets.
+def japanese_ga_is_concessive(visible: str, start: int) -> bool:
+    """Distinguish a predicate-final concessive が from a case particle が."""
+    left = visible[max(0, start - 64) : start].rstrip()
+    return bool(
+        re.search(
+            r"(?:ます|ました|ません|です|でした|ではない|する|した|しない|"
+            r"される|された|されない|いる|いた|いない|ある|あった|ない|必要|不明)$",
+            left,
+        )
+    )
 
-    Markdown links and code have already been normalized. Replacing every
-    supported opening and closing bracket with a structural boundary therefore
-    extracts inner and outer prose independently at every nesting depth without
-    breaking link labels or scanning code examples.
+
+def build_structured_span_graph(visible: str) -> StructuredSpanGraph:
+    """Split visible prose without discarding source or discourse structure.
+
+    Quote ranges are captured before any structural boundary is considered.
+    Separators and brackets inside those ranges therefore remain part of the
+    governing example/quotation span. Offsets refer to the normalized visible
+    source returned by ``markdown_visible_text``.
     """
-    bracket_isolated = STRUCTURAL_BRACKET_PATTERN.sub("\n", visible)
-    pieces = STRUCTURAL_SEPARATOR_PATTERN.split(bracket_isolated)
-    segments: list[str] = []
-    current = ""
-
-    for piece in pieces:
-        if not piece:
+    quoted_ranges = quoted_text_ranges(visible)
+    events: list[tuple[int, int, str, str]] = []
+    for match in STRUCTURAL_SEPARATOR_PATTERN.finditer(visible):
+        if position_is_quoted(match.start(), quoted_ranges):
             continue
-        if STRUCTURAL_SEPARATOR_PATTERN.fullmatch(piece):
-            normalized = " ".join(current.split())
-            if normalized:
-                if piece in QUESTION_BOUNDARIES:
-                    normalized += piece
-                segments.append(normalized)
-            current = ""
+        raw = match.group(0)
+        if raw.startswith("が") and not japanese_ga_is_concessive(visible, match.start()):
             continue
-        current += piece
+        events.append((match.start(), match.end(), "separator", raw))
+    for match in STRUCTURAL_BRACKET_PATTERN.finditer(visible):
+        if position_is_quoted(match.start(), quoted_ranges):
+            continue
+        raw = match.group(0)
+        kind = "open" if raw in STRUCTURAL_OPENING_BRACKETS else "close"
+        events.append((match.start(), match.end(), kind, raw))
+    events.sort(key=lambda event: (event[0], event[1]))
 
-    normalized = " ".join(current.split())
-    if normalized:
-        segments.append(normalized)
-    return segments
+    spans: list[StructuredSpan] = []
+    bracket_antecedents: dict[int, int | None] = {}
+    bracket_parents: dict[int, int | None] = {}
+    bracket_stack: list[int] = []
+    paragraph_id = 0
+    sentence_id = 0
+    next_bracket_id = 0
+    cursor = 0
+    pending_boundary = ""
+
+    def emit(end: int) -> int | None:
+        nonlocal pending_boundary
+        start = cursor
+        while start < end and (visible[start].isspace() or visible[start] in ",、，"):
+            start += 1
+        stop = end
+        while stop > start and (visible[stop - 1].isspace() or visible[stop - 1] in ",、，"):
+            stop -= 1
+        if start >= stop:
+            pending_boundary += visible[cursor:end]
+            return None
+
+        before = pending_boundary + visible[cursor:start]
+        after = visible[stop:end]
+        intersections = tuple(
+            (quote_start, quote_end)
+            for quote_start, quote_end in quoted_ranges
+            if quote_start < stop and quote_end > start
+        )
+        span = StructuredSpan(
+            span_id=len(spans),
+            text=visible[start:stop],
+            start=start,
+            end=stop,
+            paragraph_id=paragraph_id,
+            sentence_id=sentence_id,
+            parent_bracket_id=bracket_stack[-1] if bracket_stack else None,
+            nesting_depth=len(bracket_stack),
+            boundary_before=before,
+            boundary_after=after,
+            quoted_ranges=intersections,
+        )
+        spans.append(span)
+        pending_boundary = after
+        return span.span_id
+
+    for start, end, kind, raw in events:
+        emitted_id = emit(start)
+        if spans:
+            spans[-1].boundary_after += raw
+        pending_boundary += raw
+
+        if kind == "open":
+            bracket_id = next_bracket_id
+            next_bracket_id += 1
+            bracket_antecedents[bracket_id] = emitted_id
+            bracket_parents[bracket_id] = bracket_stack[-1] if bracket_stack else None
+            bracket_stack.append(bracket_id)
+        elif kind == "close":
+            if bracket_stack:
+                bracket_stack.pop()
+        else:
+            if raw in QUESTION_BOUNDARIES and emitted_id is not None:
+                spans[emitted_id].text += raw
+                spans[emitted_id].end = end
+            if "\n" in raw:
+                paragraph_id += raw.count("\n")
+                sentence_id += raw.count("\n")
+            elif any(boundary in raw for boundary in ".!?。！？"):
+                sentence_id += 1
+        cursor = end
+
+    emit(len(visible))
+
+    last_sibling: dict[tuple[int, int | None], int] = {}
+    for span in spans:
+        key = (span.paragraph_id, span.parent_bracket_id)
+        previous = last_sibling.get(key)
+        span.previous_sibling = previous
+        if previous is not None:
+            spans[previous].next_sibling = span.span_id
+        last_sibling[key] = span.span_id
+
+    return StructuredSpanGraph(tuple(spans), bracket_antecedents, bracket_parents)
+
+
+def structural_atomic_segments(visible: str) -> list[str]:
+    """Compatibility view for scans that need only independent span text."""
+    return [span.text for span in build_structured_span_graph(visible).spans]
 
 
 def portal_patterns_match(
@@ -1599,23 +1739,37 @@ def matches_any(patterns: tuple[re.Pattern[str], ...], segment: str) -> bool:
     return any(pattern.search(segment) for pattern in patterns)
 
 
-def portal_text_materially_assertive(text: str) -> bool:
-    """Return whether one clause contains a complete portal-state predicate."""
-    has_state_object = portal_patterns_match(PORTAL_STATE_OBJECT_PATTERNS, text) or any(
+def portal_text_has_state_object(text: str) -> bool:
+    return portal_patterns_match(PORTAL_STATE_OBJECT_PATTERNS, text) or any(
         pattern.search(text) for pattern in PORTAL_SELF_STATE_PATTERNS
     )
+
+
+def portal_text_has_state_predicate(text: str) -> bool:
+    return portal_patterns_match(PORTAL_STATE_PREDICATE_PATTERNS, text)
+
+
+def portal_text_has_explicit_context(text: str) -> bool:
+    has_state_object = portal_text_has_state_object(text)
+    return portal_patterns_match(PORTAL_CONTEXT_PATTERNS, text) or (
+        has_state_object and portal_patterns_match(PORTAL_GENERIC_SURFACE_PATTERNS, text)
+    )
+
+
+def portal_text_materially_assertive(
+    text: str, inherited_portal_context: bool = False
+) -> bool:
+    """Return whether one clause contains a complete portal-state predicate."""
+    has_state_object = portal_text_has_state_object(text)
     has_portal_context = (
-        portal_patterns_match(PORTAL_CONTEXT_PATTERNS, text)
+        portal_text_has_explicit_context(text)
+        or inherited_portal_context
         or any(pattern.search(text) for pattern in PORTAL_IMPLICIT_CONTEXT_PATTERNS)
-        or (
-            has_state_object
-            and portal_patterns_match(PORTAL_GENERIC_SURFACE_PATTERNS, text)
-        )
     )
     return (
         has_portal_context
         and has_state_object
-        and portal_patterns_match(PORTAL_STATE_PREDICATE_PATTERNS, text)
+        and portal_text_has_state_predicate(text)
     )
 
 
@@ -1646,11 +1800,13 @@ def text_has_assertion_candidate(text: str) -> bool:
 
 
 def quoted_text_ranges(text: str) -> list[tuple[int, int]]:
-    return [
-        (match.start(), match.end())
-        for pattern in QUOTED_TEXT_PATTERNS
-        for match in pattern.finditer(text)
-    ]
+    return sorted(
+        {
+            (match.start(), match.end())
+            for pattern in QUOTED_TEXT_PATTERNS
+            for match in pattern.finditer(text)
+        }
+    )
 
 
 def position_is_quoted(position: int, ranges: list[tuple[int, int]]) -> bool:
@@ -1663,6 +1819,40 @@ def trimmed_range(text: str, start: int, end: int) -> tuple[int, int] | None:
     while end > start and text[end - 1].isspace():
         end -= 1
     return (start, end) if start < end else None
+
+
+def trailing_safe_scope_governs_question(left: str, right: str) -> bool:
+    """Keep a governed question intact when its operator follows a comma."""
+    left_has_question_object = bool(
+        re.search(r"\bwhether\b[^.!?]*$", left, re.IGNORECASE)
+        or re.search(r"(?:かどうか|か)(?:は|を)?$", left)
+        or re.search(r"(?:是否|有無)[^。！？；]*$", left)
+    )
+    right_is_governing_operator = bool(
+        re.search(
+            r"\b(?:cannot|can\s+not|must|needs?\s+to)\b[^.!?]*"
+            r"\b(?:determine|verify|check|confirm)\b",
+            right,
+            re.IGNORECASE,
+        )
+        or re.search(r"(?:このリポジトリから)?(?:判断|確認)でき(?:ません|ない)", right)
+        or re.search(r"(?:確認|判断)(?:します|する|が必要|できません|できない)", right)
+        or re.search(r"(?:無法[^。！？；]{0,20}判定|需要確認|仍須查核)", right)
+    )
+    return left_has_question_object and right_is_governing_operator
+
+
+def leading_safe_scope_governs_predicate(left: str, right: str) -> bool:
+    """Keep a short future/example modifier attached to its predicate."""
+    return bool(
+        re.fullmatch(
+            r"(?:in\s+the\s+future|in\s+this\s+example|for\s+example|future|later|"
+            r"将来|今後|例えば|たとえば|未來|例如)",
+            left.strip(),
+            re.IGNORECASE,
+        )
+        and text_has_assertion_candidate(right)
+    )
 
 
 def predicate_clause_ranges(segment: str) -> list[tuple[int, int]]:
@@ -1679,12 +1869,18 @@ def predicate_clause_ranges(segment: str) -> list[tuple[int, int]]:
     for match in ASSERTION_SCOPE_SEPARATOR_PATTERN.finditer(segment):
         if position_is_quoted(match.start(), quoted_ranges):
             continue
+        if match.group(0) == "が" and not japanese_ga_is_concessive(segment, match.start()):
+            continue
         left_range = trimmed_range(segment, cursor, match.start())
         right_range = trimmed_range(segment, match.end(), len(segment))
         if left_range is None or right_range is None:
             continue
         left = segment[left_range[0] : left_range[1]]
         right = segment[right_range[0] : right_range[1]]
+        if trailing_safe_scope_governs_question(
+            left, right
+        ) or leading_safe_scope_governs_predicate(left, right):
+            continue
         if not (
             text_has_assertion_candidate(left)
             and text_has_assertion_candidate(right)
@@ -1722,18 +1918,67 @@ def classify_predicate_scope(text: str) -> DiscourseMode:
     return DiscourseMode.CURRENT_ASSERTION
 
 
-def extract_assertion_spans(segment: str, predicate_kind: str) -> list[AssertionSpan]:
-    return [
-        AssertionSpan(
-            text=segment[start:end],
-            start=start,
-            end=end,
-            language=detect_span_language(segment[start:end]),
-            predicate_kind=predicate_kind,
-            discourse_scope=classify_predicate_scope(segment[start:end]),
+def extract_assertion_spans(
+    segment: str | StructuredSpan, predicate_kind: str
+) -> list[AssertionSpan]:
+    text = segment.text if isinstance(segment, StructuredSpan) else segment
+    ranges = predicate_clause_ranges(text)
+    spans: list[AssertionSpan] = []
+    for index, (start, end) in enumerate(ranges):
+        clause = text[start:end]
+        if isinstance(segment, StructuredSpan):
+            absolute_start = segment.start + start
+            absolute_end = segment.start + end
+            boundary_before = (
+                segment.boundary_before
+                if index == 0
+                else text[ranges[index - 1][1] : start]
+            )
+            boundary_after = (
+                segment.boundary_after
+                if index == len(ranges) - 1
+                else text[end : ranges[index + 1][0]]
+            )
+            quote_ranges = tuple(
+                quote_range
+                for quote_range in segment.quoted_ranges
+                if quote_range[0] < absolute_end and quote_range[1] > absolute_start
+            )
+            structure_id = segment.span_id
+            paragraph_id = segment.paragraph_id
+            sentence_id = segment.sentence_id
+            parent_bracket_id = segment.parent_bracket_id
+            nesting_depth = segment.nesting_depth
+        else:
+            absolute_start = start
+            absolute_end = end
+            boundary_before = "" if index == 0 else text[ranges[index - 1][1] : start]
+            boundary_after = "" if index == len(ranges) - 1 else text[end : ranges[index + 1][0]]
+            quote_ranges = tuple(quoted_text_ranges(clause))
+            structure_id = -1
+            paragraph_id = 0
+            sentence_id = 0
+            parent_bracket_id = None
+            nesting_depth = 0
+        spans.append(
+            AssertionSpan(
+                text=clause,
+                start=absolute_start,
+                end=absolute_end,
+                language=detect_span_language(clause),
+                predicate_kind=predicate_kind,
+                discourse_scope=classify_predicate_scope(clause),
+                structure_id=structure_id,
+                paragraph_id=paragraph_id,
+                sentence_id=sentence_id,
+                parent_bracket_id=parent_bracket_id,
+                nesting_depth=nesting_depth,
+                boundary_before=boundary_before,
+                boundary_after=boundary_after,
+                quoted_ranges=quote_ranges,
+            )
         )
-        for start, end in predicate_clause_ranges(segment)
-    ]
+    return spans
 
 
 def mask_documentation_example_terms(span: AssertionSpan) -> str:
@@ -1746,8 +1991,10 @@ def mask_documentation_example_terms(span: AssertionSpan) -> str:
     return masked
 
 
-def portal_assertion_span_is_unsafe(span: AssertionSpan) -> bool:
-    if not portal_text_materially_assertive(span.text):
+def portal_assertion_span_is_unsafe(
+    span: AssertionSpan, inherited_portal_context: bool = False
+) -> bool:
+    if not portal_text_materially_assertive(span.text, inherited_portal_context):
         return False
 
     if span.discourse_scope is DiscourseMode.QUESTION_OR_VERIFICATION:
@@ -1760,13 +2007,107 @@ def portal_assertion_span_is_unsafe(span: AssertionSpan) -> bool:
     if span.discourse_scope is DiscourseMode.DOCUMENTATION_OR_EXAMPLE:
         # Only the quoted/example predicate is governed. Any unquoted material
         # current-state predicate left in the same clause remains unsafe.
-        return portal_text_materially_assertive(mask_documentation_example_terms(span))
+        return portal_text_materially_assertive(
+            mask_documentation_example_terms(span), inherited_portal_context
+        )
     if span.discourse_scope is DiscourseMode.FUTURE_OR_HYPOTHETICAL:
-        return matches_any(PORTAL_CURRENT_STATE_CUE_PATTERNS, span.text)
+        return matches_any(PORTAL_EXPLICIT_CURRENT_TIME_PATTERNS, span.text)
     # A pure human-gate clause has no material state predicate and returned
     # above. If HUMAN_GATE reaches this point, it contains an ungoverned
     # current assertion and must reject.
     return True
+
+
+PORTAL_STRONG_CONTEXTUAL_OBJECT_PATTERN = re.compile(
+    r"\b(?:drafts?|applications?|submissions?|submitted\s+(?:content|materials?|files?)|"
+    r"pending\s+entr(?:y|ies)|saved\s+(?:draft|application)|review\s+queue)\b"
+    r"|(?:下書き|草稿|ドラフト|提出(?:済み)?|申請(?:済み)?|送審|審査|案件|資料|申請書|フォーム)"
+    r"|(?:草稿|提交|申請|送件|送審|審核|案件|資料|表單)",
+    re.IGNORECASE,
+)
+PORTAL_DOMAIN_GATE_PATTERN = re.compile(
+    r"\bhuman\s+(?:review|verification)\s+is\s+required\b|"
+    r"\b(?:must|needs?\s+to|required\s+to)\s+(?:determine|verify|check|confirm)\b|"
+    r"(?:人間が確認|確認が必要|確認する必要|確認中|状態は不明)|"
+    r"(?:人工確認|需要查核|仍須查核|仍待確認|尚未確認)",
+    re.IGNORECASE,
+)
+CONTINUATION_LEAD_PATTERN = re.compile(
+    r"^(?:however|nevertheless|still|also|なお|ただし|しかし|また|而且|然而|不過)[、,，\s]*",
+    re.IGNORECASE,
+)
+CONTINUATION_BOUNDARY_PATTERN = re.compile(
+    r"[;；:：—–]|\b(?:even\s+though|and|or|but|however|yet|although|though|"
+    r"whereas|nevertheless|while)\b|(?:が|ですが|だが|しかし|一方|ながら|ものの|"
+    r"なお|但是|但|然而|不過|而且|且|而)",
+    re.IGNORECASE,
+)
+
+
+def portal_span_can_supply_context(antecedent: AssertionSpan, current: AssertionSpan) -> bool:
+    """Return only direct portal/domain antecedents; inherited spans cannot relay."""
+    if portal_text_has_explicit_context(antecedent.text):
+        return True
+    return bool(
+        PORTAL_DOMAIN_GATE_PATTERN.search(antecedent.text)
+        and PORTAL_STRONG_CONTEXTUAL_OBJECT_PATTERN.search(current.text)
+    )
+
+
+def adjacent_boundary_allows_context(
+    antecedent: AssertionSpan, current: AssertionSpan
+) -> bool:
+    if antecedent.paragraph_id != current.paragraph_id:
+        return False
+    if current.start - antecedent.end > MAX_PORTAL_CONTEXT_SOURCE_DISTANCE:
+        return False
+    boundary = current.boundary_before
+    if "\n" in boundary:
+        return False
+    if antecedent.structure_id == current.structure_id:
+        return bool(boundary.strip())
+    if antecedent.sentence_id == current.sentence_id:
+        return bool(CONTINUATION_BOUNDARY_PATTERN.search(boundary))
+    return bool(
+        current.sentence_id == antecedent.sentence_id + 1
+        and CONTINUATION_LEAD_PATTERN.match(current.text)
+    )
+
+
+def inherited_portal_context(
+    current_index: int,
+    spans: list[AssertionSpan],
+    graph: StructuredSpanGraph,
+    spans_by_structure: dict[int, list[AssertionSpan]],
+) -> bool:
+    """Resolve one adjacent or nearest-outer antecedent without safe-mode flow."""
+    current = spans[current_index]
+    if not (portal_text_has_state_object(current.text) and portal_text_has_state_predicate(current.text)):
+        return False
+    if portal_text_has_explicit_context(current.text):
+        return False
+
+    bracket_id = current.parent_bracket_id
+    traversed = 0
+    while bracket_id is not None and traversed < MAX_PORTAL_BRACKET_CONTEXT_DEPTH:
+        structure_id = graph.bracket_antecedents.get(bracket_id)
+        if structure_id is not None:
+            for antecedent in reversed(spans_by_structure.get(structure_id, [])):
+                if (
+                    antecedent.paragraph_id == current.paragraph_id
+                    and current.start - antecedent.end <= MAX_PORTAL_CONTEXT_SOURCE_DISTANCE
+                    and portal_span_can_supply_context(antecedent, current)
+                ):
+                    return True
+        bracket_id = graph.bracket_parents.get(bracket_id)
+        traversed += 1
+
+    if current_index == 0:
+        return False
+    antecedent = spans[current_index - 1]
+    return adjacent_boundary_allows_context(
+        antecedent, current
+    ) and portal_span_can_supply_context(antecedent, current)
 
 
 def portal_segment_asserts_external_state(segment: str) -> bool:
@@ -1784,13 +2125,24 @@ def validate_portal_state_assertions(root: Path, errors: list[str]) -> None:
         if not path.is_file():
             continue
         visible = markdown_visible_text(path.read_text(encoding="utf-8"))
-        for segment in structural_atomic_segments(visible):
-            for span in extract_assertion_spans(segment, "portal-state"):
-                if portal_assertion_span_is_unsafe(span):
-                    errors.append(
-                        f"{relative} must not assert unverified external portal state: "
-                        f"{span.text!r}."
-                    )
+        graph = build_structured_span_graph(visible)
+        assertion_spans = [
+            assertion
+            for structural_span in graph.spans
+            for assertion in extract_assertion_spans(structural_span, "portal-state")
+        ]
+        spans_by_structure: dict[int, list[AssertionSpan]] = {}
+        for span in assertion_spans:
+            spans_by_structure.setdefault(span.structure_id, []).append(span)
+        for index, span in enumerate(assertion_spans):
+            inherited_context = inherited_portal_context(
+                index, assertion_spans, graph, spans_by_structure
+            )
+            if portal_assertion_span_is_unsafe(span, inherited_context):
+                errors.append(
+                    f"{relative} must not assert unverified external portal state: "
+                    f"{span.text!r}."
+                )
 
 
 def validate_human_prerequisites(root: Path, errors: list[str]) -> None:

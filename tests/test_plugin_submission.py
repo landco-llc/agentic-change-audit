@@ -1163,6 +1163,100 @@ F06_JA_AVAILABILITY_SAFE_CASES = (
     ("availability_safe_ja_explanation", submission_module.PLUGIN_README_JA_RELATIVE, "これは「公開利用可能」という表現の説明です。"),
 )
 
+# Ninth-remediation fixed audit corpus. Every tuple becomes one independently
+# named real-validator subprocess against a fresh temporary repository copy.
+# The named audit groups preserve the exact ten false-PASS and six false-reject
+# observations; the remaining groups exercise the architecture
+# around them instead of teaching the validator only those observed strings.
+F06_CONTEXT_AUDIT_FALSE_PASS_CASES = (
+    ("ninth_audit_fp01_en_repository_even_though", submission_module.PLUGIN_README_RELATIVE, "The repository cannot determine the portal state, even though a lodged application remains on file."),
+    ("ninth_audit_fp02_en_portal_and_contains", submission_module.PLUGIN_README_RELATIVE, "The application portal must be checked, and currently contains submitted material."),
+    ("ninth_audit_fp03_en_console_but_entry", submission_module.PLUGIN_README_RELATIVE, "The developer console is under review but shows no pending entry."),
+    ("ninth_audit_fp04_en_human_semicolon", submission_module.PLUGIN_README_RELATIVE, "Human verification is required; nevertheless, it already contains a saved draft."),
+    ("ninth_audit_fp05_en_em_dash", submission_module.PLUGIN_README_RELATIVE, "The portal state is unknown — submitted content is already present."),
+    ("ninth_audit_fp06_en_parenthetical", submission_module.PLUGIN_README_RELATIVE, "The portal must be reviewed (currently contains a saved application)."),
+    ("ninth_audit_fp07_en_square_bracket", submission_module.PLUGIN_README_RELATIVE, "The portal state remains unverified [the review queue holds a pending form]."),
+    ("ninth_audit_fp08_en_curly_bracket", submission_module.PLUGIN_README_RELATIVE, "Human review is required {it already stores submitted material}."),
+    ("ninth_audit_fp09_ja_human_ga", submission_module.PLUGIN_README_JA_RELATIVE, "人間が確認しますが、すでに提出済み資料があります。"),
+    ("ninth_audit_fp10_zh_review_buguo", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核入口仍待確認，不過已顯示退回的申請。"),
+)
+
+F06_CONTEXT_REQUIRED_INVALID_CASES = (
+    ("ninth_required_ja_screen_draft", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認する必要があり、現在は下書きが残っています。"),
+    ("ninth_required_ja_review_returned", submission_module.PLUGIN_README_JA_RELATIVE, "審査画面は確認中ですが、案件が差し戻されています。"),
+    ("ninth_required_ja_fullwidth_semicolon", submission_module.PLUGIN_README_JA_RELATIVE, "申請状態は不明です；しかし提出済み資料があります。"),
+    ("ninth_required_ja_parenthetical", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します（現在は下書きがあります）。"),
+    ("ninth_required_zh_human_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "仍須人工確認，但其中已有草稿。"),
+    ("ninth_required_zh_page_erqie", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要查核申請頁面，而且目前保存了提交內容。"),
+    ("ninth_required_zh_fullwidth_semicolon", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "入口狀態尚未確認；然而已有提交內容。"),
+    ("ninth_required_zh_parenthetical", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認【其中已有草稿】。"),
+)
+
+F06_CONTEXT_AUDIT_FALSE_REJECT_CASES = (
+    ("ninth_audit_fr01_ja_repository_governs_question", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面に登録済み案件があるかは、このリポジトリから判断できません。"),
+    ("ninth_audit_fr02_ja_particle_ga_question", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧に送付済みファイルがあるか確認します。"),
+    ("ninth_audit_fr03_ja_future", submission_module.PLUGIN_README_JA_RELATIVE, "将来、申請フォームが受付済みになる可能性があります。"),
+    ("ninth_audit_fr04_en_quoted_separator", submission_module.PLUGIN_README_RELATIVE, "The example phrase is \"draft exists, but submission is pending\"."),
+    ("ninth_audit_fr05_ja_quoted_separator", submission_module.PLUGIN_README_JA_RELATIVE, "これは「下書きがありますが、未提出です」という例文です。"),
+    ("ninth_audit_fr06_zh_quoted_separator", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段說明「已有草稿，但尚未提交」這個範例句。"),
+)
+
+F06_BOUNDED_CONTEXT_INVALID_CASES = (
+    ("ninth_near_en_semicolon_pronoun", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review; it already contains a draft."),
+    ("ninth_near_ja_coordinated_sentence", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します。なお、現在は提出済み資料があります。"),
+    ("ninth_near_zh_semicolon_pronoun", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口需要查核；其中已有草稿。"),
+    ("ninth_near_en_colon_omitted_subject", submission_module.PLUGIN_README_RELATIVE, "The review portal remains unverified: submitted material is already present."),
+    ("ninth_near_ja_em_dash_omitted_subject", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は確認中です—現在は提出済み資料があります。"),
+    ("ninth_near_zh_contrast_omitted_subject", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請平台仍待查核，然而已有送件資料。"),
+)
+
+F06_BOUNDED_CONTEXT_SAFE_CASES = (
+    ("ninth_far_en_blank_line", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review.\n\nThe next section explains validator architecture."),
+    ("ninth_far_en_heading_reset", submission_module.PLUGIN_README_RELATIVE, "## Portal review\nThe portal state requires human verification.\n\n## Test examples\nThe phrase \"submitted material\" is used as an example."),
+    ("ninth_far_ja_blank_line", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は人間が確認します。\n\n別の項目では、提出という用語を説明します。"),
+    ("ninth_far_zh_blank_line", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須人工確認。\n\n下一節只說明「草稿」詞彙。"),
+    ("ninth_far_en_unrelated_database", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review.\n\nThe database contains submitted material used by a local fixture."),
+    ("ninth_far_ja_unrelated_database", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は人間が確認します。\n\nこのデータベースには資料があります。"),
+    ("ninth_far_zh_unrelated_archive", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須人工確認。\n\n本地封存中已有測試資料。"),
+    ("ninth_far_en_independent_sentence_reset", submission_module.PLUGIN_README_RELATIVE, "The portal requires review. The archive contains a saved record for a fixture."),
+)
+
+F06_PARENT_CHILD_INVALID_CASES = (
+    ("ninth_parent_nested_en_square", submission_module.PLUGIN_README_RELATIVE, "The portal must be checked (status unknown [submitted content is already present])."),
+    ("ninth_parent_nested_en_curly", submission_module.PLUGIN_README_RELATIVE, "Human verification is required [review pending {it already holds a saved draft}]."),
+    ("ninth_parent_nested_ja", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します（状態は未確認【現在は提出済み資料があります】）。"),
+    ("ninth_parent_nested_zh", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認【狀態未知（其中已有草稿）】。"),
+    ("ninth_parent_quote_then_real_assertion", submission_module.PLUGIN_README_RELATIVE, "The example phrase is \"draft exists, but submission is pending\"; the portal currently contains submitted material."),
+    ("ninth_parent_outer_safe_inner_current", submission_module.PLUGIN_README_JA_RELATIVE, "人間が確認します【申請画面には提出済み資料があります】。"),
+)
+
+F06_PARENT_CHILD_SAFE_CASES = (
+    ("ninth_parent_safe_en_whether", submission_module.PLUGIN_README_RELATIVE, "The portal must be checked (whether it contains submitted material)."),
+    ("ninth_parent_safe_ja_question", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します（下書きがあるかどうか）。"),
+    ("ninth_parent_safe_zh_whether", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認【是否已有草稿】。"),
+)
+
+F06_MARKDOWN_CONTEXT_INVALID_CASES = (
+    ("ninth_markdown_en_strong", submission_module.PLUGIN_README_RELATIVE, "The application portal must be checked, and **currently contains submitted material**."),
+    ("ninth_markdown_ja_link", submission_module.PLUGIN_README_JA_RELATIVE, "これは確認文ですが、申請画面には[提出済み資料](https://example.invalid)があります。"),
+    ("ninth_markdown_zh_comment", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核入口仍待確認，不過提交內容已<!-- split -->被駁回。"),
+    ("ninth_markdown_en_html_emphasis", submission_module.PLUGIN_README_RELATIVE, "The developer console must be checked; <em>it already contains a saved draft</em>."),
+    ("ninth_markdown_en_linked_antecedent", submission_module.PLUGIN_README_RELATIVE, "The [application portal](https://example.invalid) must be checked, and currently contains submitted material."),
+    ("ninth_markdown_en_entity_dash", submission_module.PLUGIN_README_RELATIVE, "The portal state is unknown &mdash; submitted content is already present."),
+    ("ninth_markdown_en_soft_break", submission_module.PLUGIN_README_RELATIVE, "The application portal must be checked,\nand currently contains submitted material."),
+    ("ninth_markdown_ja_nested_strong", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します（状態は未確認【**現在は下書きがあります**】）。"),
+    ("ninth_markdown_mixed_language_spacing", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口 remains unverified； submitted content 已存在。"),
+)
+
+F06_MARKDOWN_CONTEXT_SAFE_CASES = (
+    ("ninth_quote_single_en", submission_module.PLUGIN_README_RELATIVE, "The example phrase is 'draft exists, but submission is pending'."),
+    ("ninth_quote_curly_en", submission_module.PLUGIN_README_RELATIVE, "The example phrase is “draft exists; submission is pending”."),
+    ("ninth_quote_corner_ja", submission_module.PLUGIN_README_JA_RELATIVE, "これは『下書きがありますが、未提出です』という例文です。"),
+    ("ninth_quote_angle_ja", submission_module.PLUGIN_README_JA_RELATIVE, "これは〈下書きがありますが、未提出です〉という例文です。"),
+    ("ninth_quote_book_zh", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段說明《已有草稿，但尚未提交》這個範例句。"),
+    ("ninth_quote_angle_zh", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段說明〈已有草稿；但尚未提交〉這個範例句。"),
+)
+
 
 def _make_portal_semantic_rejection_test(relative: str, text: str):
     def test(self):
@@ -1192,6 +1286,11 @@ for _name, _relative, _text in (
     *F06_SAFE_PLUS_UNSAFE_INVALID_CASES,
     *F06_PREDICATE_LEXICAL_INVALID_CASES,
     *F06_PREDICATE_SCOPE_INVALID_CASES,
+    *F06_CONTEXT_AUDIT_FALSE_PASS_CASES,
+    *F06_CONTEXT_REQUIRED_INVALID_CASES,
+    *F06_BOUNDED_CONTEXT_INVALID_CASES,
+    *F06_PARENT_CHILD_INVALID_CASES,
+    *F06_MARKDOWN_CONTEXT_INVALID_CASES,
 ):
     setattr(
         PortalStateWordingTests,
@@ -1204,6 +1303,10 @@ for _name, _relative, _text in (
     *F06_DISCOURSE_SAFE_CASES,
     *F06_PREDICATE_SAFE_CASES,
     *F06_JA_AVAILABILITY_SAFE_CASES,
+    *F06_CONTEXT_AUDIT_FALSE_REJECT_CASES,
+    *F06_BOUNDED_CONTEXT_SAFE_CASES,
+    *F06_PARENT_CHILD_SAFE_CASES,
+    *F06_MARKDOWN_CONTEXT_SAFE_CASES,
 ):
     setattr(
         PortalStateWordingTests,
