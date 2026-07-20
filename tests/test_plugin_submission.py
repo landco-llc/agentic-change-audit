@@ -1482,19 +1482,228 @@ F06_TWELFTH_SAFE_SCOPE_CASES = (
 )
 
 
-def _make_portal_semantic_rejection_test(relative: str, text: str):
+# Thirteenth-remediation semantic-classifier corpus. These are 125 new,
+# individually named, fresh-copy real-validator subprocess cases: the exact 21
+# independent failures plus the 104-case matrix required by the remediation
+# contract. Surface, actuality, object, and predicate expectations are also
+# asserted for representative cases without replacing the subprocess check.
+F06_THIRTEENTH_EXACT_FALSE_PASS_CASES = (
+    ("thirteenth_exact_pi_i_21", submission_module.PLUGIN_README_RELATIVE, "The review portal lists one returned item."),
+    ("thirteenth_exact_pi_i_24", submission_module.PLUGIN_README_RELATIVE, "The developer portal presents one completed item."),
+    ("thirteenth_exact_pi_i_25", submission_module.PLUGIN_README_RELATIVE, "The review dashboard presents one approved item."),
+    ("thirteenth_exact_pi_i_26", submission_module.PLUGIN_README_RELATIVE, "The developer console lists one returned item."),
+    ("thirteenth_exact_pi_i_27", submission_module.PLUGIN_README_RELATIVE, "The review portal lists one completed item."),
+    ("thirteenth_exact_pi_i_28", submission_module.PLUGIN_README_RELATIVE, "The developer dashboard presents one rejected item."),
+)
+
+F06_THIRTEENTH_EXACT_GENERIC_FALSE_REJECT_CASES = (
+    ("thirteenth_exact_gn_v_17", submission_module.PLUGIN_README_RELATIVE, "The performance dashboard shows one application latency metric."),
+    ("thirteenth_exact_gn_v_18", submission_module.PLUGIN_README_RELATIVE, "The documentation site lists one application configuration sample."),
+    ("thirteenth_exact_gn_v_22", submission_module.PLUGIN_README_RELATIVE, "The security console listed one application firewall rule."),
+    ("thirteenth_exact_gn_v_23", submission_module.PLUGIN_README_RELATIVE, "The docs site presents one submission-format example."),
+    ("thirteenth_exact_gn_v_25", submission_module.PLUGIN_README_RELATIVE, "The performance console presents one application health overview."),
+    ("thirteenth_exact_gn_v_26", submission_module.PLUGIN_README_RELATIVE, "The documentation page lists one submission schema field."),
+    ("thirteenth_exact_pr_v_09", submission_module.PLUGIN_README_RELATIVE, "The application dashboard presents one design example."),
+    ("thirteenth_exact_pr_v_11", submission_module.PLUGIN_README_RELATIVE, "The submission site presents one documentation example."),
+    ("thirteenth_exact_pr_v_13", submission_module.PLUGIN_README_RELATIVE, "The application console presents one operational runbook diagram."),
+    ("thirteenth_exact_pr_v_14", submission_module.PLUGIN_README_RELATIVE, "The submission dashboard presents one schema documentation example."),
+    ("thirteenth_exact_ja_v_06", submission_module.PLUGIN_README_JA_RELATIVE, "ドキュメントサイトには申請書テンプレートの例があります。"),
+    ("thirteenth_exact_ja_v_07", submission_module.PLUGIN_README_JA_RELATIVE, "監視ダッシュボードには審査メトリクスの例があります。"),
+)
+
+F06_THIRTEENTH_EXACT_HYPOTHETICAL_FALSE_REJECT_CASES = (
+    ("thirteenth_exact_pr_v_07", submission_module.PLUGIN_README_RELATIVE, "The review portal would present one pending item in that hypothetical scenario."),
+    ("thirteenth_exact_sc_v_05", submission_module.PLUGIN_README_RELATIVE, "The application dashboard might list one pending entry in a hypothetical demo."),
+    ("thirteenth_exact_sc_v_14", submission_module.PLUGIN_README_RELATIVE, "The application portal might present one saved record in a hypothetical test."),
+)
+
+F06_THIRTEENTH_PORTAL_MATERIAL_STATE_INVALID_CASES = (
+    ("thirteenth_material_review_returned_application", submission_module.PLUGIN_README_RELATIVE, "The review portal shows one returned application."),
+    ("thirteenth_material_submission_approved_submission", submission_module.PLUGIN_README_RELATIVE, "The submission portal contains an approved submission."),
+    ("thirteenth_material_application_completed_item", submission_module.PLUGIN_README_RELATIVE, "The application portal holds one completed review item."),
+    ("thirteenth_material_developer_rejected_entry", submission_module.PLUGIN_README_RELATIVE, "The developer portal displays a rejected entry."),
+    ("thirteenth_material_dashboard_returned_application", submission_module.PLUGIN_README_RELATIVE, "The review dashboard lists one returned application."),
+    ("thirteenth_material_console_approved_item", submission_module.PLUGIN_README_RELATIVE, "The developer console presents an approved item."),
+    ("thirteenth_material_submission_completed_item", submission_module.PLUGIN_README_RELATIVE, "The submission console shows a completed item."),
+    ("thirteenth_material_application_rejected_item", submission_module.PLUGIN_README_RELATIVE, "The application dashboard contains a rejected item."),
+    ("thirteenth_material_site_returned_record", submission_module.PLUGIN_README_RELATIVE, "The review site stores one returned record."),
+    ("thirteenth_material_workspace_approved_application", submission_module.PLUGIN_README_RELATIVE, "The submission workspace displays an approved application."),
+    ("thirteenth_material_interface_completed_submission", submission_module.PLUGIN_README_RELATIVE, "The application interface lists a completed submission."),
+    ("thirteenth_material_screen_rejected_form", submission_module.PLUGIN_README_RELATIVE, "The developer screen presents a rejected form."),
+    ("thirteenth_material_portal_has_returned_item", submission_module.PLUGIN_README_RELATIVE, "The portal has a returned item."),
+    ("thirteenth_material_portal_has_approved_item", submission_module.PLUGIN_README_RELATIVE, "The portal has one approved item."),
+    ("thirteenth_material_portal_holds_completed_item", submission_module.PLUGIN_README_RELATIVE, "The portal currently holds a completed item."),
+    ("thirteenth_material_portal_contains_rejected_item", submission_module.PLUGIN_README_RELATIVE, "The portal contains another rejected item."),
+    ("thirteenth_material_portal_records_returned_item", submission_module.PLUGIN_README_RELATIVE, "The review portal records a returned item."),
+    ("thirteenth_material_portal_showing_approved_item", submission_module.PLUGIN_README_RELATIVE, "The developer portal is showing an approved item."),
+    ("thirteenth_material_portal_displaying_completed_item", submission_module.PLUGIN_README_RELATIVE, "The submission portal is displaying a completed item."),
+    ("thirteenth_material_portal_listing_rejected_item", submission_module.PLUGIN_README_RELATIVE, "The application portal is listing a rejected item."),
+    ("thirteenth_material_returned_application_exists", submission_module.PLUGIN_README_RELATIVE, "A returned application exists in the review portal."),
+    ("thirteenth_material_approved_submission_present", submission_module.PLUGIN_README_RELATIVE, "An approved submission is present in the developer portal."),
+    ("thirteenth_material_completed_item_remains", submission_module.PLUGIN_README_RELATIVE, "A completed item remains in the submission portal."),
+    ("thirteenth_material_rejected_item_on_file", submission_module.PLUGIN_README_RELATIVE, "A rejected item is currently on file in the application portal."),
+)
+
+F06_THIRTEENTH_GENERIC_PRESENTATION_SAFE_CASES = (
+    ("thirteenth_generic_function_returned_value", submission_module.PLUGIN_README_RELATIVE, "The function returned one item from the local cache."),
+    ("thirteenth_generic_code_review_approved", submission_module.PLUGIN_README_RELATIVE, "The code review approved one refactoring item."),
+    ("thirteenth_generic_task_completed", submission_module.PLUGIN_README_RELATIVE, "The task console shows one completed maintenance task."),
+    ("thirteenth_generic_hypothesis_rejected", submission_module.PLUGIN_README_RELATIVE, "The analysis dashboard lists one rejected hypothesis."),
+    ("thirteenth_generic_returned_goods", submission_module.PLUGIN_README_RELATIVE, "The warehouse dashboard lists one returned item of stock."),
+    ("thirteenth_generic_completed_presentation", submission_module.PLUGIN_README_RELATIVE, "The event site presents one completed presentation recording."),
+    ("thirteenth_generic_approved_design", submission_module.PLUGIN_README_RELATIVE, "The design console presents one approved color option."),
+    ("thirteenth_generic_rejected_build", submission_module.PLUGIN_README_RELATIVE, "The build dashboard shows one rejected artifact checksum."),
+    ("thirteenth_generic_analytics_application_metric", submission_module.PLUGIN_README_RELATIVE, "The analytics dashboard displays an application throughput metric."),
+    ("thirteenth_generic_docs_application_tutorial", submission_module.PLUGIN_README_RELATIVE, "The documentation site lists an application tutorial chapter."),
+    ("thirteenth_generic_security_application_rule", submission_module.PLUGIN_README_RELATIVE, "The security console presents an application routing rule."),
+    ("thirteenth_generic_report_submission_volume", submission_module.PLUGIN_README_RELATIVE, "The reporting site shows one submission-volume chart."),
+    ("thirteenth_generic_schema_submission_field", submission_module.PLUGIN_README_RELATIVE, "The schema page lists a submission identifier field."),
+    ("thirteenth_generic_runbook_review_diagram", submission_module.PLUGIN_README_RELATIVE, "The runbook site presents one review workflow diagram."),
+    ("thirteenth_generic_slide_application_architecture", submission_module.PLUGIN_README_RELATIVE, "The slide console presents one application architecture illustration."),
+    ("thirteenth_generic_demo_submission_format", submission_module.PLUGIN_README_RELATIVE, "The demo dashboard lists one submission-format sample."),
+    ("thirteenth_generic_monitoring_review_latency", submission_module.PLUGIN_README_RELATIVE, "The monitoring dashboard contains one review latency series."),
+    ("thirteenth_generic_local_application_fixture", submission_module.PLUGIN_README_RELATIVE, "The local console stores one application fixture record."),
+    ("thirteenth_generic_docs_submission_example", submission_module.PLUGIN_README_RELATIVE, "The developer documentation site presents one submission example."),
+    ("thirteenth_generic_presentation_lists_agenda", submission_module.PLUGIN_README_RELATIVE, "The presentation lists one review topic on its agenda."),
+    ("thirteenth_generic_presenter_presents_slide", submission_module.PLUGIN_README_RELATIVE, "The presenter presents one application design slide."),
+    ("thirteenth_generic_report_lists_item", submission_module.PLUGIN_README_RELATIVE, "The report lists one item from the inventory."),
+    ("thirteenth_generic_visualization_presents_one", submission_module.PLUGIN_README_RELATIVE, "The visualization presents one rejected outlier for discussion."),
+    ("thirteenth_generic_site_completed_demo", submission_module.PLUGIN_README_RELATIVE, "The training site contains one completed demo exercise."),
+)
+
+F06_THIRTEENTH_HYPOTHETICAL_SAFE_CASES = (
+    ("thirteenth_hyp_if_approved_item", submission_module.PLUGIN_README_RELATIVE, "If the submission portal listed another approved item, we would investigate."),
+    ("thirteenth_hyp_if_were_returned", submission_module.PLUGIN_README_RELATIVE, "If the review portal were to show a returned item, the mock would fail."),
+    ("thirteenth_hyp_were_to_completed", submission_module.PLUGIN_README_RELATIVE, "Were the developer portal to present a completed item, the test would record it."),
+    ("thirteenth_hyp_would_rejected", submission_module.PLUGIN_README_RELATIVE, "The application portal would list a rejected item in that scenario."),
+    ("thirteenth_hyp_could_returned", submission_module.PLUGIN_README_RELATIVE, "The review dashboard could display one returned item in a simulation."),
+    ("thirteenth_hyp_might_approved", submission_module.PLUGIN_README_RELATIVE, "The developer console might show an approved item during a mock run."),
+    ("thirteenth_hyp_may_completed", submission_module.PLUGIN_README_RELATIVE, "The submission portal may contain a completed item after a future filing."),
+    ("thirteenth_hyp_suppose_rejected", submission_module.PLUGIN_README_RELATIVE, "Suppose the review portal presented one rejected item."),
+    ("thirteenth_hyp_assuming_returned", submission_module.PLUGIN_README_RELATIVE, "Assuming the application console lists a returned item, the fixture should fail."),
+    ("thirteenth_hyp_scenario_approved", submission_module.PLUGIN_README_RELATIVE, "In a hypothetical scenario, the developer dashboard shows one approved item."),
+    ("thirteenth_hyp_example_if_completed", submission_module.PLUGIN_README_RELATIVE, "For example, if the portal contained a completed item, the probe would reject it."),
+    ("thirteenth_hyp_unless_rejected", submission_module.PLUGIN_README_RELATIVE, "Unless the submission portal lists a rejected item, the branch stays unchanged."),
+    ("thirteenth_hyp_should_later_returned", submission_module.PLUGIN_README_RELATIVE, "Should the review portal later display a returned item, a human would inspect it."),
+    ("thirteenth_hyp_conditional_approved", submission_module.PLUGIN_README_RELATIVE, "In a conditional walkthrough, the developer portal presents an approved item."),
+    ("thirteenth_hyp_counterfactual_completed", submission_module.PLUGIN_README_RELATIVE, "In a counterfactual case, the application portal lists a completed item."),
+    ("thirteenth_hyp_if_portal_had_rejected", submission_module.PLUGIN_README_RELATIVE, "If the review portal had a rejected item, the example would mention it."),
+    ("thirteenth_hyp_assuming_dashboard_approved", submission_module.PLUGIN_README_RELATIVE, "Assuming the submission dashboard displayed an approved item, the demo would highlight it."),
+    ("thirteenth_hyp_suppose_console_completed", submission_module.PLUGIN_README_RELATIVE, "Suppose the developer console lists one completed item for the exercise."),
+    ("thirteenth_hyp_might_portal_return", submission_module.PLUGIN_README_RELATIVE, "A future application portal might return one item during the simulation."),
+    ("thirteenth_hyp_would_portal_approve", submission_module.PLUGIN_README_RELATIVE, "A future review portal would approve one item in the hypothetical test."),
+)
+
+F06_THIRTEENTH_MIXED_SCOPE_INVALID_CASES = (
+    ("thirteenth_mixed_if_then_current_pronoun", submission_module.PLUGIN_README_RELATIVE, "If the portal changes later, we will investigate. It currently lists another approved item."),
+    ("thirteenth_mixed_hyp_then_current_portal", submission_module.PLUGIN_README_RELATIVE, "In a hypothetical scenario the portal lists a returned item; the portal currently shows an approved item."),
+    ("thirteenth_mixed_suppose_then_now", submission_module.PLUGIN_README_RELATIVE, "Suppose the review portal presented a rejected item; however, the review portal now contains a completed item."),
+    ("thirteenth_mixed_assuming_then_actual", submission_module.PLUGIN_README_RELATIVE, "Assuming the developer console lists a returned item, the test is useful, but the developer console actually shows an approved item."),
+    ("thirteenth_mixed_unless_then_current", submission_module.PLUGIN_README_RELATIVE, "Unless the application portal displays a completed item, the demo passes; the application portal currently holds a rejected item."),
+    ("thirteenth_mixed_counterfactual_then_now", submission_module.PLUGIN_README_RELATIVE, "In a counterfactual walkthrough the portal presents an approved item. The portal now lists a returned item."),
+    ("thirteenth_mixed_future_then_already", submission_module.PLUGIN_README_RELATIVE, "The submission portal might show a rejected item later, but it already contains a completed item."),
+    ("thirteenth_mixed_question_then_current", submission_module.PLUGIN_README_RELATIVE, "Could the review portal list a returned item? The review portal currently presents an approved item."),
+    ("thirteenth_mixed_quote_then_current", submission_module.PLUGIN_README_RELATIVE, "The guide quotes ‘the portal lists a completed item’; the portal currently shows a rejected item."),
+    ("thirteenth_mixed_example_then_current", submission_module.PLUGIN_README_RELATIVE, "For example, if the developer portal showed an approved item, we would inspect it; the developer portal now lists a returned item."),
+    ("thirteenth_mixed_should_then_actual", submission_module.PLUGIN_README_RELATIVE, "Should the application console later list a completed item, the mock will fail, whereas the application console actually contains a rejected item."),
+    ("thirteenth_mixed_may_then_current", submission_module.PLUGIN_README_RELATIVE, "The review dashboard may display a returned item in a future demo. It currently presents one approved item."),
+)
+
+F06_THIRTEENTH_SCOPE_CONTROL_SAFE_CASES = (
+    ("thirteenth_control_quote_returned", submission_module.PLUGIN_README_RELATIVE, "The guide quotes ‘the review portal lists a returned item’ as prohibited wording."),
+    ("thirteenth_control_quote_approved", submission_module.PLUGIN_README_RELATIVE, "The phrase \"the developer console shows an approved item\" is a test fixture."),
+    ("thirteenth_control_question_completed", submission_module.PLUGIN_README_RELATIVE, "Does the submission portal contain a completed item?"),
+    ("thirteenth_control_question_rejected", submission_module.PLUGIN_README_RELATIVE, "Could the application portal present a rejected item?"),
+    ("thirteenth_control_verify_returned", submission_module.PLUGIN_README_RELATIVE, "Please verify whether the review dashboard lists a returned item."),
+    ("thirteenth_control_verify_approved", submission_module.PLUGIN_README_RELATIVE, "A human must determine whether the developer portal shows an approved item."),
+    ("thirteenth_control_future_completed", submission_module.PLUGIN_README_RELATIVE, "The submission console will list a completed item after human approval."),
+    ("thirteenth_control_future_rejected", submission_module.PLUGIN_README_RELATIVE, "A future application portal may display a rejected item."),
+    ("thirteenth_control_example_returned", submission_module.PLUGIN_README_RELATIVE, "This example explains how a review portal could show a returned item."),
+    ("thirteenth_control_example_approved", submission_module.PLUGIN_README_RELATIVE, "The documentation presents ‘approved item’ as an example term."),
+    ("thirteenth_control_repository_boundary", submission_module.PLUGIN_README_RELATIVE, "No portal action is performed or evidenced by this repository lane."),
+    ("thirteenth_control_human_gate", submission_module.PLUGIN_README_RELATIVE, "Portal state remains a human verification gate."),
+)
+
+F06_THIRTEENTH_CONTEXT_INVALID_CASES = (
+    ("thirteenth_context_continuation_returned", submission_module.PLUGIN_README_RELATIVE, "The review portal remains unchecked. Nevertheless, it lists a returned item."),
+    ("thirteenth_context_semicolon_approved", submission_module.PLUGIN_README_RELATIVE, "The developer console needs verification; it presents an approved item."),
+    ("thirteenth_context_parenthetical_completed", submission_module.PLUGIN_README_RELATIVE, "The submission portal requires review (it contains a completed item)."),
+    ("thirteenth_context_bracket_rejected", submission_module.PLUGIN_README_RELATIVE, "The application dashboard is unverified [it shows a rejected item]."),
+    ("thirteenth_context_pronoun_current_returned", submission_module.PLUGIN_README_RELATIVE, "The review portal may change later. It currently contains a returned item."),
+    ("thirteenth_context_nearest_approved", submission_module.PLUGIN_README_RELATIVE, "The developer portal requires inspection. Even so, it presents an approved item."),
+)
+
+F06_THIRTEENTH_CONTEXT_SAFE_CASES = (
+    ("thirteenth_reset_sentence_plain", submission_module.PLUGIN_README_RELATIVE, "The review portal requires inspection. Returned material is described in the local fixture."),
+    ("thirteenth_reset_blank_paragraph", submission_module.PLUGIN_README_RELATIVE, "The developer portal needs verification.\n\nThe report lists a completed task."),
+    ("thirteenth_reset_heading", submission_module.PLUGIN_README_RELATIVE, "The submission portal remains unchecked.\n\n## Training report\n\nThe dashboard presents an approved design sample."),
+    ("thirteenth_reset_list", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review.\n\n- The local console lists one returned stock item."),
+    ("thirteenth_reset_nearest_surface", submission_module.PLUGIN_README_RELATIVE, "The review portal needs inspection. The analytics dashboard is documented. Nevertheless, it lists one completed exercise."),
+    ("thirteenth_reset_source_distance", submission_module.PLUGIN_README_RELATIVE, "The developer portal requires confirmation;" + ("q" * 245) + " lists one returned warehouse item."),
+)
+
+F06_THIRTEENTH_ROLE_EXPECTATIONS = {
+    "thirteenth_exact_pi_i_21": submission_module.PortalSemanticRoles(
+        submission_module.SurfaceContext.GOVERNED_PORTAL,
+        submission_module.Actuality.CURRENT_ASSERTION,
+        submission_module.ObjectKind.STRONG_MATERIAL_OBJECT,
+        submission_module.PredicateKind.MATERIAL_DISPLAY,
+    ),
+    "thirteenth_exact_gn_v_17": submission_module.PortalSemanticRoles(
+        submission_module.SurfaceContext.GENERIC_UI,
+        submission_module.Actuality.CURRENT_ASSERTION,
+        submission_module.ObjectKind.NONE,
+        submission_module.PredicateKind.MATERIAL_DISPLAY,
+    ),
+    "thirteenth_exact_pr_v_07": submission_module.PortalSemanticRoles(
+        submission_module.SurfaceContext.GOVERNED_PORTAL,
+        submission_module.Actuality.NON_CURRENT_OR_NON_ASSERTIVE,
+        submission_module.ObjectKind.STRONG_MATERIAL_OBJECT,
+        submission_module.PredicateKind.MATERIAL_DISPLAY,
+    ),
+    "thirteenth_material_returned_application_exists": submission_module.PortalSemanticRoles(
+        submission_module.SurfaceContext.GOVERNED_PORTAL,
+        submission_module.Actuality.CURRENT_ASSERTION,
+        submission_module.ObjectKind.STRONG_MATERIAL_OBJECT,
+        submission_module.PredicateKind.STATE,
+    ),
+}
+
+
+def assert_portal_semantic_roles(test_case, text: str, expected) -> None:
+    graph = submission_module.build_structured_span_graph(
+        submission_module.markdown_visible_text(text)
+    )
+    spans = [
+        assertion
+        for structural_span in graph.spans
+        for assertion in submission_module.extract_assertion_spans(
+            structural_span, "portal-state"
+        )
+    ]
+    observed = [submission_module.classify_portal_semantics(span) for span in spans]
+    test_case.assertIn(expected, observed)
+
+
+def _make_portal_semantic_rejection_test(
+    relative: str, text: str, expected_roles=None
+):
     def test(self):
         self.reject_portal_assertion(relative, text)
+        if expected_roles is not None:
+            assert_portal_semantic_roles(self, text, expected_roles)
 
     return test
 
 
-def _make_portal_semantic_safe_test(relative: str, text: str):
+def _make_portal_semantic_safe_test(relative: str, text: str, expected_roles=None):
     def test(self):
         with tempfile.TemporaryDirectory() as temp:
             root = build_repo(temp)
             append_text(root, relative, "\n" + text + "\n")
             self.assert_accepted(run_validator(root))
+        if expected_roles is not None:
+            assert_portal_semantic_roles(self, text, expected_roles)
 
     return test
 
@@ -1548,6 +1757,37 @@ for _name, _relative, _text in (
         PortalStateWordingTests,
         f"test_portal_semantic_{_name}_passes",
         _make_portal_semantic_safe_test(_relative, _text),
+    )
+
+
+for _name, _relative, _text in (
+    *F06_THIRTEENTH_EXACT_FALSE_PASS_CASES,
+    *F06_THIRTEENTH_PORTAL_MATERIAL_STATE_INVALID_CASES,
+    *F06_THIRTEENTH_MIXED_SCOPE_INVALID_CASES,
+    *F06_THIRTEENTH_CONTEXT_INVALID_CASES,
+):
+    setattr(
+        PortalStateWordingTests,
+        f"test_portal_semantic_{_name}_fails",
+        _make_portal_semantic_rejection_test(
+            _relative, _text, F06_THIRTEENTH_ROLE_EXPECTATIONS.get(_name)
+        ),
+    )
+
+for _name, _relative, _text in (
+    *F06_THIRTEENTH_EXACT_GENERIC_FALSE_REJECT_CASES,
+    *F06_THIRTEENTH_EXACT_HYPOTHETICAL_FALSE_REJECT_CASES,
+    *F06_THIRTEENTH_GENERIC_PRESENTATION_SAFE_CASES,
+    *F06_THIRTEENTH_HYPOTHETICAL_SAFE_CASES,
+    *F06_THIRTEENTH_SCOPE_CONTROL_SAFE_CASES,
+    *F06_THIRTEENTH_CONTEXT_SAFE_CASES,
+):
+    setattr(
+        PortalStateWordingTests,
+        f"test_portal_semantic_{_name}_passes",
+        _make_portal_semantic_safe_test(
+            _relative, _text, F06_THIRTEENTH_ROLE_EXPECTATIONS.get(_name)
+        ),
     )
 
 

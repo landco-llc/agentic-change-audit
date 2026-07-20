@@ -513,10 +513,16 @@ PORTAL_STATE_OBJECT_PATTERNS = {
     "en": (
         re.compile(
             r"\b(?:drafts?|(?:saved|pending|existing|application|submission|review)\s+drafts?|"
-            r"(?:pending|saved)\s+applications?|(?:application|submission|submitted|uploaded)\s+"
+            r"(?:pending|saved|returned|approved|completed|rejected)\s+"
+            r"(?:(?:application|submission|review)\s+)?"
+            r"(?:applications?|submissions?|items?|entr(?:y|ies)|records?|files?|forms?|"
+            r"materials?|content|requests?|cases?)|(?:application|submission|submitted|uploaded)\s+"
             r"(?:content|data|materials?|files?|records?|entr(?:y|ies)|packets?|forms?|cases?|requests?)|"
-            r"materials?|applications?|submissions?|content|files?|records?|entr(?:y|ies)|packets?|"
-            r"forms?|cases?|requests?|nothing)\b",
+            r"materials?|content|files?|records?|entr(?:y|ies)|packets?|forms?|cases?|requests?|nothing|"
+            r"applications?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
+            r"exists?|remains?|remained|awaits?|awaited|awaiting)\b))|"
+            r"submissions?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
+            r"exists?|remains?|remained|awaits?|awaited|awaiting)\b)))",
             re.IGNORECASE,
         ),
     ),
@@ -542,9 +548,12 @@ PORTAL_STATE_OBJECT_PATTERNS = {
 # are still evaluated separately, so ordinary uses of "one" and "none" do not
 # become portal assertions by themselves.
 PORTAL_ANAPHORIC_STATE_OBJECT_PATTERN = re.compile(
-    r"\b(?:another\s+one|one\s+such\s+(?:entry|item|application|draft|record|file)|"
+    r"\b(?:another\s+(?:one|entry|item|draft|record|file)|"
+    r"one\s+such\s+(?:entry|item|application|draft|record|file)|"
     r"one\s+(?:pending|saved|submitted|review)\s+"
     r"(?:entry|item|application|draft|record|file)|"
+    r"one\s+(?:entry|item|draft|record|file)(?=\s*(?:$|[.,;:!?)}\]]|"
+    r"\b(?:after|before|now|already|still|currently|here|there|today|yesterday)\b))|"
     r"one(?=\s*(?:$|[.,;:!?)}\]]|\b(?:after|before|now|already|still|currently|"
     r"here|there|today|yesterday)\b))|none)\b",
     re.IGNORECASE,
@@ -561,11 +570,33 @@ PORTAL_ANAPHORIC_MATERIAL_PREDICATE_PATTERN = re.compile(
 # portal surface; it needs an explicitly qualified surface or bounded context
 # inherited from a qualifying antecedent.
 PORTAL_STRONG_CONTEXTUAL_OBJECT_PATTERN = re.compile(
-    r"\b(?:drafts?|applications?|submissions?|submitted\s+(?:content|materials?|files?)|"
-    r"pending\s+entr(?:y|ies)|saved\s+(?:draft|application)|review\s+queue)\b"
-    r"|(?:下書き|草稿|ドラフト|提出(?:済み)?|申請(?:済み)?|送審|審査|案件|資料|申請書|フォーム)"
+    r"\b(?:drafts?|submitted\s+(?:content|materials?|files?)|"
+    r"(?:pending|saved)\s+(?:applications?|submissions?|items?|entr(?:y|ies)|records?|"
+    r"files?|forms?|materials?)|"
+    r"applications?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
+    r"exists?|remains?|awaits?)\b))|"
+    r"submissions?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
+    r"exists?|remains?|awaits?)\b))|review\s+queue)\b"
+    r"|(?:下書き|草稿|ドラフト|提出済み|申請済み|送審(?:済み|待ち)?|"
+    r"案件|資料|申請書(?!テンプレート)|フォーム)"
     r"|(?:草稿|提交|申請|送件|送審|審核|案件|資料|表單)",
     re.IGNORECASE,
+)
+
+# A display predicate says that a surface exposes material. Remaining state
+# predicates say that the material itself has or is in a state. Keeping these
+# roles separate prevents words such as ``present`` from being treated as
+# either globally safe or globally unsafe.
+PORTAL_MATERIAL_DISPLAY_PREDICATE_PATTERNS = (
+    re.compile(
+        r"\b(?:has|have|had|holds?|held|holding|contains?|contained|containing|shows?|"
+        r"showed|showing|display(?:s|ed|ing)?|stores?|stored|storing|"
+        r"list(?:s|ed|ing)?|present(?:s|ed|ing)?|retains?|retained|retaining|"
+        r"records?|recorded|recording|does\s+not\s+contain|do\s+not\s+contain)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"(?:表示|掲載|登録|記録|保持|保存|含まれて|残って|あります|ありません)"),
+    re.compile(r"(?:顯示|呈現|列出|包含|保留|留存|保存|儲存|登記|記錄|已有|有|沒有)"),
 )
 
 # In the submission-status files, these objects carry their own application
@@ -690,6 +721,53 @@ class DiscourseMode(Enum):
     HUMAN_GATE = auto()
 
 
+class SurfaceContext(Enum):
+    NONE = auto()
+    GENERIC_UI = auto()
+    GOVERNED_PORTAL = auto()
+
+
+class Actuality(Enum):
+    CURRENT_ASSERTION = auto()
+    NON_CURRENT_OR_NON_ASSERTIVE = auto()
+
+
+class ObjectKind(Enum):
+    NONE = auto()
+    STRONG_MATERIAL_OBJECT = auto()
+    BOUNDED_ANAPHORIC_OBJECT = auto()
+
+
+class PredicateKind(Enum):
+    NONE = auto()
+    STATE = auto()
+    MATERIAL_DISPLAY = auto()
+
+
+@dataclass(frozen=True)
+class PortalSemanticRoles:
+    """Independently classified roles for one portal-state assertion span."""
+
+    surface_context: SurfaceContext
+    actuality: Actuality
+    object_kind: ObjectKind
+    predicate_kind: PredicateKind
+
+    @property
+    def is_current_material_portal_assertion(self) -> bool:
+        return (
+            self.surface_context is SurfaceContext.GOVERNED_PORTAL
+            and self.actuality is Actuality.CURRENT_ASSERTION
+            and self.object_kind
+            in {
+                ObjectKind.STRONG_MATERIAL_OBJECT,
+                ObjectKind.BOUNDED_ANAPHORIC_OBJECT,
+            }
+            and self.predicate_kind
+            in {PredicateKind.STATE, PredicateKind.MATERIAL_DISPLAY}
+        )
+
+
 @dataclass(frozen=True)
 class AssertionSpan:
     """One predicate-bearing clause with its own attached discourse scope."""
@@ -756,7 +834,8 @@ PORTAL_HUMAN_GATE_SAFE_PATTERNS = (
 PORTAL_EXPLANATORY_SEGMENT_PATTERNS = (
     re.compile(
         r"\b(?:documentation|document|schema|field|field\s+named|fixture|sample|example|"
-        r"test\s+example|terminology|term|phrase|defines?|explains?|describes?|hypothetical)\b",
+        r"test\s+example|terminology|term|phrase|wording|quotes?|quoted|"
+        r"defines?|explains?|describes?|hypothetical)\b",
         re.IGNORECASE,
     ),
     re.compile(r"(?:説明|解説|項目|フィールド|用語|例|例示|テスト例|サンプル|文字列|仮定|文書)"),
@@ -764,8 +843,13 @@ PORTAL_EXPLANATORY_SEGMENT_PATTERNS = (
 )
 PORTAL_FUTURE_SEGMENT_PATTERNS = (
     re.compile(
-        r"\b(?:future|may|might|could|will|would|if|when\s+a\s+human\s+later|"
-        r"after\s+(?:human\s+)?approval|following\s+human\s+approval)\b",
+        r"\b(?:future|may|might|could|will|would|if|unless|suppose|assuming|"
+        r"were\s+(?:the|an?|this|that)\s+[^.!?;]{0,60}\s+to\s+"
+        r"(?:show|display|list|present|contain|hold|store|record|return|approve|complete|reject)|"
+        r"should\s+[^.!?;]{0,80}\s+later|"
+        r"in\s+a\s+hypothetical\s+scenario|for\s+example\s*,?\s*if|"
+        r"when\s+a\s+human\s+later|after\s+(?:human\s+)?approval|"
+        r"following\s+human\s+approval|hypothetical|conditional|counterfactual)\b",
         re.IGNORECASE,
     ),
     re.compile(r"(?:将来|今後|可能性|予定|承認後|場合|なら|ことがあります)"),
@@ -1015,6 +1099,11 @@ CONTINUATION_BOUNDARY_PATTERN = re.compile(
     r"それにも関わらず|にもかかわらず|にも関わらず|なお|ただし|"
     r"それでも|とはいえ|儘管如此|即使如此|但是|但|然而|不過|可是|卻|雖然|儘管|"
     r"而且|且|而)",
+    re.IGNORECASE,
+)
+PORTAL_BOUNDED_SURFACE_ANAPHOR_PATTERN = re.compile(
+    r"^(?:(?:however|nevertheless|nonetheless|even\s+so|still)\s*,?\s*)?"
+    r"(?:it|this|that)\b",
     re.IGNORECASE,
 )
 JAPANESE_SCRIPT_PATTERN = re.compile(r"[ぁ-ゟ゠-ヿ]")
@@ -1826,19 +1915,33 @@ def matches_any(patterns: tuple[re.Pattern[str], ...], segment: str) -> bool:
     return any(pattern.search(segment) for pattern in patterns)
 
 
+def classify_object_kind(text: str) -> ObjectKind:
+    if portal_patterns_match(PORTAL_STATE_OBJECT_PATTERNS, text) or any(
+        pattern.search(text) for pattern in PORTAL_SELF_STATE_PATTERNS
+    ):
+        return ObjectKind.STRONG_MATERIAL_OBJECT
+    if (
+        PORTAL_ANAPHORIC_STATE_OBJECT_PATTERN.search(text) is not None
+        and PORTAL_ANAPHORIC_MATERIAL_PREDICATE_PATTERN.search(text) is not None
+    ):
+        return ObjectKind.BOUNDED_ANAPHORIC_OBJECT
+    return ObjectKind.NONE
+
+
 def portal_text_has_state_object(text: str) -> bool:
-    return (
-        portal_patterns_match(PORTAL_STATE_OBJECT_PATTERNS, text)
-        or any(pattern.search(text) for pattern in PORTAL_SELF_STATE_PATTERNS)
-        or (
-            PORTAL_ANAPHORIC_STATE_OBJECT_PATTERN.search(text) is not None
-            and PORTAL_ANAPHORIC_MATERIAL_PREDICATE_PATTERN.search(text) is not None
-        )
-    )
+    return classify_object_kind(text) is not ObjectKind.NONE
+
+
+def classify_predicate_kind(text: str) -> PredicateKind:
+    if matches_any(PORTAL_MATERIAL_DISPLAY_PREDICATE_PATTERNS, text):
+        return PredicateKind.MATERIAL_DISPLAY
+    if portal_patterns_match(PORTAL_STATE_PREDICATE_PATTERNS, text):
+        return PredicateKind.STATE
+    return PredicateKind.NONE
 
 
 def portal_text_has_state_predicate(text: str) -> bool:
-    return portal_patterns_match(PORTAL_STATE_PREDICATE_PATTERNS, text)
+    return classify_predicate_kind(text) is not PredicateKind.NONE
 
 
 def portal_text_has_explicit_context(text: str) -> bool:
@@ -1854,20 +1957,29 @@ def portal_text_has_explicit_context(text: str) -> bool:
     )
 
 
+def classify_surface_context(
+    text: str, inherited_portal_context: bool = False
+) -> SurfaceContext:
+    if (
+        portal_text_has_explicit_context(text)
+        or inherited_portal_context
+        or any(pattern.search(text) for pattern in PORTAL_IMPLICIT_CONTEXT_PATTERNS)
+    ):
+        return SurfaceContext.GOVERNED_PORTAL
+    if portal_patterns_match(PORTAL_GENERIC_SURFACE_PATTERNS, text):
+        return SurfaceContext.GENERIC_UI
+    return SurfaceContext.NONE
+
+
 def portal_text_materially_assertive(
     text: str, inherited_portal_context: bool = False
 ) -> bool:
     """Return whether one clause contains a complete portal-state predicate."""
-    has_state_object = portal_text_has_state_object(text)
-    has_portal_context = (
-        portal_text_has_explicit_context(text)
-        or inherited_portal_context
-        or any(pattern.search(text) for pattern in PORTAL_IMPLICIT_CONTEXT_PATTERNS)
-    )
     return (
-        has_portal_context
-        and has_state_object
-        and portal_text_has_state_predicate(text)
+        classify_surface_context(text, inherited_portal_context)
+        is SurfaceContext.GOVERNED_PORTAL
+        and classify_object_kind(text) is not ObjectKind.NONE
+        and classify_predicate_kind(text) is not PredicateKind.NONE
     )
 
 
@@ -1949,6 +2061,8 @@ def leading_safe_scope_governs_predicate(left: str, right: str) -> bool:
     return bool(
         re.fullmatch(
             r"(?:in\s+the\s+future|in\s+this\s+example|for\s+example|future|later|"
+            r"in\s+(?:a\s+)?(?:hypothetical|conditional|counterfactual)"
+            r"(?:\s+[a-z]+){0,2}|"
             r"将来|今後|例えば|たとえば|未來|例如)",
             left.strip(),
             re.IGNORECASE,
@@ -2011,12 +2125,12 @@ def classify_predicate_scope(text: str) -> DiscourseMode:
     """Attach one safe operator only to the clause/predicate it governs."""
     if matches_any(PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS, text):
         return DiscourseMode.REPOSITORY_EVIDENCE_BOUNDARY
-    if matches_any(PORTAL_EXPLANATORY_SEGMENT_PATTERNS, text):
-        return DiscourseMode.DOCUMENTATION_OR_EXAMPLE
-    if matches_any(PORTAL_QUESTION_VERIFICATION_PATTERNS, text):
-        return DiscourseMode.QUESTION_OR_VERIFICATION
     if matches_any(PORTAL_FUTURE_SEGMENT_PATTERNS, text):
         return DiscourseMode.FUTURE_OR_HYPOTHETICAL
+    if matches_any(PORTAL_QUESTION_VERIFICATION_PATTERNS, text):
+        return DiscourseMode.QUESTION_OR_VERIFICATION
+    if matches_any(PORTAL_EXPLANATORY_SEGMENT_PATTERNS, text):
+        return DiscourseMode.DOCUMENTATION_OR_EXAMPLE
     if matches_any(PORTAL_HUMAN_GATE_SAFE_PATTERNS, text):
         return DiscourseMode.HUMAN_GATE
     return DiscourseMode.CURRENT_ASSERTION
@@ -2095,31 +2209,55 @@ def mask_documentation_example_terms(span: AssertionSpan) -> str:
     return masked
 
 
+def classify_actuality(
+    span: AssertionSpan,
+    effective_text: str,
+    inherited_portal_context: bool = False,
+) -> Actuality:
+    """Classify assertion force independently from surface and vocabulary."""
+    if span.discourse_scope in {
+        DiscourseMode.QUESTION_OR_VERIFICATION,
+        DiscourseMode.REPOSITORY_EVIDENCE_BOUNDARY,
+    }:
+        return Actuality.NON_CURRENT_OR_NON_ASSERTIVE
+    if span.discourse_scope is DiscourseMode.FUTURE_OR_HYPOTHETICAL:
+        if matches_any(PORTAL_EXPLICIT_CURRENT_TIME_PATTERNS, effective_text):
+            return Actuality.CURRENT_ASSERTION
+        return Actuality.NON_CURRENT_OR_NON_ASSERTIVE
+    if span.discourse_scope is DiscourseMode.DOCUMENTATION_OR_EXAMPLE:
+        return Actuality.NON_CURRENT_OR_NON_ASSERTIVE
+    if span.discourse_scope is DiscourseMode.HUMAN_GATE:
+        if portal_text_materially_assertive(
+            effective_text, inherited_portal_context
+        ):
+            return Actuality.CURRENT_ASSERTION
+        return Actuality.NON_CURRENT_OR_NON_ASSERTIVE
+    return Actuality.CURRENT_ASSERTION
+
+
+def classify_portal_semantics(
+    span: AssertionSpan, inherited_portal_context: bool = False
+) -> PortalSemanticRoles:
+    """Return the four inspectable roles required for a coherent rejection."""
+    effective_text = mask_documentation_example_terms(span)
+    return PortalSemanticRoles(
+        surface_context=classify_surface_context(
+            effective_text, inherited_portal_context
+        ),
+        actuality=classify_actuality(
+            span, effective_text, inherited_portal_context
+        ),
+        object_kind=classify_object_kind(effective_text),
+        predicate_kind=classify_predicate_kind(effective_text),
+    )
+
+
 def portal_assertion_span_is_unsafe(
     span: AssertionSpan, inherited_portal_context: bool = False
 ) -> bool:
-    if not portal_text_materially_assertive(span.text, inherited_portal_context):
-        return False
-
-    if span.discourse_scope is DiscourseMode.QUESTION_OR_VERIFICATION:
-        return False
-    if span.discourse_scope is DiscourseMode.REPOSITORY_EVIDENCE_BOUNDARY:
-        # The exact repository-evidence predicate is itself the governed
-        # boundary. Clause extraction keeps a coordinated portal assertion in
-        # a different span, where this operator is absent.
-        return False
-    if span.discourse_scope is DiscourseMode.DOCUMENTATION_OR_EXAMPLE:
-        # Only the quoted/example predicate is governed. Any unquoted material
-        # current-state predicate left in the same clause remains unsafe.
-        return portal_text_materially_assertive(
-            mask_documentation_example_terms(span), inherited_portal_context
-        )
-    if span.discourse_scope is DiscourseMode.FUTURE_OR_HYPOTHETICAL:
-        return matches_any(PORTAL_EXPLICIT_CURRENT_TIME_PATTERNS, span.text)
-    # A pure human-gate clause has no material state predicate and returned
-    # above. If HUMAN_GATE reaches this point, it contains an ungoverned
-    # current assertion and must reject.
-    return True
+    return classify_portal_semantics(
+        span, inherited_portal_context
+    ).is_current_material_portal_assertion
 
 
 PORTAL_DOMAIN_GATE_PATTERN = re.compile(
@@ -2230,6 +2368,30 @@ def inherited_portal_context(
             return adjacent_boundary_allows_context(
                 antecedent, current
             ) and portal_span_can_supply_context(antecedent, current)
+
+    # A subject pronoun can resolve the immediately preceding sentence's
+    # named portal without inheriting that sentence's safe modality. This is
+    # deliberately narrower than continuation inheritance: the current span
+    # must be an explicit-current material assertion beginning with it/this/
+    # that. Ordinary new-sentence material prose still observes the hard reset.
+    if (
+        PORTAL_BOUNDED_SURFACE_ANAPHOR_PATTERN.match(current.text)
+        and matches_any(PORTAL_EXPLICIT_CURRENT_TIME_PATTERNS, current.text)
+        and classify_object_kind(current.text) is not ObjectKind.NONE
+        and classify_predicate_kind(current.text) is not PredicateKind.NONE
+    ):
+        previous_sentence_id = current.sentence_id - 1
+        for antecedent in reversed(spans[:current_index]):
+            if antecedent.paragraph_id != current.paragraph_id:
+                break
+            if antecedent.sentence_id < previous_sentence_id:
+                break
+            if (
+                antecedent.sentence_id == previous_sentence_id
+                and portal_text_has_explicit_context(antecedent.text)
+                and portal_context_is_within_source_distance(antecedent, current)
+            ):
+                return True
 
     # A consumed structural connector is retained as one direct graph edge.
     # Consult only that nearest structural antecedent; never relay context
