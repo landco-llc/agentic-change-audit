@@ -544,11 +544,27 @@ PORTAL_STATE_OBJECT_PATTERNS = {
 PORTAL_ANAPHORIC_STATE_OBJECT_PATTERN = re.compile(
     r"\b(?:another\s+one|one\s+such\s+(?:entry|item|application|draft|record|file)|"
     r"one\s+(?:pending|saved|submitted|review)\s+"
-    r"(?:entry|item|application|draft|record|file)|one|none)\b",
+    r"(?:entry|item|application|draft|record|file)|"
+    r"one(?=\s*(?:$|[.,;:!?)}\]]|\b(?:after|before|now|already|still|currently|"
+    r"here|there|today|yesterday)\b))|none)\b",
     re.IGNORECASE,
 )
 PORTAL_ANAPHORIC_MATERIAL_PREDICATE_PATTERN = re.compile(
-    r"\b(?:holds?|contains?|shows?|display(?:s|ed|ing)?|stores?)\b",
+    r"\b(?:holds?|contains?|shows?|display(?:s|ed|ing)?|stores?|"
+    r"list(?:s|ed|ing)?|present(?:s|ed|ing)?)\b",
+    re.IGNORECASE,
+)
+
+# A generic UI noun is portal context only when its own clause names a strong
+# application/submission/review object. In particular, an anaphoric quantity
+# such as ``one`` cannot turn an ordinary dashboard, console, or site into a
+# portal surface; it needs an explicitly qualified surface or bounded context
+# inherited from a qualifying antecedent.
+PORTAL_STRONG_CONTEXTUAL_OBJECT_PATTERN = re.compile(
+    r"\b(?:drafts?|applications?|submissions?|submitted\s+(?:content|materials?|files?)|"
+    r"pending\s+entr(?:y|ies)|saved\s+(?:draft|application)|review\s+queue)\b"
+    r"|(?:下書き|草稿|ドラフト|提出(?:済み)?|申請(?:済み)?|送審|審査|案件|資料|申請書|フォーム)"
+    r"|(?:草稿|提交|申請|送件|送審|審核|案件|資料|表單)",
     re.IGNORECASE,
 )
 
@@ -589,7 +605,8 @@ PORTAL_STATE_PREDICATE_PATTERNS = {
         ),
         re.compile(
             r"\b(?:has|have|had|holds?|held|holding|contains?|contained|containing|shows?|"
-            r"showed|showing|display(?:s|ed|ing)?|stores?|stored|storing|retains?|retained|retaining|"
+            r"showed|showing|display(?:s|ed|ing)?|stores?|stored|storing|"
+            r"list(?:s|ed|ing)?|present(?:s|ed|ing)?|retains?|retained|retaining|"
             r"records?|recorded|recording|does\s+not\s+contain|do\s+not\s+contain)\s+"
             r"(?:no\s+|an?\s+|the\s+|any\s+)?",
             re.IGNORECASE,
@@ -747,7 +764,7 @@ PORTAL_EXPLANATORY_SEGMENT_PATTERNS = (
 )
 PORTAL_FUTURE_SEGMENT_PATTERNS = (
     re.compile(
-        r"\b(?:future|may|might|could|will\s+be|if|when\s+a\s+human\s+later|"
+        r"\b(?:future|may|might|could|will|would|if|when\s+a\s+human\s+later|"
         r"after\s+(?:human\s+)?approval|following\s+human\s+approval)\b",
         re.IGNORECASE,
     ),
@@ -1825,9 +1842,15 @@ def portal_text_has_state_predicate(text: str) -> bool:
 
 
 def portal_text_has_explicit_context(text: str) -> bool:
-    has_state_object = portal_text_has_state_object(text)
     return portal_patterns_match(PORTAL_CONTEXT_PATTERNS, text) or (
-        has_state_object and portal_patterns_match(PORTAL_GENERIC_SURFACE_PATTERNS, text)
+        portal_patterns_match(PORTAL_GENERIC_SURFACE_PATTERNS, text)
+        and (
+            PORTAL_STRONG_CONTEXTUAL_OBJECT_PATTERN.search(text) is not None
+            # Preserve the established Japanese/Traditional Chinese bare
+            # surface self-state contract; the F-06R1-C ambiguity is the
+            # English anaphoric ``one`` family, not these explicit forms.
+            or any(pattern.search(text) for pattern in PORTAL_SELF_STATE_PATTERNS[1:])
+        )
     )
 
 
@@ -2099,13 +2122,6 @@ def portal_assertion_span_is_unsafe(
     return True
 
 
-PORTAL_STRONG_CONTEXTUAL_OBJECT_PATTERN = re.compile(
-    r"\b(?:drafts?|applications?|submissions?|submitted\s+(?:content|materials?|files?)|"
-    r"pending\s+entr(?:y|ies)|saved\s+(?:draft|application)|review\s+queue)\b"
-    r"|(?:下書き|草稿|ドラフト|提出(?:済み)?|申請(?:済み)?|送審|審査|案件|資料|申請書|フォーム)"
-    r"|(?:草稿|提交|申請|送件|送審|審核|案件|資料|表單)",
-    re.IGNORECASE,
-)
 PORTAL_DOMAIN_GATE_PATTERN = re.compile(
     r"\bhuman\s+(?:review|verification)\s+is\s+required\b|"
     r"\b(?:must|needs?\s+to|required\s+to)\s+(?:determine|verify|check|confirm)\b|"

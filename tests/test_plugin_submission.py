@@ -1436,6 +1436,52 @@ F06_RESIDUAL_SAFE_CASES = (
 )
 
 
+# Twelfth-remediation F-06R1-C corpus. The five audit identifiers preserve the
+# exact independent failing strings; the nearby variants prove that generic
+# UI nouns do not supply portal context, while list/present inflections remain
+# material predicates on explicitly qualified or bounded portal surfaces.
+F06_TWELFTH_GENERIC_SURFACE_SAFE_CASES = (
+    ("twelfth_audit_ov02_performance_dashboard", submission_module.PLUGIN_README_RELATIVE, "The performance dashboard shows one active worker."),
+    ("twelfth_audit_ov03_local_build_console", submission_module.PLUGIN_README_RELATIVE, "The local build console displays another one after the retry."),
+    ("twelfth_audit_ov04_documentation_site", submission_module.PLUGIN_README_RELATIVE, "The documentation site contains one navigation example."),
+    ("twelfth_generic_analytics_dashboard_list", submission_module.PLUGIN_README_RELATIVE, "The analytics dashboard lists another one in the chart."),
+    ("twelfth_generic_monitoring_dashboard_present", submission_module.PLUGIN_README_RELATIVE, "The monitoring dashboard presents one pending alert."),
+    ("twelfth_generic_runtime_console_listing", submission_module.PLUGIN_README_RELATIVE, "The local runtime console is listing one fixture."),
+    ("twelfth_generic_test_console_presented", submission_module.PLUGIN_README_RELATIVE, "The test console presented one example."),
+    ("twelfth_generic_documentation_page_shows", submission_module.PLUGIN_README_RELATIVE, "The documentation page shows another one below."),
+    ("twelfth_generic_product_dashboard_contains", submission_module.PLUGIN_README_RELATIVE, "The product dashboard contains one active subscription."),
+    ("twelfth_generic_support_site_lists", submission_module.PLUGIN_README_RELATIVE, "The support site lists another one in a sample table."),
+)
+
+F06_TWELFTH_MATERIAL_PREDICATE_INVALID_CASES = (
+    ("twelfth_audit_ci03_lists", submission_module.PLUGIN_README_RELATIVE, "The developer console remains unverified. Even so, it lists another one."),
+    ("twelfth_audit_ci04_presents", submission_module.PLUGIN_README_RELATIVE, "The review dashboard needs checking; it presents one pending item."),
+    ("twelfth_list_base", submission_module.PLUGIN_README_RELATIVE, "The submission portal and review queue list another one."),
+    ("twelfth_listed", submission_module.PLUGIN_README_RELATIVE, "The review portal listed one pending item."),
+    ("twelfth_listing", submission_module.PLUGIN_README_RELATIVE, "The application console is listing one such entry."),
+    ("twelfth_present_base", submission_module.PLUGIN_README_RELATIVE, "The review portal and submission queue present another one."),
+    ("twelfth_presented", submission_module.PLUGIN_README_RELATIVE, "The application portal presented one pending item."),
+    ("twelfth_presenting", submission_module.PLUGIN_README_RELATIVE, "The developer console is presenting one such entry."),
+    ("twelfth_list_markdown", submission_module.PLUGIN_README_RELATIVE, "The submission dashboard remains unchecked; it **lists another one**."),
+    ("twelfth_present_inherited", submission_module.PLUGIN_README_RELATIVE, "The review workspace requires confirmation. Nevertheless, it presents one pending item."),
+)
+
+F06_TWELFTH_SAFE_SCOPE_CASES = (
+    ("twelfth_safe_quote_lists", submission_module.PLUGIN_README_RELATIVE, "The guide quotes “the review portal lists another one” as a prohibited example."),
+    ("twelfth_safe_quote_presents", submission_module.PLUGIN_README_RELATIVE, 'The example sentence is "the developer console presents one pending item".'),
+    ("twelfth_safe_question_list", submission_module.PLUGIN_README_RELATIVE, "Does the review portal list another one?"),
+    ("twelfth_safe_question_present", submission_module.PLUGIN_README_RELATIVE, "Could the application dashboard present one pending item?"),
+    ("twelfth_safe_future_list", submission_module.PLUGIN_README_RELATIVE, "The developer console may list another one after a future submission."),
+    ("twelfth_safe_future_present", submission_module.PLUGIN_README_RELATIVE, "The review portal will present one pending item later."),
+    ("twelfth_safe_hypothetical_list", submission_module.PLUGIN_README_RELATIVE, "If the submission portal listed another one, the test would report it."),
+    ("twelfth_safe_hypothetical_present", submission_module.PLUGIN_README_RELATIVE, "The application dashboard would present one pending item in that scenario."),
+    ("twelfth_safe_presentation_example", submission_module.PLUGIN_README_RELATIVE, "The review dashboard presents one example below."),
+    ("twelfth_safe_presentation_diagram", submission_module.PLUGIN_README_RELATIVE, "The developer console presents one diagram for the reviewer."),
+    ("twelfth_safe_verify_list", submission_module.PLUGIN_README_RELATIVE, "The reviewer asks whether the developer console lists another one."),
+    ("twelfth_safe_verify_present", submission_module.PLUGIN_README_RELATIVE, "Please verify whether the review dashboard presents one pending item."),
+)
+
+
 def _make_portal_semantic_rejection_test(relative: str, text: str):
     def test(self):
         self.reject_portal_assertion(relative, text)
@@ -1476,6 +1522,7 @@ for _name, _relative, _text in (
     *F06_RESIDUAL_NECESSARY_INVALID_CASES,
     *F06_RESIDUAL_ANAPHORIC_INVALID_CASES,
     *F06_RESIDUAL_VERIFICATION_COMBINED_INVALID_CASES,
+    *F06_TWELFTH_MATERIAL_PREDICATE_INVALID_CASES,
 ):
     setattr(
         PortalStateWordingTests,
@@ -1494,6 +1541,8 @@ for _name, _relative, _text in (
     *F06_MARKDOWN_CONTEXT_SAFE_CASES,
     *F06_CONTINUATION_CONTEXT_SAFE_CASES,
     *F06_RESIDUAL_SAFE_CASES,
+    *F06_TWELFTH_GENERIC_SURFACE_SAFE_CASES,
+    *F06_TWELFTH_SAFE_SCOPE_CASES,
 ):
     setattr(
         PortalStateWordingTests,
