@@ -701,6 +701,7 @@ class StructuredSpanGraph:
     spans: tuple[StructuredSpan, ...]
     bracket_antecedents: dict[int, int | None]
     bracket_parents: dict[int, int | None]
+    continuation_antecedents: dict[int, int]
 
 
 PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS = (
@@ -929,10 +930,11 @@ STRUCTURAL_SEPARATOR_PATTERN = re.compile(
     r"([.!?;:\n。！？；：]"
     r"|[—–]"
     r"|,\s*(?:and|or)\s+"
-    r"|(?<![A-Za-z])(?:even\s+though|but|however|yet|although|though|whereas|nevertheless)(?![A-Za-z])"
-    r"|が[、,]"
-    r"|ですが|だが|しかし|ただし|一方で|一方|とはいえ|ものの|けれども|けれど|にもかかわらず"
-    r"|但是|但|然而|不過|可是|卻|雖然|儘管)",
+    r"|(?<![A-Za-z])(?:even\s+though|even\s+so|but|however|yet|although|though|"
+    r"whereas|nevertheless|nonetheless)(?![A-Za-z])"
+    r"|があり[、,]|が[、,]"
+    r"|ですが|だが|しかし|ただし|一方で|一方|それでも|とはいえ|ものの|けれども|けれど|にもかかわらず"
+    r"|儘管如此|即使如此|但是|但|然而|不過|可是|卻|雖然|儘管)",
     re.IGNORECASE,
 )
 STRUCTURAL_BRACKET_PATTERN = re.compile(r"[()（）\[\]【】{}]")
@@ -947,11 +949,29 @@ MAX_PORTAL_BRACKET_CONTEXT_DEPTH = 4
 # conjunction as a boundary while still isolating independently governed
 # predicates such as "asks whether ... while the portal currently ...".
 ASSERTION_SCOPE_SEPARATOR_PATTERN = re.compile(
-    r"\b(?:even\s+though|at\s+the\s+same\s+time|simultaneously|while|whereas|"
+    r"\b(?:even\s+though|even\s+so|at\s+the\s+same\s+time|simultaneously|while|whereas|"
     r"although|though|and|but)\b"
-    r"|(?:けれども|けれど|しかし|一方で|一方|同時に|ながら|ものの|のに|また|そして|が)"
-    r"|(?:但是|然而|不過|一方面|並且|同時|但|且|而)"
+    r"|(?:けれども|けれど|しかし|一方で|一方|それでも|とはいえ|同時に|ながら|ものの|のに|また|そして|があり[、,]|が)"
+    r"|(?:儘管如此|即使如此|但是|然而|不過|一方面|並且|同時|但|且|而)"
     r"|[,、，]",
+    re.IGNORECASE,
+)
+
+# Structural discourse markers become explicit graph edges. Some of these
+# tokens are separators themselves and therefore no longer appear in the next
+# span's text; matching the retained boundary is what preserves their meaning.
+CONTINUATION_LEAD_PATTERN = re.compile(
+    r"(?<![A-Za-z])(?:however|nevertheless|nonetheless|even\s+so|still|also|yet)(?![A-Za-z])"
+    r"|(?:なお|ただし|しかし|また|一方で|それでも|とはいえ|にもかかわらず)"
+    r"|(?:儘管如此|即使如此|但是|但|然而|不過|可是|卻|而且)",
+    re.IGNORECASE,
+)
+CONTINUATION_BOUNDARY_PATTERN = re.compile(
+    r"[;；:：—–]|\b(?:even\s+though|even\s+so|and|or|but|however|yet|although|"
+    r"though|whereas|nevertheless|nonetheless|while)\b|(?:があり[、,]|が|ですが|だが|"
+    r"しかし|一方|ながら|ものの|けれども|けれど|にもかかわらず|なお|ただし|"
+    r"それでも|とはいえ|儘管如此|即使如此|但是|但|然而|不過|可是|卻|雖然|儘管|"
+    r"而且|且|而)",
     re.IGNORECASE,
 )
 JAPANESE_SCRIPT_PATTERN = re.compile(r"[ぁ-ゟ゠-ヿ]")
@@ -1717,7 +1737,31 @@ def build_structured_span_graph(visible: str) -> StructuredSpanGraph:
             spans[previous].next_sibling = span.span_id
         last_sibling[key] = span.span_id
 
-    return StructuredSpanGraph(tuple(spans), bracket_antecedents, bracket_parents)
+    continuation_antecedents: dict[int, int] = {}
+    for span in spans:
+        if span.previous_sibling is None or "\n" in span.boundary_before:
+            continue
+        antecedent = spans[span.previous_sibling]
+        same_sentence = span.sentence_id == antecedent.sentence_id
+        next_sentence = span.sentence_id == antecedent.sentence_id + 1
+        if (
+            same_sentence
+            and CONTINUATION_BOUNDARY_PATTERN.search(span.boundary_before)
+        ) or (
+            next_sentence
+            and (
+                CONTINUATION_LEAD_PATTERN.search(span.boundary_before)
+                or CONTINUATION_LEAD_PATTERN.match(span.text)
+            )
+        ):
+            continuation_antecedents[span.span_id] = antecedent.span_id
+
+    return StructuredSpanGraph(
+        tuple(spans),
+        bracket_antecedents,
+        bracket_parents,
+        continuation_antecedents,
+    )
 
 
 def structural_atomic_segments(visible: str) -> list[str]:
@@ -1869,7 +1913,9 @@ def predicate_clause_ranges(segment: str) -> list[tuple[int, int]]:
     for match in ASSERTION_SCOPE_SEPARATOR_PATTERN.finditer(segment):
         if position_is_quoted(match.start(), quoted_ranges):
             continue
-        if match.group(0) == "が" and not japanese_ga_is_concessive(segment, match.start()):
+        if match.group(0).startswith("が") and not japanese_ga_is_concessive(
+            segment, match.start()
+        ):
             continue
         left_range = trimmed_range(segment, cursor, match.start())
         right_range = trimmed_range(segment, match.end(), len(segment))
@@ -2032,16 +2078,6 @@ PORTAL_DOMAIN_GATE_PATTERN = re.compile(
     r"(?:人工確認|需要查核|仍須查核|仍待確認|尚未確認)",
     re.IGNORECASE,
 )
-CONTINUATION_LEAD_PATTERN = re.compile(
-    r"^(?:however|nevertheless|still|also|なお|ただし|しかし|また|而且|然而|不過)[、,，\s]*",
-    re.IGNORECASE,
-)
-CONTINUATION_BOUNDARY_PATTERN = re.compile(
-    r"[;；:：—–]|\b(?:even\s+though|and|or|but|however|yet|although|though|"
-    r"whereas|nevertheless|while)\b|(?:が|ですが|だが|しかし|一方|ながら|ものの|"
-    r"なお|但是|但|然而|不過|而且|且|而)",
-    re.IGNORECASE,
-)
 
 
 def portal_span_can_supply_context(antecedent: AssertionSpan, current: AssertionSpan) -> bool:
@@ -2054,12 +2090,42 @@ def portal_span_can_supply_context(antecedent: AssertionSpan, current: Assertion
     )
 
 
+def portal_state_component_source_offset(span: AssertionSpan) -> int:
+    """Return the real source start of this span's state object/predicate.
+
+    A structural span may begin with arbitrarily long non-state prose. Using
+    ``span.start`` would let that prose make a distant state claim look close
+    enough to inherit portal context.
+    """
+    relative_offsets = [
+        match.start()
+        for patterns in (
+            *PORTAL_STATE_OBJECT_PATTERNS.values(),
+            *PORTAL_STATE_PREDICATE_PATTERNS.values(),
+            PORTAL_SELF_STATE_PATTERNS,
+        )
+        for pattern in patterns
+        for match in (pattern.search(span.text),)
+        if match is not None
+    ]
+    return span.start + min(relative_offsets) if relative_offsets else span.start
+
+
+def portal_context_is_within_source_distance(
+    antecedent: AssertionSpan, current: AssertionSpan
+) -> bool:
+    return (
+        portal_state_component_source_offset(current) - antecedent.end
+        <= MAX_PORTAL_CONTEXT_SOURCE_DISTANCE
+    )
+
+
 def adjacent_boundary_allows_context(
     antecedent: AssertionSpan, current: AssertionSpan
 ) -> bool:
     if antecedent.paragraph_id != current.paragraph_id:
         return False
-    if current.start - antecedent.end > MAX_PORTAL_CONTEXT_SOURCE_DISTANCE:
+    if not portal_context_is_within_source_distance(antecedent, current):
         return False
     boundary = current.boundary_before
     if "\n" in boundary:
@@ -2080,7 +2146,12 @@ def inherited_portal_context(
     graph: StructuredSpanGraph,
     spans_by_structure: dict[int, list[AssertionSpan]],
 ) -> bool:
-    """Resolve one adjacent or nearest-outer antecedent without safe-mode flow."""
+    """Resolve one direct continuation/outer context edge.
+
+    Only portal context crosses the edge. The antecedent's safe discourse mode
+    never does: ``portal_assertion_span_is_unsafe`` always classifies the
+    current predicate independently.
+    """
     current = spans[current_index]
     if not (portal_text_has_state_object(current.text) and portal_text_has_state_predicate(current.text)):
         return False
@@ -2095,19 +2166,34 @@ def inherited_portal_context(
             for antecedent in reversed(spans_by_structure.get(structure_id, [])):
                 if (
                     antecedent.paragraph_id == current.paragraph_id
-                    and current.start - antecedent.end <= MAX_PORTAL_CONTEXT_SOURCE_DISTANCE
+                    and portal_context_is_within_source_distance(antecedent, current)
                     and portal_span_can_supply_context(antecedent, current)
                 ):
                     return True
         bracket_id = graph.bracket_parents.get(bracket_id)
         traversed += 1
 
-    if current_index == 0:
+    if current_index > 0:
+        antecedent = spans[current_index - 1]
+        if antecedent.structure_id == current.structure_id:
+            return adjacent_boundary_allows_context(
+                antecedent, current
+            ) and portal_span_can_supply_context(antecedent, current)
+
+    # A consumed structural connector is retained as one direct graph edge.
+    # Consult only that nearest structural antecedent; never relay context
+    # across an unrelated span or inherit the antecedent's discourse mode.
+    antecedent_structure = graph.continuation_antecedents.get(current.structure_id)
+    if antecedent_structure is None:
         return False
-    antecedent = spans[current_index - 1]
-    return adjacent_boundary_allows_context(
-        antecedent, current
-    ) and portal_span_can_supply_context(antecedent, current)
+    antecedents = spans_by_structure.get(antecedent_structure, [])
+    if not antecedents:
+        return False
+    antecedent = antecedents[-1]
+    return (
+        portal_context_is_within_source_distance(antecedent, current)
+        and portal_span_can_supply_context(antecedent, current)
+    )
 
 
 def portal_segment_asserts_external_state(segment: str) -> bool:

@@ -1258,6 +1258,54 @@ F06_MARKDOWN_CONTEXT_SAFE_CASES = (
 )
 
 
+# Tenth-remediation continuation-context corpus. The first five cases are the
+# independently observed false-PASSes: the structural separator was consumed,
+# so the following span lost the portal/surface antecedent. The sixth case
+# covers the paired Traditional Chinese continuation form required by the same
+# semantic rule. Every tuple still runs the real validator subprocess against
+# its own fresh repository copy through the factories below.
+F06_CONTINUATION_CONTEXT_FALSE_PASS_CASES = (
+    ("tenth_audit_fp01_en_nevertheless", submission_module.PLUGIN_README_RELATIVE, "The application portal must be checked. Nevertheless, submitted material is already present."),
+    ("tenth_audit_fp02_en_even_so", submission_module.PLUGIN_README_RELATIVE, "The developer dashboard remains unverified. Even so, it currently holds a pending application."),
+    ("tenth_audit_fp03_ja_soredemo", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は確認が必要です。それでも、現在は提出済み資料があります。"),
+    ("tenth_audit_fp04_ja_towaie", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は確認が必要です。とはいえ、現在は提出済み資料があります。"),
+    ("tenth_audit_fp05_zh_jinguanruci", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認。儘管如此，其中已有資料。"),
+)
+
+F06_CONTINUATION_VARIANT_INVALID_CASES = (
+    ("tenth_variant_zh_jishiruci", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認。即使如此，其中已有資料。"),
+)
+
+
+def portal_context_distance_case(distance: int) -> str:
+    """Put the state object exactly ``distance`` source characters after
+    the end of its portal antecedent.
+    """
+    antecedent = "The application portal requires review"
+    padding = "x" * (distance - 2) + " "
+    return f"{antecedent};{padding}submitted material is already present."
+
+
+F06_CONTEXT_SOURCE_DISTANCE_INVALID_CASES = (
+    ("tenth_distance_before_bound", submission_module.PLUGIN_README_RELATIVE, portal_context_distance_case(submission_module.MAX_PORTAL_CONTEXT_SOURCE_DISTANCE - 1)),
+    ("tenth_distance_at_bound", submission_module.PLUGIN_README_RELATIVE, portal_context_distance_case(submission_module.MAX_PORTAL_CONTEXT_SOURCE_DISTANCE)),
+)
+
+F06_CONTINUATION_CONTEXT_SAFE_CASES = (
+    # The one observed long-distance false reject: the span begins nearby, but
+    # its actual state object/predicate begins just beyond the source bound.
+    ("tenth_audit_fr01_after_distance_bound", submission_module.PLUGIN_README_RELATIVE, portal_context_distance_case(submission_module.MAX_PORTAL_CONTEXT_SOURCE_DISTANCE + 1)),
+    ("tenth_hard_reset_plain_sentence", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review. Submitted material is already present."),
+    ("tenth_hard_reset_blank_line", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review.\n\nNevertheless, submitted material is already present."),
+    # A continuation operator may use only its nearest structural antecedent;
+    # it must not jump over unrelated prose to find an older portal mention.
+    ("tenth_nearest_antecedent_only", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review. The local archive is described here. Nevertheless, submitted material is already present."),
+    # The case-particle が belongs to the question predicate and must not be
+    # mistaken for the continuation boundary in 必要があり、.
+    ("tenth_ja_case_particle_question", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面に下書きがあるか確認する必要があります。"),
+)
+
+
 def _make_portal_semantic_rejection_test(relative: str, text: str):
     def test(self):
         self.reject_portal_assertion(relative, text)
@@ -1291,6 +1339,9 @@ for _name, _relative, _text in (
     *F06_BOUNDED_CONTEXT_INVALID_CASES,
     *F06_PARENT_CHILD_INVALID_CASES,
     *F06_MARKDOWN_CONTEXT_INVALID_CASES,
+    *F06_CONTINUATION_CONTEXT_FALSE_PASS_CASES,
+    *F06_CONTINUATION_VARIANT_INVALID_CASES,
+    *F06_CONTEXT_SOURCE_DISTANCE_INVALID_CASES,
 ):
     setattr(
         PortalStateWordingTests,
@@ -1307,6 +1358,7 @@ for _name, _relative, _text in (
     *F06_BOUNDED_CONTEXT_SAFE_CASES,
     *F06_PARENT_CHILD_SAFE_CASES,
     *F06_MARKDOWN_CONTEXT_SAFE_CASES,
+    *F06_CONTINUATION_CONTEXT_SAFE_CASES,
 ):
     setattr(
         PortalStateWordingTests,
