@@ -523,7 +523,8 @@ PORTAL_STATE_OBJECT_PATTERNS = {
     "ja": (
         re.compile(
             r"(?:下書き|草稿|ドラフト|保存済み|未保存|提出(?:済み)?|未提出|送信(?:済み)?|"
-            r"未送信|申請(?:済み)?|未申請|送審(?:済み|待ち)?|未送審|審査待ち|審査中|"
+            r"未送信|申請(?:済み)?|未申請|受付(?:済み)?|受理(?:済み)?|"
+            r"送審(?:済み|待ち)?|未送審|審査待ち|審査中|"
             r"審査|申請内容|提出内容|提出物|内容|資料|データ|案件|記録|申請書|フォーム|ファイル|何も)"
         ),
     ),
@@ -535,6 +536,21 @@ PORTAL_STATE_OBJECT_PATTERNS = {
         ),
     ),
 }
+
+# English quantity pronouns are state objects only when they are attached to
+# a material display/containment predicate. Portal context and discourse scope
+# are still evaluated separately, so ordinary uses of "one" and "none" do not
+# become portal assertions by themselves.
+PORTAL_ANAPHORIC_STATE_OBJECT_PATTERN = re.compile(
+    r"\b(?:another\s+one|one\s+such\s+(?:entry|item|application|draft|record|file)|"
+    r"one\s+(?:pending|saved|submitted|review)\s+"
+    r"(?:entry|item|application|draft|record|file)|one|none)\b",
+    re.IGNORECASE,
+)
+PORTAL_ANAPHORIC_MATERIAL_PREDICATE_PATTERN = re.compile(
+    r"\b(?:holds?|contains?|shows?|display(?:s|ed|ing)?|stores?)\b",
+    re.IGNORECASE,
+)
 
 # In the submission-status files, these objects carry their own application
 # context even when a sentence omits the noun "portal". This is intentionally
@@ -752,6 +768,13 @@ PORTAL_QUESTION_VERIFICATION_PATTERNS = (
         r"\b(?:the\s+)?actual\s+state\s+is\s+unknown\b",
         re.IGNORECASE,
     ),
+    re.compile(
+        r"\b(?:(?:remains?|is|are)\s+(?:still\s+)?(?:unchecked|unverified|unconfirmed)|"
+        r"(?:has|have)\s+not\s+been\s+(?:checked|verified)|"
+        r"(?:is|are)\s+awaiting\s+human\s+verification|"
+        r"still\s+requires?\s+human\s+review)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"(?:かどうか|か)(?:は|を)?[^。！？；\n]{0,32}(?:確認|判断)"),
     re.compile(r"(?:かどうか)$"),
     re.compile(r"(?:です|ます|でしょう)?か[?？]$"),
@@ -933,7 +956,8 @@ STRUCTURAL_SEPARATOR_PATTERN = re.compile(
     r"|(?<![A-Za-z])(?:even\s+though|even\s+so|but|however|yet|although|though|"
     r"whereas|nevertheless|nonetheless)(?![A-Za-z])"
     r"|があり[、,]|が[、,]"
-    r"|ですが|だが|しかし|ただし|一方で|一方|それでも|とはいえ|ものの|けれども|けれど|にもかかわらず"
+    r"|ですが|だが|しかし|ただし|一方で|一方|それにもかかわらず|それにも関わらず|"
+    r"にもかかわらず|にも関わらず|それでも|とはいえ|ものの|けれども|けれど"
     r"|儘管如此|即使如此|但是|但|然而|不過|可是|卻|雖然|儘管)",
     re.IGNORECASE,
 )
@@ -962,14 +986,16 @@ ASSERTION_SCOPE_SEPARATOR_PATTERN = re.compile(
 # span's text; matching the retained boundary is what preserves their meaning.
 CONTINUATION_LEAD_PATTERN = re.compile(
     r"(?<![A-Za-z])(?:however|nevertheless|nonetheless|even\s+so|still|also|yet)(?![A-Za-z])"
-    r"|(?:なお|ただし|しかし|また|一方で|それでも|とはいえ|にもかかわらず)"
+    r"|(?:それにもかかわらず|それにも関わらず|にもかかわらず|にも関わらず|"
+    r"なお|ただし|しかし|また|一方で|それでも|とはいえ)"
     r"|(?:儘管如此|即使如此|但是|但|然而|不過|可是|卻|而且)",
     re.IGNORECASE,
 )
 CONTINUATION_BOUNDARY_PATTERN = re.compile(
     r"[;；:：—–]|\b(?:even\s+though|even\s+so|and|or|but|however|yet|although|"
     r"though|whereas|nevertheless|nonetheless|while)\b|(?:があり[、,]|が|ですが|だが|"
-    r"しかし|一方|ながら|ものの|けれども|けれど|にもかかわらず|なお|ただし|"
+    r"しかし|一方|ながら|ものの|けれども|けれど|それにもかかわらず|"
+    r"それにも関わらず|にもかかわらず|にも関わらず|なお|ただし|"
     r"それでも|とはいえ|儘管如此|即使如此|但是|但|然而|不過|可是|卻|雖然|儘管|"
     r"而且|且|而)",
     re.IGNORECASE,
@@ -1784,8 +1810,13 @@ def matches_any(patterns: tuple[re.Pattern[str], ...], segment: str) -> bool:
 
 
 def portal_text_has_state_object(text: str) -> bool:
-    return portal_patterns_match(PORTAL_STATE_OBJECT_PATTERNS, text) or any(
-        pattern.search(text) for pattern in PORTAL_SELF_STATE_PATTERNS
+    return (
+        portal_patterns_match(PORTAL_STATE_OBJECT_PATTERNS, text)
+        or any(pattern.search(text) for pattern in PORTAL_SELF_STATE_PATTERNS)
+        or (
+            PORTAL_ANAPHORIC_STATE_OBJECT_PATTERN.search(text) is not None
+            and PORTAL_ANAPHORIC_MATERIAL_PREDICATE_PATTERN.search(text) is not None
+        )
     )
 
 
@@ -1839,6 +1870,10 @@ def text_has_assertion_candidate(text: str) -> bool:
     return (
         text_has_safe_scope_operator(text)
         or portal_text_materially_assertive(text)
+        or (
+            portal_text_has_state_object(text)
+            and portal_text_has_state_predicate(text)
+        )
         or product_text_materially_assertive(text)
     )
 
