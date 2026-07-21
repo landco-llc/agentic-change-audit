@@ -15,7 +15,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
-BASE_SHA = "76f65300e24e69d3c5957c2a5a6755bd1b700216"
 SOURCE_REF = "0123456789abcdef0123456789abcdef01234567"
 VERSION = "0.1.0-dev.2"
 ARCHIVE_ROOT = "agentic-change-audit"
@@ -30,6 +29,17 @@ BUILD = ROOT / "scripts/build-distribution.py"
 VERIFY = ROOT / "scripts/verify-distribution.py"
 CONFIG = ROOT / "release/distribution-files.json"
 PLUGIN_MANIFEST = ROOT / "plugins/agentic-change-audit/.codex-plugin/plugin.json"
+PROHIBITED_IDENTITY_FILE_SHA256 = {
+    ".agents/plugins/marketplace.json": (
+        "b333ca1544a6ed8f71da168ef646e0298421c7480da53239618298108877153a"
+    ),
+    "submission/codex-plugin/listing.json": (
+        "da7f2eff4eef5fa3be4c86432390923e14e2f8d9cc6a72ec779d3fa57efef70d"
+    ),
+    "submission/codex-plugin/starter-prompts.json": (
+        "67c5dbf5651c0c6418837ae8abe8378dabdaea7b54f424b8605f43453dff8899"
+    ),
+}
 
 
 def subprocess_env() -> dict[str, str]:
@@ -756,19 +766,8 @@ class VersionAndScopeContractTests(AttributionTestCase):
             self.assert_rejected(run_skill_validator(repo), "Skill validation: PASS")
 
     def test_version_scope_06_prohibited_identity_files_match_base(self):
-        for relative in (
-            ".agents/plugins/marketplace.json",
-            "submission/codex-plugin/listing.json",
-            "submission/codex-plugin/starter-prompts.json",
-        ):
-            result = subprocess.run(
-                ["git", "show", f"{BASE_SHA}:{relative}"],
-                cwd=ROOT,
-                capture_output=True,
-                check=False,
-            )
-            self.assertEqual(0, result.returncode, result.stderr.decode("utf-8"))
-            self.assertEqual(result.stdout, (ROOT / relative).read_bytes(), relative)
+        for relative, expected_sha256 in PROHIBITED_IDENTITY_FILE_SHA256.items():
+            self.assertEqual(expected_sha256, sha256((ROOT / relative).read_bytes()), relative)
 
 
 if __name__ == "__main__":
