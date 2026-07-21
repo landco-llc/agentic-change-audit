@@ -3,7 +3,7 @@ name: agentic-change-audit
 description: Audit software changes, pull requests, local diffs, or release candidates for target identity, scope, correctness, regression, security, evidence quality, and merge or release readiness. Use for independent audits, fixed-HEAD reviews, focused re-audits, docs-only audits, or verdicts such as PASS, CHANGES REQUESTED, BLOCKED, and NOT AUDITABLE. Do not use to implement fixes or perform a generic style-only review.
 license: Apache-2.0
 metadata:
-  author: landco-llc
+  author: L&Co.LLC
   version: "0.1.0"
 ---
 

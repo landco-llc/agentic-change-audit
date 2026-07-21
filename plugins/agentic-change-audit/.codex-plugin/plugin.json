@@ -1,6 +1,6 @@
 {
   "name": "agentic-change-audit",
-  "version": "0.1.0-dev.1",
+  "version": "0.1.0-dev.2",
   "description": "Evidence-first audits for AI-generated and human software changes before merge, release, or deployment.",
   "author": {
     "name": "L&Co.LLC",

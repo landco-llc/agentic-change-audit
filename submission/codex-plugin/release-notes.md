@@ -1,7 +1,7 @@
 # Release notes — Codex Plugin submission package
 
 Plugin: `agentic-change-audit`
-Version: `0.1.0-dev.1` (unchanged by this package)
+Version: `0.1.0-dev.2` (development package)
 Package status: draft materials only
 
 ## Summary
@@ -35,7 +35,7 @@ This evidence comes from the desktop gate recorded in Issue #8.
 
 ## Status
 
-- The Plugin version remains `0.1.0-dev.1`. It is not a stable version and not a public release.
+- The Plugin version is `0.1.0-dev.2`. It is not a stable version and not a public release.
 - This package has not been released, and it has not been submitted to OpenAI.
 - No approval has been granted, and no listing has been published in any public directory.
 - The existing Skill release `v0.1.0-rc.1` and its assets are not modified by this package.

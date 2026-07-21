@@ -2,9 +2,11 @@
   "archive_root": "agentic-change-audit",
   "files": [
     "LICENSE",
+    "NOTICE",
     "README.ja.md",
     "README.md",
     "SKILL.md",
+    "docs/legal-attribution.md",
     "docs/product-definition.ja.md",
     "docs/product-definition.md",
     "guides/en/installation.md",
