@@ -77,7 +77,7 @@ EXPECTED_PLUGIN_TOP_LEVEL = {
 }
 
 EXPECTED_NAME = "agentic-change-audit"
-EXPECTED_VERSION = "0.1.0-dev.2"
+EXPECTED_VERSION = "0.1.0-dev.3"
 EXPECTED_DESCRIPTION = (
     "Evidence-first audits for AI-generated and human software changes "
     "before merge, release, or deployment."
@@ -116,14 +116,26 @@ EXPECTED_DEFAULT_PROMPT = [
     "authorized scope.",
 ]
 
-EXPECTED_MARKETPLACE_NAME = "landco-llc-open-source"
-EXPECTED_MARKETPLACE_DISPLAY_NAME = "L&Co.LLC Open Source"
+EXPECTED_MARKETPLACE_NAME = "agentic-change-audit"
+EXPECTED_MARKETPLACE_DISPLAY_NAME = "Agentic Change Audit"
 EXPECTED_MARKETPLACE_ENTRY_NAME = "agentic-change-audit"
 EXPECTED_MARKETPLACE_SOURCE_TYPE = "local"
 EXPECTED_MARKETPLACE_SOURCE_PATH = "./plugins/agentic-change-audit"
 EXPECTED_MARKETPLACE_INSTALLATION_POLICY = "AVAILABLE"
 EXPECTED_MARKETPLACE_AUTHENTICATION_POLICY = "ON_INSTALL"
 EXPECTED_MARKETPLACE_CATEGORY = "Productivity"
+
+FORBIDDEN_HUMAN_IDENTITY_FRAGMENTS = ("landco-llc", "l&co")
+STALE_README_MARKERS = (
+    "landco-llc-open-source",
+    "L&Co.LLC Open Source",
+    "L&Co. Open Source",
+    "0.1.0-dev.2",
+)
+REQUIRED_README_MARKERS = (
+    "Agentic Change Audit marketplace",
+    EXPECTED_VERSION,
+)
 
 SEMVER_PATTERN = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
@@ -179,6 +191,29 @@ def check_key_set(errors: list[str], label: str, actual: set[str], expected: set
         errors.append(f"{label} keys mismatch; missing={missing}, extra={extra}")
 
 
+def iter_string_values(value: Any):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, list):
+        for item in value:
+            yield from iter_string_values(item)
+
+
+def validate_company_neutral_value(errors: list[str], label: str, value: Any) -> None:
+    """Reject company identity only in structurally human-facing fields.
+
+    Legal identity and technical GitHub URL fields are validated separately and
+    intentionally never passed to this function.
+    """
+    for text in iter_string_values(value):
+        normalized = text.casefold()
+        for fragment in FORBIDDEN_HUMAN_IDENTITY_FRAGMENTS:
+            if fragment in normalized:
+                errors.append(
+                    f"{label} must remain company-neutral; found {fragment!r}."
+                )
+
+
 def validate_manifest(root: Path, errors: list[str]) -> None:
     manifest_path = root / MANIFEST_RELATIVE
     try:
@@ -194,9 +229,10 @@ def validate_manifest(root: Path, errors: list[str]) -> None:
     check_key_set(errors, "plugin.json top-level", set(manifest), EXPECTED_MANIFEST_KEYS)
 
     check_exact(errors, "name", manifest.get("name"), EXPECTED_NAME)
-    check_exact(errors, "version", manifest.get("version"), EXPECTED_VERSION)
+    actual_version = manifest.get("version")
+    check_exact(errors, "version", actual_version, EXPECTED_VERSION)
     try:
-        validate_semver(EXPECTED_VERSION)
+        validate_semver(actual_version)
     except ValueError as exc:
         errors.append(str(exc))
     check_exact(errors, "description", manifest.get("description"), EXPECTED_DESCRIPTION)
@@ -245,6 +281,17 @@ def validate_manifest(root: Path, errors: list[str]) -> None:
         check_exact(
             errors, "interface.defaultPrompt", interface.get("defaultPrompt"), EXPECTED_DEFAULT_PROMPT
         )
+
+        for label, value in (
+            ("plugin.json name", manifest.get("name")),
+            ("plugin.json description", manifest.get("description")),
+            ("plugin.json keywords", manifest.get("keywords")),
+            ("plugin.json interface.displayName", interface.get("displayName")),
+            ("plugin.json interface.shortDescription", interface.get("shortDescription")),
+            ("plugin.json interface.longDescription", interface.get("longDescription")),
+            ("plugin.json interface.defaultPrompt", interface.get("defaultPrompt")),
+        ):
+            validate_company_neutral_value(errors, label, value)
 
     forbidden = contains_forbidden_keys(manifest, FORBIDDEN_MANIFEST_KEYS, "")
     for finding in forbidden:
@@ -303,6 +350,9 @@ def validate_marketplace(root: Path, errors: list[str]) -> None:
 
     if marketplace.get("name") != EXPECTED_MARKETPLACE_NAME:
         errors.append(f"marketplace.json 'name' must be {EXPECTED_MARKETPLACE_NAME!r}.")
+    validate_company_neutral_value(
+        errors, "marketplace.json name", marketplace.get("name")
+    )
 
     interface = marketplace.get("interface")
     if (
@@ -312,6 +362,12 @@ def validate_marketplace(root: Path, errors: list[str]) -> None:
         errors.append(
             "marketplace.json interface.displayName must be "
             f"{EXPECTED_MARKETPLACE_DISPLAY_NAME!r}."
+        )
+    if isinstance(interface, dict):
+        validate_company_neutral_value(
+            errors,
+            "marketplace.json interface.displayName",
+            interface.get("displayName"),
         )
 
     plugins = marketplace.get("plugins")
@@ -328,6 +384,9 @@ def validate_marketplace(root: Path, errors: list[str]) -> None:
         errors.append(
             f"marketplace.json entry 'name' must be {EXPECTED_MARKETPLACE_ENTRY_NAME!r}."
         )
+    validate_company_neutral_value(
+        errors, "marketplace.json entry name", entry.get("name")
+    )
 
     source = entry.get("source")
     if not isinstance(source, dict):
@@ -463,6 +522,20 @@ def validate_readmes(root: Path, errors: list[str]) -> None:
         candidate = plugin_root / name
         if not candidate.is_file() or candidate.stat().st_size == 0:
             errors.append(f"Plugin README is missing or empty: {candidate}")
+            continue
+        text = candidate.read_text(encoding="utf-8")
+        for marker in STALE_README_MARKERS:
+            if marker in text:
+                errors.append(
+                    f"Plugin README contains stale marketplace/version identity: "
+                    f"{name}: {marker!r}"
+                )
+        for marker in REQUIRED_README_MARKERS:
+            if marker not in text:
+                errors.append(
+                    f"Plugin README must record the current marketplace/version "
+                    f"identity: {name}: {marker!r}"
+                )
 
 
 def main() -> int:

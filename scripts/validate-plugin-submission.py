@@ -148,7 +148,10 @@ EXPECTED_NEGATIVE_COUNT = 3
 VALID_TEST_TYPES = ("positive", "negative")
 VALID_MODES = ("FULL", "FOCUSED_REAUDIT", "RELEASE", "DOCS_ONLY")
 
-EXPECTED_MANIFEST_VERSION = "0.1.0-dev.2"
+EXPECTED_MANIFEST_VERSION = "0.1.0-dev.3"
+# Phase A changes runtime marketplace identity only. Submission release notes
+# stay fixed until the separately authorized Phase B synchronization lane.
+EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION = "0.1.0-dev.2"
 EXPECTED_MANIFEST_CAPABILITIES = ["Read"]
 FORBIDDEN_MANIFEST_KEYS = ("mcpServers", "apps", "hooks")
 
@@ -2517,10 +2520,10 @@ def validate_release_notes(root: Path, errors: list[str]) -> None:
         return
     text = path.read_text(encoding="utf-8")
 
-    if EXPECTED_MANIFEST_VERSION not in text:
+    if EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION not in text:
         errors.append(
-            f"release-notes.md must record the current Plugin version "
-            f"{EXPECTED_MANIFEST_VERSION!r}."
+            f"release-notes.md must retain the Phase B input Plugin version "
+            f"{EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION!r}."
         )
 
 

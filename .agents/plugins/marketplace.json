@@ -1,7 +1,7 @@
 {
-  "name": "landco-llc-open-source",
+  "name": "agentic-change-audit",
   "interface": {
-    "displayName": "L&Co.LLC Open Source"
+    "displayName": "Agentic Change Audit"
   },
   "plugins": [
     {

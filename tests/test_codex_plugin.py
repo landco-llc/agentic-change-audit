@@ -114,7 +114,7 @@ class PluginManifestTests(unittest.TestCase):
 
     def test_plugin_manifest_contract(self):
         self.assertEqual("agentic-change-audit", self.manifest["name"])
-        self.assertEqual("0.1.0-dev.2", self.manifest["version"])
+        self.assertEqual("0.1.0-dev.3", self.manifest["version"])
         self.assertEqual("Apache-2.0", self.manifest["license"])
         self.assertEqual("./skills/", self.manifest["skills"])
         self.assertEqual(["Read"], self.manifest["interface"]["capabilities"])
@@ -142,9 +142,9 @@ class PluginManifestTests(unittest.TestCase):
 class MarketplaceTests(unittest.TestCase):
     def test_marketplace_contract(self):
         marketplace = load_json(MARKETPLACE_PATH)
-        self.assertEqual("landco-llc-open-source", marketplace["name"])
+        self.assertEqual("agentic-change-audit", marketplace["name"])
         self.assertEqual(
-            "L&Co.LLC Open Source", marketplace["interface"]["displayName"]
+            "Agentic Change Audit", marketplace["interface"]["displayName"]
         )
         self.assertEqual(1, len(marketplace["plugins"]))
 
