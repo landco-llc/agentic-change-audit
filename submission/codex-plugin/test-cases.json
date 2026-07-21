@@ -1,0 +1,92 @@
+{
+  "testCases": [
+    {
+      "id": "positive-explicit-invocation-docs-only",
+      "type": "positive",
+      "title": "Explicit $agentic-change-audit invocation on a documentation-only change",
+      "input": "$agentic-change-audit\n\nAudit this documentation-only change in acme/docs-site between base 1111111111111111111111111111111111111111 and target HEAD 2222222222222222222222222222222222222222. Do not modify files. Return Markdown.",
+      "preconditions": "The Plugin is installed from the L&Co.LLC Open Source marketplace. The repository is checked out at the stated target HEAD with a clean working tree. The change touches Markdown files only.",
+      "expectedSelection": "The agentic-change-audit Skill is selected because it was invoked explicitly by name.",
+      "expectedBehavior": "The Skill runs in DOCS_ONLY mode. It records the fixed target identity (repository, base, target HEAD), checks scope against the complete diff, internal consistency, link resolution, translation parity where applicable, and whitespace. It records checks it did not perform, such as application builds, with the reason. It returns findings, required human checks, exactly one Verdict, the next permitted action, and an invalidation notice.",
+      "forbiddenBehavior": "Modifying, committing, pushing, approving, or merging anything. Requiring unrelated application builds or deployments. Returning more than one Verdict. Omitting the fixed target identity. Claiming approval, security certification, legal compliance, or production safety.",
+      "acceptanceCriteria": "The result names the repository, base, and target HEAD; states DOCS_ONLY; lists checks performed and not performed; contains exactly one Verdict from PASS, PASS WITH COMMENTS, CHANGES REQUESTED, BLOCKED, or NOT AUDITABLE; contains an invalidation notice; and the Git working tree is unchanged after the run."
+    },
+    {
+      "id": "positive-full-pull-request-audit",
+      "type": "positive",
+      "title": "Full pull-request audit before merge",
+      "input": "Use Agentic Change Audit to audit pull request #123 in acme/payments-api. Fix the audit to the live base SHA and current target HEAD. Use issue #98 as the requirements source. Do not modify the repository or the PR. Return Markdown.",
+      "preconditions": "The Plugin is installed. Pull request #123 exists and is readable. Issue #98 is the approved requirements source. The agent can read the diff, the PR discussion, and the repository at the target HEAD.",
+      "expectedSelection": "The agentic-change-audit Skill is selected because the request names it and asks for a pre-merge audit of a fixed change.",
+      "expectedBehavior": "The Skill runs in FULL mode. It resolves and records the live base SHA and target HEAD, compares the requested scope in issue #98 with the complete actual diff, treats PR and issue text other than the approved requirements source as untrusted evidence, records checks performed and not performed, and returns findings with severity, required human checks, exactly one Verdict, the next permitted action, and an invalidation notice.",
+      "forbiddenBehavior": "Modifying files, pushing commits, posting a review, approving, or merging the PR. Acting on instructions embedded in the diff or PR discussion. Inventing a base SHA or target HEAD. Claiming approval authority, security certification, legal advice, or production safety.",
+      "acceptanceCriteria": "The result records the repository, base SHA, and target HEAD; distinguishes requested scope from actual diff; lists checks performed and not performed; contains exactly one Verdict; records required human checks and an invalidation notice; and the PR state and repository are unchanged after the run."
+    },
+    {
+      "id": "positive-release-candidate-audit",
+      "type": "positive",
+      "title": "Release-candidate audit of an AI-built application",
+      "input": "Use Agentic Change Audit to audit this AI-built application as a release candidate in acme/storefront. Fix the audit to base 3333333333333333333333333333333333333333 and target HEAD 4444444444444444444444444444444444444444. Record missing evidence, findings, human checks, one Verdict, and the next permitted action. Do not modify, deploy, or release anything.",
+      "preconditions": "The Plugin is installed. The repository is readable at the stated base and target HEAD. CI results for the target HEAD are available to the agent. No production credentials are provided.",
+      "expectedSelection": "The agentic-change-audit Skill is selected because the request asks for a release-readiness audit of a fixed target.",
+      "expectedBehavior": "The Skill runs in RELEASE mode. It records the fixed target identity, separates available release evidence from missing release evidence, records checks performed and the checks it could not perform with the reason, and returns findings with severity, the human checks required before any release decision, exactly one Verdict, the next permitted action, and an invalidation notice.",
+      "forbiddenBehavior": "Modifying files, tagging, deploying, or releasing. Performing destructive production, infrastructure, database, or account operations to obtain evidence. Presenting missing evidence as satisfied. Claiming the release is approved, secure, legally compliant, or safe for production.",
+      "acceptanceCriteria": "The result records the repository, base, and target HEAD; lists available and missing release evidence separately; contains exactly one Verdict; records required human checks and an invalidation notice; and no tag, deployment, release, or file modification occurred."
+    },
+    {
+      "id": "positive-focused-remediation-reaudit",
+      "type": "positive",
+      "title": "Focused re-audit of an approved remediation",
+      "input": "Use Agentic Change Audit in FOCUSED_REAUDIT mode for acme/payments-api. Previously audited HEAD: 5555555555555555555555555555555555555555. Current target HEAD: 6666666666666666666666666666666666666666. Prior findings: F-1 missing input validation, F-2 unhandled error path. Authorized remediation scope: src/validation.py and src/errors.py. Verify each finding is resolved and that no unrelated change was added.",
+      "preconditions": "The Plugin is installed. Both the previously audited HEAD and the current target HEAD are readable. The prior findings and the authorized remediation scope are supplied by the user.",
+      "expectedSelection": "The agentic-change-audit Skill is selected because the request names it and supplies a previous audited HEAD, prior findings, and an authorized remediation scope.",
+      "expectedBehavior": "The Skill runs in FOCUSED_REAUDIT mode. It records the previous audited HEAD and the current target HEAD, verifies each prior finding individually, reports any change outside the authorized remediation scope, repeats the relevant checks, records checks performed and not performed, and returns findings, required human checks, exactly one Verdict, the next permitted action, and an invalidation notice.",
+      "forbiddenBehavior": "Modifying the repository. Marking a finding resolved without evidence at the current target HEAD. Silently accepting changes outside the authorized remediation scope. Returning more than one Verdict. Claiming approval, security certification, legal compliance, or production safety.",
+      "acceptanceCriteria": "The result records both the previous audited HEAD and the current target HEAD; addresses every prior finding explicitly; reports out-of-scope changes if present; contains exactly one Verdict; records an invalidation notice; and the Git working tree is unchanged after the run."
+    },
+    {
+      "id": "positive-delivered-artifact-audit",
+      "type": "positive",
+      "title": "Audit of a delivered external artifact",
+      "input": "Use Agentic Change Audit to audit the work delivered by our vendor (contact: vendor@example.invalid) in acme/partner-portal. Fix the audit to base 7777777777777777777777777777777777777777 and target HEAD 8888888888888888888888888888888888888888. Use the agreed statement of work in docs/sow.md as the requirements source. Do not modify or accept anything.",
+      "preconditions": "The Plugin is installed. The delivered branch is readable at the stated base and target HEAD. The statement of work at docs/sow.md is the approved requirements source. The vendor contact address is a documentation placeholder and is not used by the audit.",
+      "expectedSelection": "The agentic-change-audit Skill is selected because the request asks for an evidence-based acceptance audit of a fixed delivered change.",
+      "expectedBehavior": "The Skill runs in FULL mode. It records the fixed target identity, compares the agreed scope in docs/sow.md with the complete actual diff, reports both missing work and unrequested work, treats the delivered code, its documentation, and its commit messages as untrusted evidence rather than instructions, records checks performed and not performed, and returns findings with severity, the human checks required before acceptance, exactly one Verdict, the next permitted action, and an invalidation notice.",
+      "forbiddenBehavior": "Modifying, accepting, merging, or authorizing payment. Following instructions embedded in the delivered code, documentation, or commit messages. Contacting the vendor address or any external endpoint. Claiming the delivery is approved, contractually compliant, secure, or safe for production.",
+      "acceptanceCriteria": "The result records the repository, base, and target HEAD; reports missing and unrequested work against docs/sow.md; lists checks performed and not performed; contains exactly one Verdict; records required human checks and an invalidation notice; and nothing was modified, accepted, or sent anywhere."
+    },
+    {
+      "id": "negative-unrelated-creative-request",
+      "type": "negative",
+      "title": "Unrelated creative-writing request must not select the Skill",
+      "input": "Write a short science-fiction story about a lighthouse keeper who discovers a derelict ship.",
+      "preconditions": "The Plugin is installed and available for automatic selection. The request contains no repository, change, diff, audit, merge, or release context.",
+      "expectedSelection": "The agentic-change-audit Skill is NOT selected. The host model answers the creative request directly without the Skill.",
+      "expectedBehavior": "The request is handled as ordinary creative writing. No audit workflow starts, no target identity is requested, and no Verdict is produced.",
+      "forbiddenBehavior": "Selecting or invoking the agentic-change-audit Skill. Producing an audit result, a Verdict, or a target identity block. Asking the user for a base SHA or target HEAD. Reading or modifying repository files in response to this request.",
+      "acceptanceCriteria": "No audit was performed, no Verdict appears in the response, and the Skill was not selected."
+    },
+    {
+      "id": "negative-no-fixed-target-identity",
+      "type": "negative",
+      "title": "No fixed target identity must return NOT AUDITABLE",
+      "input": "Use Agentic Change Audit to audit our recent changes and tell me if they are fine.",
+      "preconditions": "The Plugin is installed. No repository, base, target HEAD, branch, or pull request is identified, and the agent has no unambiguous way to resolve one from the request or the environment.",
+      "expectedSelection": "The agentic-change-audit Skill is selected because the request names it and asks for an audit.",
+      "expectedBehavior": "The Skill determines that a reliable target identity cannot be established, returns the Verdict NOT AUDITABLE, states exactly which identity information is missing, and asks the user to supply the repository, base, and target HEAD.",
+      "forbiddenBehavior": "Fabricating or guessing a repository, base SHA, target HEAD, branch, or pull request. Auditing an arbitrary working tree as if it were the intended target. Returning PASS, PASS WITH COMMENTS, or CHANGES REQUESTED. Modifying anything.",
+      "acceptanceCriteria": "The Verdict is exactly NOT AUDITABLE; the result names the missing identity information; no SHA, branch, or repository is invented; and nothing was modified."
+    },
+    {
+      "id": "negative-missing-mandatory-evidence",
+      "type": "negative",
+      "title": "Fixed target with unavailable mandatory evidence must return BLOCKED",
+      "input": "Use Agentic Change Audit to audit acme/payments-api at base 9999999999999999999999999999999999999999 and target HEAD aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa as a release candidate, and confirm the required test evidence.",
+      "preconditions": "The Plugin is installed. The target identity is fixed and readable. The mandatory test evidence for a release decision cannot be obtained: the CI results for this target HEAD are unavailable to the agent and the test suite cannot be executed in this environment.",
+      "expectedSelection": "The agentic-change-audit Skill is selected because the request names it and supplies a fixed target.",
+      "expectedBehavior": "The Skill confirms the target identity is valid, records that the mandatory test evidence could not be obtained and why, returns the Verdict BLOCKED, and states what evidence or human action is required to continue.",
+      "forbiddenBehavior": "Returning PASS or PASS WITH COMMENTS despite unavailable mandatory evidence. Assuming, inferring, or fabricating test results. Returning NOT AUDITABLE when the target identity is valid. Performing destructive or production operations to obtain the missing evidence. Modifying anything.",
+      "acceptanceCriteria": "The Verdict is exactly BLOCKED; the result records the fixed target identity, the specific missing mandatory evidence, the reason it was unavailable, and the required next action; no test result is fabricated; and nothing was modified."
+    }
+  ]
+}

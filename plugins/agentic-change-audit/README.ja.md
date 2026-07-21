@@ -6,7 +6,16 @@
 
 **Development preview。** これはAgentic Change Auditの最初のinstallable Codex Plugin基盤です。**skills-only Plugin**であり、既存のAgentic Change Audit Skillを同梱し、direct Skill folderだけでなく、repository限定のlocal marketplaceからもinstallできるようにします。
 
-このdevelopment PluginはOpenAIの公開Plugins Directoryへ申請・登録・公開されていません。公開申請資料、publisher identity verification、Directory掲載は後続phaseであり、この基盤の対象外です。
+このdevelopment PluginはOpenAIの公開Plugins Directoryへ申請・登録・公開されていません。
+
+## 申請ステータス
+
+- **Desktop gate：合格（development foundationについて）。** ChatGPT desktopアプリで検証済みです。CLI marketplaceから登録でき、**L&Co.LLC Open Source** marketplace配下に表示・installでき、`$agentic-change-audit`の明示呼び出しに応答し、監査実行後もGit working treeが変更されないことを確認しました。このgateが対象とするのはこのdevelopment foundationのみです。
+- **OpenAIへの正式申請は完了していません。** このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません。申請ポータルの状態は人間が確認する必要があります。
+- **公開ポリシーURLは準備済みです。** [サポート](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)と[プライバシー](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)を本repositoryから公開しています。publisher identity verification、logo承認、申請そのものは、いずれも人間の判断待ちです。
+- **公開Directoryでの提供は一切主張しません。** このPluginはOpenAIの公開Plugins Directoryに掲載・提供・承認されていません。installは本repositoryのlocal marketplaceからのみ行ってください。
+
+repository側の準備資料は[申請パッケージ](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin)にあります。これは準備資料であり、申請ではありません。
 
 ## このPluginが提供するもの
 
@@ -103,4 +112,7 @@ Agentic Change Auditを使用して、このAIが構築したapplicationをrelea
 - [Repository README](https://github.com/landco-llc/agentic-change-audit/blob/main/README.ja.md)
 - [導入ガイド](https://github.com/landco-llc/agentic-change-audit/tree/main/guides)
 - [正本Skill（`SKILL.md`）](https://github.com/landco-llc/agentic-change-audit/blob/main/SKILL.md)
+- [サポート](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)
+- [プライバシー](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)
+- [申請パッケージ](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin)
 - [License](https://github.com/landco-llc/agentic-change-audit/blob/main/LICENSE)
