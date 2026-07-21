@@ -105,7 +105,7 @@ Agentic Change Auditを使用して、このAIが構築したapplicationをrelea
 
 ## Version
 
-このPluginはdevelopment version識別子`0.1.0-dev.1`を使用します。公開releaseや安定版Pluginではなく、tag付けされたSkill releaseにも対応していません。
+このPluginはdevelopment version識別子`0.1.0-dev.2`を使用します。公開releaseや安定版Pluginではなく、tag付けされたSkill releaseにも対応していません。
 
 ## 関連文書
 

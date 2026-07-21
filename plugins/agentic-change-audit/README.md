@@ -105,7 +105,7 @@ The audit result produced through this Plugin is not a security certification, l
 
 ## Version
 
-This Plugin uses a development version identifier, `0.1.0-dev.1`. It is not a public release or a stable Plugin version, and it does not correspond to a tagged Skill release.
+This Plugin uses a development version identifier, `0.1.0-dev.2`. It is not a public release or a stable Plugin version, and it does not correspond to a tagged Skill release.
 
 ## Related documents
 

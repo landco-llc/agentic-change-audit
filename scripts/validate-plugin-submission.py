@@ -148,7 +148,7 @@ EXPECTED_NEGATIVE_COUNT = 3
 VALID_TEST_TYPES = ("positive", "negative")
 VALID_MODES = ("FULL", "FOCUSED_REAUDIT", "RELEASE", "DOCS_ONLY")
 
-EXPECTED_MANIFEST_VERSION = "0.1.0-dev.1"
+EXPECTED_MANIFEST_VERSION = "0.1.0-dev.2"
 EXPECTED_MANIFEST_CAPABILITIES = ["Read"]
 FORBIDDEN_MANIFEST_KEYS = ("mcpServers", "apps", "hooks")
 
@@ -2713,7 +2713,7 @@ def main() -> int:
     print(f"- human gates: {len(HUMAN_PREREQUISITE_ITEMS)} × {PENDING_HUMAN_CHECK}")
     print(f"- availability: {EXPECTED_AVAILABILITY_STATUS}")
     print(f"- public directory status: {EXPECTED_PUBLIC_DIRECTORY_STATUS}")
-    print(f"- Plugin version: {EXPECTED_MANIFEST_VERSION} (unchanged)")
+    print(f"- Plugin version: {EXPECTED_MANIFEST_VERSION} (development)")
     print("- capabilities: Read only")
     print("- submission to OpenAI: none")
     return 0

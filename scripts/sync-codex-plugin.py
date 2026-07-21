@@ -12,8 +12,14 @@ from pathlib import Path, PurePosixPath
 
 CONFIG_RELATIVE = "release/distribution-files.json"
 EXTRA_SOURCE = "guides/zh-Hant/installation.md"
+PLUGIN_ROOT_RELATIVE = "plugins/agentic-change-audit"
 PLUGIN_SKILL_RELATIVE = "plugins/agentic-change-audit/skills/agentic-change-audit"
-EXPECTED_FILE_COUNT = 23
+PLUGIN_NOTICE_RELATIVE = "plugins/agentic-change-audit/NOTICE"
+EXPECTED_FILE_COUNT = 25
+EXPECTED_PLUGIN_NOTICE_PATHS = {
+    "NOTICE",
+    "skills/agentic-change-audit/NOTICE",
+}
 
 # The exact, non-configurable destination-chain components that must be
 # real (non-symlink) directories before any destructive operation. Checked
@@ -114,6 +120,21 @@ def derive_skill_root(root: Path) -> Path:
     return skill_root
 
 
+def derive_plugin_notice(root: Path) -> Path:
+    """Return the fixed Plugin-root NOTICE destination without following links."""
+    derive_skill_root(root)
+    notice = root / PurePosixPath(PLUGIN_NOTICE_RELATIVE)
+    if notice.is_symlink():
+        raise ValueError(f"Plugin NOTICE must not be a symlink: {notice}")
+    if notice.exists() and not notice.is_file():
+        raise ValueError(f"Plugin NOTICE is not a regular file: {notice}")
+    try:
+        notice.resolve().relative_to(root.resolve())
+    except ValueError as exc:
+        raise ValueError("Plugin NOTICE escapes the repository root.") from exc
+    return notice
+
+
 def read_canonical_bytes(root: Path, relative: str) -> bytes:
     source = root / PurePosixPath(relative)
     if source.is_symlink():
@@ -189,6 +210,54 @@ def check_mirror(root: Path, sources: tuple[str, ...]) -> list[str]:
     return problems
 
 
+def collect_plugin_notice_entries(root: Path) -> tuple[set[str], list[str]]:
+    """Find exact and notice-like entries under the Plugin without following links."""
+    plugin_root = root / PurePosixPath(PLUGIN_ROOT_RELATIVE)
+    found: set[str] = set()
+    problems: list[str] = []
+    if not plugin_root.is_dir():
+        return found, problems
+
+    for current_dir, dir_names, file_names in os.walk(plugin_root, followlinks=False):
+        current = Path(current_dir)
+        for name in sorted(dir_names + file_names):
+            candidate = current / name
+            relative = candidate.relative_to(plugin_root).as_posix()
+            normalized = name.casefold()
+            if normalized == "notice" or normalized.startswith("notice."):
+                found.add(relative)
+                if candidate.is_symlink():
+                    problems.append(f"NOTICE entry must not be a symlink: {relative}")
+                elif not candidate.is_file():
+                    problems.append(f"NOTICE entry is not a regular file: {relative}")
+    return found, problems
+
+
+def check_plugin_notice(root: Path) -> list[str]:
+    problems: list[str] = []
+    notice = derive_plugin_notice(root)
+    if not notice.is_file():
+        problems.append("missing Plugin-root NOTICE")
+    elif notice.read_bytes() != read_canonical_bytes(root, "NOTICE"):
+        problems.append("changed Plugin-root NOTICE")
+
+    notice_entries, entry_problems = collect_plugin_notice_entries(root)
+    problems.extend(entry_problems)
+    for relative in sorted(notice_entries - EXPECTED_PLUGIN_NOTICE_PATHS):
+        problems.append(f"extra NOTICE entry: {relative}")
+    return problems
+
+
+def validate_plugin_notice_write_boundary(root: Path) -> None:
+    """Reject unsafe or extra NOTICE destinations before rewriting the mirror."""
+    derive_plugin_notice(root)
+    notice_entries, problems = collect_plugin_notice_entries(root)
+    for relative in sorted(notice_entries - EXPECTED_PLUGIN_NOTICE_PATHS):
+        problems.append(f"extra NOTICE entry: {relative}")
+    if problems:
+        raise ValueError("; ".join(problems))
+
+
 def write_mirror(root: Path, sources: tuple[str, ...]) -> None:
     skill_root = derive_skill_root(root)
 
@@ -203,6 +272,14 @@ def write_mirror(root: Path, sources: tuple[str, ...]) -> None:
         destination.write_bytes(data)
 
 
+def write_plugin_notice(root: Path) -> None:
+    notice = derive_plugin_notice(root)
+    data = read_canonical_bytes(root, "NOTICE")
+    if notice.exists():
+        notice.unlink()
+    notice.write_bytes(data)
+
+
 def main() -> int:
     args = parse_args()
     root = Path(args.root).expanduser().resolve()
@@ -211,9 +288,13 @@ def main() -> int:
         sources = load_source_list(root)
 
         if args.write:
+            read_canonical_bytes(root, "NOTICE")
+            validate_plugin_notice_write_boundary(root)
             write_mirror(root, sources)
+            write_plugin_notice(root)
 
         problems = check_mirror(root, sources)
+        problems.extend(check_plugin_notice(root))
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -229,6 +310,7 @@ def main() -> int:
     print(f"Plugin Skill mirror ({mode}): PASS")
     print(f"- destination: {skill_root}")
     print(f"- files: {len(sources)}")
+    print(f"- Plugin NOTICE: {root / PurePosixPath(PLUGIN_NOTICE_RELATIVE)}")
     return 0
 
 

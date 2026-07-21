@@ -25,6 +25,39 @@ PACKAGE_MANIFEST_NAME = "PACKAGE-MANIFEST.json"
 VERIFIED_SOURCE_IDENTITY = "verified_git_clean"
 UNVERIFIED_SOURCE_IDENTITY = "unverified_test_fixture"
 SOURCE_IDENTITIES = {VERIFIED_SOURCE_IDENTITY, UNVERIFIED_SOURCE_IDENTITY}
+EXPECTED_SOURCE_URL = "https://github.com/landco-llc/agentic-change-audit"
+EXPECTED_AUTHOR = "L&Co.LLC"
+EXPECTED_SKILL_VERSION = "0.1.0"
+EXPECTED_LICENSE_SHA256 = (
+    "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+)
+EXPECTED_NOTICE_BYTES = (
+    "Agentic Change Audit\n"
+    "Copyright 2026 L&Co.LLC\n"
+    "\n"
+    "Agentic Change Audit is developed and distributed by L&Co.LLC.\n"
+    "\n"
+    "Source:\n"
+    f"{EXPECTED_SOURCE_URL}\n"
+    "\n"
+    "Licensed under the Apache License, Version 2.0.\n"
+).encode("utf-8")
+REQUIRED_ATTRIBUTION_PATHS = {
+    "LICENSE",
+    "NOTICE",
+    "SKILL.md",
+    "docs/legal-attribution.md",
+}
+REQUIRED_LEGAL_ATTRIBUTION_PHRASES = (
+    "`LICENSE` contains the Apache License, Version 2.0 terms",
+    "`NOTICE` records the project's legal attribution and source identity",
+    "`SKILL.md` metadata separately identifies the author for Skill consumers",
+    "These three mechanisms have distinct roles; none replaces either of the others",
+    "Technical GitHub URLs may contain the repository identifier `landco-llc`",
+    "the legal identity is `L&Co.LLC`",
+    "Downstream redistributed copies must retain `LICENSE` and `NOTICE`",
+    "Agentic Change Audit distribution contract",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -137,7 +170,113 @@ def load_config(path: Path) -> dict[str, Any]:
             or any(part.startswith(".") for part in path_value.parts)
         ):
             raise ValueError(f"Invalid distribution path: {value}")
+        basename = path_value.name.casefold()
+        if (basename == "notice" or basename.startswith("notice.")) and value != "NOTICE":
+            raise ValueError(
+                f"Distribution NOTICE must use the exact archive-root path 'NOTICE': {value}"
+            )
+    missing_attribution = sorted(REQUIRED_ATTRIBUTION_PATHS - set(files))
+    if missing_attribution:
+        raise ValueError(
+            "Distribution allowlist is missing required attribution paths: "
+            f"{missing_attribution}"
+        )
     return data
+
+
+def read_regular_source_file(root: Path, relative: str) -> bytes:
+    path = root / PurePosixPath(relative)
+    if path.is_symlink():
+        raise ValueError(f"Canonical attribution source must not be a symlink: {relative}")
+    if not path.exists():
+        raise ValueError(f"Canonical attribution source is missing: {relative}")
+    if not path.is_file():
+        raise ValueError(
+            f"Canonical attribution source is not a regular file: {relative}"
+        )
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError as exc:
+        raise ValueError(
+            f"Canonical attribution source escapes the repository root: {relative}"
+        ) from exc
+    return path.read_bytes()
+
+
+def parse_skill_frontmatter(skill_bytes: bytes) -> dict[str, str]:
+    try:
+        text = skill_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("Distributed SKILL.md must be valid UTF-8.") from exc
+    if not text.startswith("---\n"):
+        raise ValueError("Distributed SKILL.md is missing canonical frontmatter.")
+    closing = text.find("\n---\n", 4)
+    if closing == -1:
+        raise ValueError("Distributed SKILL.md frontmatter is not closed.")
+    frontmatter = text[4:closing]
+    fields: dict[str, str] = {}
+    metadata_section = False
+    for line in frontmatter.splitlines():
+        if line == "metadata:":
+            metadata_section = True
+            continue
+        if metadata_section and line.startswith("  "):
+            key, separator, value = line.strip().partition(":")
+            if separator:
+                fields[f"metadata.{key}"] = value.strip().strip('"\'')
+            continue
+        metadata_section = False
+        key, separator, value = line.partition(":")
+        if separator:
+            fields[key] = value.strip().strip('"\'')
+    return fields
+
+
+def load_canonical_attribution_sources(config_path: Path) -> dict[str, bytes]:
+    config_path = config_path.resolve()
+    if config_path.name != "distribution-files.json" or config_path.parent.name != "release":
+        raise ValueError(
+            "Attribution verification requires release/distribution-files.json."
+        )
+    root = config_path.parent.parent
+    sources = {
+        relative: read_regular_source_file(root, relative)
+        for relative in REQUIRED_ATTRIBUTION_PATHS
+    }
+
+    if sources["NOTICE"] != EXPECTED_NOTICE_BYTES:
+        raise ValueError("Canonical NOTICE bytes do not match the attribution contract.")
+    if sha256_bytes(sources["LICENSE"]) != EXPECTED_LICENSE_SHA256:
+        raise ValueError("Canonical LICENSE differs from the fixed Apache-2.0 license.")
+
+    skill_fields = parse_skill_frontmatter(sources["SKILL.md"])
+    if skill_fields.get("name") != "agentic-change-audit":
+        raise ValueError("Distributed SKILL.md name must remain company-neutral.")
+    if skill_fields.get("metadata.author") != EXPECTED_AUTHOR:
+        raise ValueError(
+            f"Distributed SKILL.md metadata.author must equal {EXPECTED_AUTHOR!r}."
+        )
+    if skill_fields.get("metadata.version") != EXPECTED_SKILL_VERSION:
+        raise ValueError(
+            "Distributed SKILL.md metadata.version must remain "
+            f"{EXPECTED_SKILL_VERSION!r}."
+        )
+    description = skill_fields.get("description", "").casefold()
+    if "landco-llc" in description or "l&co.llc" in description:
+        raise ValueError("Distributed SKILL.md description must remain company-neutral.")
+
+    try:
+        legal_text = sources["docs/legal-attribution.md"].decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("Canonical legal attribution document must be valid UTF-8.") from exc
+    for phrase in REQUIRED_LEGAL_ATTRIBUTION_PHRASES:
+        if phrase not in legal_text:
+            raise ValueError(
+                "Canonical legal attribution document is missing required language: "
+                f"{phrase!r}"
+            )
+
+    return sources
 
 
 def parse_checksums(path: Path) -> dict[str, str]:
@@ -255,6 +394,7 @@ def verify_distribution(
         raise ValueError(f"Unsupported expected source identity: {expected_source_identity}")
 
     config = load_config(config_path)
+    canonical_attribution = load_canonical_attribution_sources(config_path)
     expected_prefix = f"{config['package_name']}-{expected_version}"
     expected_filenames = {
         f"{expected_prefix}.zip",
@@ -355,6 +495,11 @@ def verify_distribution(
                     raise ValueError(f"Size mismatch for {relative}")
                 if sha256_bytes(data) != record["sha256"]:
                     raise ValueError(f"SHA-256 mismatch for {relative}")
+                canonical = canonical_attribution.get(relative)
+                if canonical is not None and data != canonical:
+                    raise ValueError(
+                        f"Distributed attribution file differs from canonical source: {relative}"
+                    )
     except FileNotFoundError as exc:
         raise ValueError(f"Distribution input does not exist: {exc.filename}") from exc
     except zipfile.BadZipFile as exc:

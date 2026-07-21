@@ -41,7 +41,7 @@ def load_json(path: Path):
 
 
 def build_source_repo(temp: str) -> Path:
-    """Build an isolated repository containing only the 23 canonical Skill
+    """Build an isolated repository containing only the 25 canonical Skill
     sources plus their distribution config, sufficient for sync script tests.
     """
     root = Path(temp) / "repo"
@@ -89,6 +89,7 @@ def build_plugin_repo(temp: str) -> Path:
         shutil.copy2(PLUGIN_ROOT / name, dest)
 
     sync_module.write_mirror(root, sync_module.load_source_list(root))
+    sync_module.write_plugin_notice(root)
     return root
 
 
@@ -113,7 +114,7 @@ class PluginManifestTests(unittest.TestCase):
 
     def test_plugin_manifest_contract(self):
         self.assertEqual("agentic-change-audit", self.manifest["name"])
-        self.assertEqual("0.1.0-dev.1", self.manifest["version"])
+        self.assertEqual("0.1.0-dev.2", self.manifest["version"])
         self.assertEqual("Apache-2.0", self.manifest["license"])
         self.assertEqual("./skills/", self.manifest["skills"])
         self.assertEqual(["Read"], self.manifest["interface"]["capabilities"])
@@ -159,7 +160,7 @@ class MarketplaceTests(unittest.TestCase):
 class PluginSkillMirrorTests(unittest.TestCase):
     def test_plugin_skill_mirror_is_exact(self):
         sources = sync_module.load_source_list(ROOT)
-        self.assertEqual(23, len(sources))
+        self.assertEqual(25, len(sources))
         problems = sync_module.check_mirror(ROOT, sources)
         self.assertEqual([], problems)
 

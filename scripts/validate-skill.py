@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import re
 import sys
@@ -36,6 +37,34 @@ KNOWN_FIELDS = {
     "allowed-tools",
 }
 MARKDOWN = MarkdownIt("commonmark")
+EXPECTED_AUTHOR = "L&Co.LLC"
+EXPECTED_SKILL_VERSION = "0.1.0"
+EXPECTED_SOURCE_URL = "https://github.com/landco-llc/agentic-change-audit"
+EXPECTED_LICENSE_SHA256 = (
+    "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+)
+EXPECTED_NOTICE_BYTES = (
+    "Agentic Change Audit\n"
+    "Copyright 2026 L&Co.LLC\n"
+    "\n"
+    "Agentic Change Audit is developed and distributed by L&Co.LLC.\n"
+    "\n"
+    "Source:\n"
+    f"{EXPECTED_SOURCE_URL}\n"
+    "\n"
+    "Licensed under the Apache License, Version 2.0.\n"
+).encode("utf-8")
+FORBIDDEN_PRODUCT_IDENTITIES = ("l&co.llc", "landco-llc")
+REQUIRED_LEGAL_ATTRIBUTION_PHRASES = (
+    "`LICENSE` contains the Apache License, Version 2.0 terms",
+    "`NOTICE` records the project's legal attribution and source identity",
+    "`SKILL.md` metadata separately identifies the author for Skill consumers",
+    "These three mechanisms have distinct roles; none replaces either of the others",
+    "Technical GitHub URLs may contain the repository identifier `landco-llc`",
+    "the legal identity is `L&Co.LLC`",
+    "Downstream redistributed copies must retain `LICENSE` and `NOTICE`",
+    "Agentic Change Audit distribution contract",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -336,6 +365,67 @@ def validate_project_documentation(root: Path) -> list[str]:
     return errors
 
 
+def read_regular_contract_file(root: Path, relative: str) -> tuple[bytes | None, str | None]:
+    path = root / relative
+    if path.is_symlink():
+        return None, f"Attribution contract file must not be a symlink: {relative}"
+    if not path.exists():
+        return None, f"Missing attribution contract file: {relative}"
+    if not path.is_file():
+        return None, f"Attribution contract entry is not a regular file: {relative}"
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return None, f"Attribution contract file escapes the Skill root: {relative}"
+    return path.read_bytes(), None
+
+
+def validate_attribution_contract(root: Path) -> list[str]:
+    errors: list[str] = []
+
+    notice_bytes, notice_error = read_regular_contract_file(root, "NOTICE")
+    if notice_error:
+        errors.append(notice_error)
+    elif notice_bytes != EXPECTED_NOTICE_BYTES:
+        errors.append(
+            "NOTICE must match the canonical UTF-8/LF attribution bytes exactly."
+        )
+
+    license_bytes, license_error = read_regular_contract_file(root, "LICENSE")
+    if license_error:
+        errors.append(license_error)
+    elif hashlib.sha256(license_bytes).hexdigest() != EXPECTED_LICENSE_SHA256:
+        errors.append(
+            "LICENSE must remain byte-identical to the canonical Apache-2.0 license."
+        )
+
+    legal_bytes, legal_error = read_regular_contract_file(
+        root, "docs/legal-attribution.md"
+    )
+    if legal_error:
+        errors.append(legal_error)
+    else:
+        try:
+            legal_text = legal_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            errors.append("docs/legal-attribution.md must be valid UTF-8.")
+        else:
+            for phrase in REQUIRED_LEGAL_ATTRIBUTION_PHRASES:
+                if phrase not in legal_text:
+                    errors.append(
+                        "docs/legal-attribution.md is missing required attribution "
+                        f"language: {phrase!r}"
+                    )
+            without_source_url = legal_text.replace(EXPECTED_SOURCE_URL, "")
+            if "landco-llc" in without_source_url.replace("`landco-llc`", ""):
+                errors.append(
+                    "docs/legal-attribution.md may use landco-llc only as the "
+                    "technical repository identifier or source URL."
+                )
+
+    return errors
+
+
 def main() -> int:
     args = parse_args()
     root = Path(args.root).expanduser().absolute()
@@ -345,6 +435,9 @@ def main() -> int:
 
     if not root.is_dir():
         print(f"ERROR: Skill root is not a directory: {root}", file=sys.stderr)
+        return 1
+    if skill_path.is_symlink():
+        print(f"ERROR: SKILL.md must not be a symlink: {skill_path}", file=sys.stderr)
         return 1
     if not skill_path.is_file():
         print(f"ERROR: Missing SKILL.md at: {skill_path}", file=sys.stderr)
@@ -394,6 +487,16 @@ def main() -> int:
     elif not 1 <= len(description.strip()) <= 1024:
         errors.append("Frontmatter 'description' must be 1-1024 characters.")
 
+    for label, value in (("name", name), ("description", description)):
+        if isinstance(value, str):
+            normalized = value.casefold()
+            for forbidden in FORBIDDEN_PRODUCT_IDENTITIES:
+                if forbidden in normalized:
+                    errors.append(
+                        f"Frontmatter '{label}' must remain company-neutral; "
+                        f"found {forbidden!r}."
+                    )
+
     license_value = metadata.get("license")
     if license_value is not None and (
         not isinstance(license_value, str) or not license_value.strip()
@@ -408,14 +511,23 @@ def main() -> int:
             errors.append("Frontmatter 'compatibility' must be 1-500 characters.")
 
     metadata_value = metadata.get("metadata")
-    if metadata_value is not None:
-        if not isinstance(metadata_value, dict):
-            errors.append("Optional frontmatter 'metadata' must be a mapping.")
-        else:
-            for key, value in metadata_value.items():
-                if not isinstance(key, str) or not isinstance(value, str):
-                    errors.append("All 'metadata' keys and values must be strings.")
-                    break
+    if not isinstance(metadata_value, dict):
+        errors.append("Frontmatter 'metadata' must be a mapping.")
+    else:
+        for key, value in metadata_value.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                errors.append("All 'metadata' keys and values must be strings.")
+                break
+        if metadata_value.get("author") != EXPECTED_AUTHOR:
+            errors.append(
+                "Frontmatter metadata.author must equal "
+                f"{EXPECTED_AUTHOR!r} exactly."
+            )
+        if metadata_value.get("version") != EXPECTED_SKILL_VERSION:
+            errors.append(
+                "Frontmatter metadata.version must remain "
+                f"{EXPECTED_SKILL_VERSION!r}."
+            )
 
     allowed_tools = metadata.get("allowed-tools")
     if allowed_tools is not None and not isinstance(allowed_tools, str):
@@ -443,6 +555,7 @@ def main() -> int:
         )
 
     errors.extend(validate_project_documentation(root))
+    errors.extend(validate_attribution_contract(root))
 
     for warning in warnings:
         print(f"WARNING: {warning}")
@@ -461,6 +574,8 @@ def main() -> int:
         "- CommonMark file/image/reference links and Markdown heading fragments: PASS"
     )
     print("- English/Japanese document pairs: PASS")
+    print(f"- author: {EXPECTED_AUTHOR}")
+    print("- NOTICE / LICENSE / legal attribution: PASS")
     return 0
 
 

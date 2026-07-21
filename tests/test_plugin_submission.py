@@ -400,7 +400,7 @@ class SubmissionPackageTests(RepoInvariantTestCase):
     def test_manifest_runtime_boundary_unchanged(self):
         manifest = load_json(MANIFEST_PATH)
 
-        self.assertEqual(manifest["version"], "0.1.0-dev.1")
+        self.assertEqual(manifest["version"], "0.1.0-dev.2")
         self.assertEqual(manifest["interface"]["capabilities"], ["Read"])
 
         for key in submission_module.FORBIDDEN_MANIFEST_KEYS:

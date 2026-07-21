@@ -44,9 +44,11 @@ class DistributionIntegrationTests(unittest.TestCase):
 
         files = [
             "LICENSE",
+            "NOTICE",
             "README.md",
             "SKILL.md",
             "docs/example.md",
+            "docs/legal-attribution.md",
         ]
         config = {
             "schema_version": 1,
@@ -64,7 +66,16 @@ class DistributionIntegrationTests(unittest.TestCase):
         for relative in files:
             path = project / relative
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(f"fixture for {relative}\n", encoding="utf-8")
+            canonical = ROOT / relative
+            if relative in {
+                "LICENSE",
+                "NOTICE",
+                "SKILL.md",
+                "docs/legal-attribution.md",
+            }:
+                shutil.copy2(canonical, path)
+            else:
+                path.write_text(f"fixture for {relative}\n", encoding="utf-8")
         return project, config_path
 
     def git(self, project: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -322,9 +333,11 @@ class DistributionIntegrationTests(unittest.TestCase):
             (ROOT / "release/distribution-files.json").read_text(encoding="utf-8")
         )
         files = config["files"]
-        self.assertEqual(22, len(files))
+        self.assertEqual(24, len(files))
         self.assertEqual(files, sorted(files))
+        self.assertIn("NOTICE", files)
         self.assertIn("SKILL.md", files)
+        self.assertIn("docs/legal-attribution.md", files)
         self.assertIn("standard/output-schema.json", files)
         self.assertIn("templates/audit-result.md", files)
         for forbidden_prefix in (

@@ -69,6 +69,7 @@ EXPECTED_INTERFACE_KEYS = {
 }
 EXPECTED_PLUGIN_TOP_LEVEL = {
     ".codex-plugin",
+    "NOTICE",
     "README.md",
     "README.ja.md",
     "README.zh-Hant.md",
@@ -76,7 +77,7 @@ EXPECTED_PLUGIN_TOP_LEVEL = {
 }
 
 EXPECTED_NAME = "agentic-change-audit"
-EXPECTED_VERSION = "0.1.0-dev.1"
+EXPECTED_VERSION = "0.1.0-dev.2"
 EXPECTED_DESCRIPTION = (
     "Evidence-first audits for AI-generated and human software changes "
     "before merge, release, or deployment."
@@ -488,6 +489,7 @@ def main() -> int:
     print(f"- manifest: {root / MANIFEST_RELATIVE}")
     print(f"- marketplace: {root / MARKETPLACE_RELATIVE}")
     print(f"- bundled Skill: {root / SKILL_RELATIVE}")
+    print(f"- Plugin NOTICE: {root / PLUGIN_RELATIVE / 'NOTICE'}")
     print("- MCP servers: none (recursive scan)")
     print("- Apps/connectors: none (recursive scan)")
     print("- Hooks: none (recursive scan)")

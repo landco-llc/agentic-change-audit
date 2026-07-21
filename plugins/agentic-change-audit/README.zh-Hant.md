@@ -105,7 +105,7 @@ $agentic-change-audit
 
 ## 版本
 
-這個 Plugin 使用 development version 識別碼 `0.1.0-dev.1`。這不是公開 release 或穩定版 Plugin，也不對應任何已標記 tag 的 Skill release。
+這個 Plugin 使用 development version 識別碼 `0.1.0-dev.2`。這不是公開 release 或穩定版 Plugin，也不對應任何已標記 tag 的 Skill release。
 
 ## 相關文件
 
