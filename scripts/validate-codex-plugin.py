@@ -155,20 +155,29 @@ PLUGIN_DEVELOPMENT_VERSION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 README_CLAUSE_SPLIT_PATTERN = re.compile(
-    r"(?:[!?。！？;；]+|\.(?=\s|$)|\n+)",
+    r"(?:[!?。！？;；]+|\.(?=\s|$))",
     re.IGNORECASE,
 )
+README_MARKDOWN_LINK_PATTERN = re.compile(r"!?\[([^\]]*)\]\([^\n)]*\)")
+README_MARKDOWN_LINE_PREFIX_PATTERN = re.compile(
+    r"(?m)^\s{0,3}(?:#{1,6}\s+|>\s?|[-+*]\s+|\d+[.)]\s+)"
+)
+README_MAX_CLAIM_WINDOW = 720
 README_GATE_CONTEXT_PATTERN = re.compile(
     r"(?<![A-Za-z0-9])phase\s*c(?![A-Za-z0-9])|desktop\s+gate|"
     r"neutral[- ]marketplace identity|"
     r"neutral identity|中立(?:な)?\s*marketplace\s*identity|"
-    r"中性\s*marketplace\s*identity|桌面\s*gate",
+    r"中性\s*marketplace\s*identity|桌面\s*gate|"
+    r"(?:renamed|current)\s+(?:agentic change audit\s+)?marketplace|"
+    r"名称変更後の?\s*agentic change audit\s*marketplace|"
+    r"(?:更名後|目前|現行|現在)\s*(?:的)?\s*marketplace",
     re.IGNORECASE,
 )
 README_VERIFIED_ACTION_PATTERN = re.compile(
-    r"marketplace\s+(?:registration|discovery)|\b(?:desktop|registration|discovery|"
-    r"installation|explicit invocation|working[- ]tree non-mutation)\b|"
-    r"marketplace登録|marketplaceの?登録|発見|install|インストール|"
+    r"marketplace(?:\s+(?:registration|discovery|install(?:ation)?))?|"
+    r"\b(?:desktop|registration|discovery|install(?:ation)?|invocation|"
+    r"explicit invocation|working[- ]tree(?: non-mutation)?)\b|"
+    r"marketplace登録|marketplaceの?登録|登録|発見|install|インストール|"
     r"明示呼び出し|明示的?呼び出し|working\s*tree[^。.!?\n]{0,24}非変更|"
     r"marketplace\s*註冊|探索|安裝|明確呼叫|明確叫用|"
     r"工作樹[^。.!?\n]{0,24}未變更",
@@ -176,14 +185,15 @@ README_VERIFIED_ACTION_PATTERN = re.compile(
 )
 README_CURRENT_IDENTITY_CUE_PATTERN = re.compile(
     rf"{re.escape(EXPECTED_VERSION)}|neutral[- ]marketplace identity|"
-    r"neutral identity|renamed|current|now|現行|現在|名称変更後|"
-    r"中性\s*marketplace\s*identity|更名後|目前|現已",
+    r"neutral identity|renamed|current|now|agentic change audit marketplace|"
+    r"現行|現在|名称変更後|中立|中性\s*marketplace\s*identity|"
+    r"更名後|目前|現已",
     re.IGNORECASE,
 )
 README_POSITIVE_GATE_STATUS_PATTERN = re.compile(
-    r"\b(?:pass(?:ed)?|complet(?:e|ed)|verif(?:ied|ication complete)|"
+    r"\b(?:pass(?:ed|es|ing)?|complet(?:e|ed)|verif(?:y|ies|ied|ication complete)|"
     r"validat(?:ed|ion complete)|approv(?:ed|al complete)|"
-    r"success(?:ful|fully)?)\b|"
+    r"success(?:ful|fully)?|succeed(?:ed|s|ing)?|ready)\b|"
     r"合格(?:済み)?|完了(?:済み|しました)?|検証済み|確認済み|"
     r"承認済み|承認されました|成功(?:しました)?|"
     r"(?:已|現已)?(?:通過|完成|驗證|驗證完成|驗證完畢|核准|批准|成功)|"
@@ -191,15 +201,75 @@ README_POSITIVE_GATE_STATUS_PATTERN = re.compile(
     re.IGNORECASE,
 )
 README_STATUS_NEGATION_BEFORE_PATTERN = re.compile(
-    r"(?:\b(?:not|never|has not been|have not been|is not|are not|"
-    r"was not|were not|must be re|requires? re|will be re)[\s-]*|"
-    r"(?:未|再|尚未|重新|不能|不曾)\s*)$",
+    r"(?:\b(?:not|never|no)\s+(?:been\s+)?|"
+    r"\b(?:has|have|had|is|are|was|were|does|do|did|must|should|may)\s+"
+    r"not\s+(?:have\s+|been\s+|be\s+)?|"
+    r"\b(?:cannot|can't)\s+(?:be\s+)?|"
+    r"(?:未|まだ|尚未|並未|不得|不可|不曾|不能|不)\s*)$",
     re.IGNORECASE,
 )
 README_STATUS_PENDING_AFTER_PATTERN = re.compile(
-    r"^\s*(?:not\b|in the future\b|later\b|pending\b|"
-    r"ではありません|していません|しておらず|予定|待ち|"
-    r"須於|未來|重新|仍待|不代表|不保證)",
+    r"^\s*(?:not\b|ではありません|ではない|ではなく|"
+    r"していません|していない|しておらず|とはいえない|"
+    r"並非|不代表|不表示|不保證)",
+    re.IGNORECASE,
+)
+README_STATUS_NON_CURRENT_BEFORE_PATTERN = re.compile(
+    r"\b(?:will|would|shall|must|should|may)\s+(?:later\s+)?"
+    r"(?:be\s+)?(?:re[- ]?)?$|"
+    r"\b(?:when|if|once|after)\b[^.!?。！？;；]{0,96}$|"
+    r"(?:将来|今後|予定|再(?:検証|確認|実施|試験)|待ち)[^。！？;；]{0,48}$|"
+    r"(?:須於未來|未來|將|重新|仍待)[^。！？;；]{0,48}$",
+    re.IGNORECASE,
+)
+README_STATUS_NON_CURRENT_AFTER_PATTERN = re.compile(
+    r"^\s*(?:in the future\b|later\b|when\b|if\b|予定|待ち|"
+    r"未來|之後|稍後|仍待)",
+    re.IGNORECASE,
+)
+README_NON_ASSERTION_CUE_PATTERN = re.compile(
+    r"\b(?:does not|doesn't|do not|don't|did not|never)\s+"
+    r"(?:assert|claim|state|represent|mean)\b|"
+    r"\b(?:must|should|is expected to|is intended to)\s+"
+    r"(?:reject|forbid|prohibit)\b|"
+    r"\b(?:rejects?|forbids?|prohibits?)\s+(?:the\s+)?claim\b|"
+    r"\b(?:forbidden|prohibited|invalid)\s+(?:wording|claim|example)\b|"
+    r"\bnot\s+(?:the\s+)?current\s+state\b|\bis not a claim\b|"
+    r"主張し(?:ない|ません)|意味し(?:ない|ません)|認め(?:ない|ません)|"
+    r"拒否(?:する|される)|禁止(?:する|される)?|"
+    r"現在(?:の)?状態を示し(?:ない|ません)|"
+    r"並未主張|不主張|不代表|不表示目前狀態|並非目前狀態|"
+    r"拒絕|禁止|不得主張",
+    re.IGNORECASE,
+)
+README_FIXTURE_REPORTING_PATTERN = re.compile(
+    r"\b(?:fixture|example|test case)\b[^.!?。！？;；]{0,64}"
+    r"\b(?:may say|quotes?|contains?|describes?)\b|"
+    r"fixture[^。！？;；]{0,64}(?:例|説明|記載)|"
+    r"fixture[^。！？;；]{0,64}(?:範例|說法|描述)",
+    re.IGNORECASE,
+)
+README_NON_ASSERTION_AFTER_PATTERN = re.compile(
+    r"^\s*(?:without\s+(?:asserting|claiming)|"
+    r"is\s+(?:forbidden|prohibited|invalid)|must\s+be\s+rejected|"
+    r"(?:という)?主張をし(?:ない|ません)|禁止(?:される)?|拒否(?:される)?|"
+    r"現在(?:の)?状態を示し(?:ない|ません)|"
+    r"並未主張|不主張|禁止|拒絕|不表示目前狀態|不代表)",
+    re.IGNORECASE,
+)
+README_CONTRAST_PATTERN = re.compile(
+    r"\b(?:but|however|rather|instead|yet)\b|"
+    r"(?:が|しかし|ではなく|一方|而是|但是|但|卻)",
+    re.IGNORECASE,
+)
+README_INDEPENDENT_CLAIM_BOUNDARY_PATTERN = re.compile(
+    r"[,，、]\s*(?:and|then|also|the\s+current|currently|"
+    r"現在|現行|目前|並且|而且)\b",
+    re.IGNORECASE,
+)
+README_TRAILING_NON_ASSERTION_LINK_PATTERN = re.compile(
+    r"^\s*(?:だと|とは|という(?:文言|主張)?(?:は)?|を|的說法)?"
+    r"\s*[,、，:]?\s*$",
     re.IGNORECASE,
 )
 README_HISTORICAL_CUE_PATTERN = re.compile(
@@ -638,7 +708,12 @@ def validate_forbidden_components(root: Path, errors: list[str]) -> None:
 
 
 def readme_claim_clauses(text: str) -> list[str]:
-    visible = re.sub(r"[`*_~]", "", text)
+    visible = README_MARKDOWN_LINK_PATTERN.sub(r"\1", text)
+    visible = README_MARKDOWN_LINE_PREFIX_PATTERN.sub("", visible)
+    visible = re.sub(r"</?[^>\n]+>", " ", visible)
+    visible = re.sub(r"[`*_~]", "", visible)
+    # A Markdown soft/hard line break changes presentation, not claim meaning.
+    visible = re.sub(r"[ \t]*\r?\n[ \t]*", " ", visible)
     return [
         " ".join(clause.split())
         for clause in README_CLAUSE_SPLIT_PATTERN.split(visible)
@@ -647,11 +722,63 @@ def readme_claim_clauses(text: str) -> list[str]:
 
 
 def status_match_is_negated(clause: str, match: re.Match[str]) -> bool:
-    before = clause[max(0, match.start() - 64) : match.start()]
-    after = clause[match.end() : match.end() + 64]
+    before = clause[max(0, match.start() - 128) : match.start()]
+    after = clause[match.end() : match.end() + 128]
     return bool(
         README_STATUS_NEGATION_BEFORE_PATTERN.search(before)
         or README_STATUS_PENDING_AFTER_PATTERN.search(after)
+    )
+
+
+def status_match_is_non_current(clause: str, match: re.Match[str]) -> bool:
+    before = clause[max(0, match.start() - 128) : match.start()]
+    after = clause[match.end() : match.end() + 128]
+    return bool(
+        README_STATUS_NON_CURRENT_BEFORE_PATTERN.search(before)
+        or README_STATUS_NON_CURRENT_AFTER_PATTERN.search(after)
+    )
+
+
+def status_match_is_quoted(clause: str, match: re.Match[str]) -> bool:
+    for opening, closing in (("\"", "\""), ("'", "'"), ("“", "”"), ("‘", "’"), ("「", "」"), ("『", "』")):
+        cursor = 0
+        while True:
+            start = clause.find(opening, cursor)
+            if start < 0:
+                break
+            end = clause.find(closing, start + len(opening))
+            if end < 0:
+                break
+            if start < match.start() and match.end() <= end:
+                return True
+            cursor = end + len(closing)
+    return False
+
+
+def status_match_is_non_assertive(clause: str, match: re.Match[str]) -> bool:
+    before = clause[: match.start()]
+    after = clause[match.end() :]
+
+    for cue in README_NON_ASSERTION_CUE_PATTERN.finditer(before):
+        governed_text = before[cue.end() :]
+        if len(governed_text) <= 128 and not README_CONTRAST_PATTERN.search(
+            governed_text
+        ) and not README_INDEPENDENT_CLAIM_BOUNDARY_PATTERN.search(governed_text):
+            return True
+
+    for cue in README_NON_ASSERTION_CUE_PATTERN.finditer(after):
+        governed_text = after[: cue.start()]
+        if README_TRAILING_NON_ASSERTION_LINK_PATTERN.fullmatch(governed_text):
+            return True
+
+    if status_match_is_quoted(clause, match) and README_NON_ASSERTION_CUE_PATTERN.search(
+        clause
+    ):
+        return True
+
+    return bool(
+        README_FIXTURE_REPORTING_PATTERN.search(before[-128:])
+        and README_NON_ASSERTION_AFTER_PATTERN.search(after[:128])
     )
 
 
@@ -663,6 +790,24 @@ def status_match_is_allowed_historical(
         README_HISTORICAL_CUE_PATTERN.search(clause[: match.start()])
         and README_INVALIDATION_CUE_PATTERN.search(clause[match.end() :])
     )
+
+
+def readme_claim_window(
+    clauses: list[str],
+    index: int,
+    match: re.Match[str],
+) -> str:
+    preceding = clauses[index - 1][-240:] if index else ""
+    current = clauses[index][max(0, match.start() - 240) : match.end() + 240]
+    following = clauses[index + 1][:240] if index + 1 < len(clauses) else ""
+    window = " ; ".join(part for part in (preceding, current, following) if part)
+    if len(window) <= README_MAX_CLAIM_WINDOW:
+        return window
+    current_offset = len(preceding) + 3 if preceding else 0
+    current_start = max(0, match.start() - 240)
+    center = current_offset + match.start() - current_start
+    start = max(0, center - README_MAX_CLAIM_WINDOW // 2)
+    return window[start : start + README_MAX_CLAIM_WINDOW]
 
 
 def validate_readmes(root: Path, errors: list[str]) -> None:
@@ -694,22 +839,28 @@ def validate_readmes(root: Path, errors: list[str]) -> None:
                     f"{EXPECTED_VERSION!r}."
                 )
 
-        for clause in readme_claim_clauses(text):
-            has_gate_context = bool(README_GATE_CONTEXT_PATTERN.search(clause))
-            has_current_action_context = bool(
-                README_VERIFIED_ACTION_PATTERN.search(clause)
-                and README_CURRENT_IDENTITY_CUE_PATTERN.search(clause)
-            )
-            if not (has_gate_context or has_current_action_context):
-                continue
+        clauses = readme_claim_clauses(text)
+        for index, clause in enumerate(clauses):
             for match in README_POSITIVE_GATE_STATUS_PATTERN.finditer(clause):
+                window = readme_claim_window(clauses, index, match)
+                has_gate_context = bool(README_GATE_CONTEXT_PATTERN.search(window))
+                has_current_action_context = bool(
+                    README_VERIFIED_ACTION_PATTERN.search(window)
+                    and README_CURRENT_IDENTITY_CUE_PATTERN.search(window)
+                )
+                if not (has_gate_context or has_current_action_context):
+                    continue
                 if status_match_is_negated(
+                    clause, match
+                ) or status_match_is_non_current(
+                    clause, match
+                ) or status_match_is_non_assertive(
                     clause, match
                 ) or status_match_is_allowed_historical(clause, match):
                     continue
                 errors.append(
                     "Plugin README Phase C identity contradiction: "
-                    f"{name}: {clause!r}."
+                    f"{name}: {window!r}."
                 )
                 break
 
