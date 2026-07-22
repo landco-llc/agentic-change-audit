@@ -124,6 +124,11 @@ EXPECTED_MARKETPLACE_SOURCE_PATH = "./plugins/agentic-change-audit"
 EXPECTED_MARKETPLACE_INSTALLATION_POLICY = "AVAILABLE"
 EXPECTED_MARKETPLACE_AUTHENTICATION_POLICY = "ON_INSTALL"
 EXPECTED_MARKETPLACE_CATEGORY = "Productivity"
+EXPECTED_MARKETPLACE_KEYS = {"name", "interface", "plugins"}
+EXPECTED_MARKETPLACE_INTERFACE_KEYS = {"displayName"}
+EXPECTED_MARKETPLACE_ENTRY_KEYS = {"name", "source", "policy", "category"}
+EXPECTED_MARKETPLACE_SOURCE_KEYS = {"source", "path"}
+EXPECTED_MARKETPLACE_POLICY_KEYS = {"installation", "authentication"}
 
 FORBIDDEN_HUMAN_IDENTITY_FRAGMENTS = ("landco-llc", "l&co")
 STALE_README_MARKERS = (
@@ -142,6 +147,85 @@ SEMVER_PATTERN = re.compile(
     r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
     r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
+PLUGIN_DEVELOPMENT_VERSION_PATTERN = re.compile(
+    r"(?<![0-9A-Za-z])"
+    r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+    r"-dev\.(?:0|[1-9][0-9]*)(?:[.-][0-9A-Za-z-]+)*"
+    r"(?![0-9A-Za-z-])",
+    re.IGNORECASE,
+)
+README_CLAUSE_SPLIT_PATTERN = re.compile(
+    r"(?:[!?。！？;；]+|\.(?=\s|$)|\n+)",
+    re.IGNORECASE,
+)
+README_GATE_CONTEXT_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9])phase\s*c(?![A-Za-z0-9])|desktop\s+gate|"
+    r"neutral[- ]marketplace identity|"
+    r"neutral identity|中立(?:な)?\s*marketplace\s*identity|"
+    r"中性\s*marketplace\s*identity|桌面\s*gate",
+    re.IGNORECASE,
+)
+README_VERIFIED_ACTION_PATTERN = re.compile(
+    r"marketplace\s+(?:registration|discovery)|\b(?:desktop|registration|discovery|"
+    r"installation|explicit invocation|working[- ]tree non-mutation)\b|"
+    r"marketplace登録|marketplaceの?登録|発見|install|インストール|"
+    r"明示呼び出し|明示的?呼び出し|working\s*tree[^。.!?\n]{0,24}非変更|"
+    r"marketplace\s*註冊|探索|安裝|明確呼叫|明確叫用|"
+    r"工作樹[^。.!?\n]{0,24}未變更",
+    re.IGNORECASE,
+)
+README_CURRENT_IDENTITY_CUE_PATTERN = re.compile(
+    rf"{re.escape(EXPECTED_VERSION)}|neutral[- ]marketplace identity|"
+    r"neutral identity|renamed|current|now|現行|現在|名称変更後|"
+    r"中性\s*marketplace\s*identity|更名後|目前|現已",
+    re.IGNORECASE,
+)
+README_POSITIVE_GATE_STATUS_PATTERN = re.compile(
+    r"\b(?:pass(?:ed)?|complet(?:e|ed)|verif(?:ied|ication complete)|"
+    r"validat(?:ed|ion complete)|approv(?:ed|al complete)|"
+    r"success(?:ful|fully)?)\b|"
+    r"合格(?:済み)?|完了(?:済み|しました)?|検証済み|確認済み|"
+    r"承認済み|承認されました|成功(?:しました)?|"
+    r"(?:已|現已)?(?:通過|完成|驗證|驗證完成|驗證完畢|核准|批准|成功)|"
+    r"已獲核准",
+    re.IGNORECASE,
+)
+README_STATUS_NEGATION_BEFORE_PATTERN = re.compile(
+    r"(?:\b(?:not|never|has not been|have not been|is not|are not|"
+    r"was not|were not|must be re|requires? re|will be re)[\s-]*|"
+    r"(?:未|再|尚未|重新|不能|不曾)\s*)$",
+    re.IGNORECASE,
+)
+README_STATUS_PENDING_AFTER_PATTERN = re.compile(
+    r"^\s*(?:not\b|in the future\b|later\b|pending\b|"
+    r"ではありません|していません|しておらず|予定|待ち|"
+    r"須於|未來|重新|仍待|不代表|不保證)",
+    re.IGNORECASE,
+)
+README_HISTORICAL_CUE_PATTERN = re.compile(
+    r"\b(?:earlier|previous|prior|old|historical)\b|以前|過去|旧|先前|舊",
+    re.IGNORECASE,
+)
+README_INVALIDATION_CUE_PATTERN = re.compile(
+    r"\b(?:superseded|invalid|expired|no longer valid|does not verify)\b|"
+    r"失効|無効|検証するものではありません|已失效|失效|不能驗證",
+    re.IGNORECASE,
+)
+
+
+class DuplicateJSONKeyError(ValueError):
+    def __init__(self, key: str) -> None:
+        super().__init__(key)
+        self.key = key
+
+
+def reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    document: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in document:
+            raise DuplicateJSONKeyError(key)
+        document[key] = value
+    return document
 
 
 def parse_args() -> argparse.Namespace:
@@ -154,9 +238,14 @@ def parse_args() -> argparse.Namespace:
 
 def load_json(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=reject_duplicate_json_keys,
+        )
     except FileNotFoundError as exc:
         raise ValueError(f"File does not exist: {path}") from exc
+    except DuplicateJSONKeyError as exc:
+        raise ValueError(f"Duplicate JSON key in {path}: {exc.key!r}.") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
 
@@ -348,6 +437,13 @@ def validate_marketplace(root: Path, errors: list[str]) -> None:
         errors.append("marketplace.json must be a JSON object.")
         return
 
+    check_key_set(
+        errors,
+        "marketplace.json top-level",
+        set(marketplace),
+        EXPECTED_MARKETPLACE_KEYS,
+    )
+
     if marketplace.get("name") != EXPECTED_MARKETPLACE_NAME:
         errors.append(f"marketplace.json 'name' must be {EXPECTED_MARKETPLACE_NAME!r}.")
     validate_company_neutral_value(
@@ -364,6 +460,12 @@ def validate_marketplace(root: Path, errors: list[str]) -> None:
             f"{EXPECTED_MARKETPLACE_DISPLAY_NAME!r}."
         )
     if isinstance(interface, dict):
+        check_key_set(
+            errors,
+            "marketplace.json interface",
+            set(interface),
+            EXPECTED_MARKETPLACE_INTERFACE_KEYS,
+        )
         validate_company_neutral_value(
             errors,
             "marketplace.json interface.displayName",
@@ -380,6 +482,13 @@ def validate_marketplace(root: Path, errors: list[str]) -> None:
         errors.append("marketplace.json plugin entry must be an object.")
         return
 
+    check_key_set(
+        errors,
+        "marketplace.json plugin entry",
+        set(entry),
+        EXPECTED_MARKETPLACE_ENTRY_KEYS,
+    )
+
     if entry.get("name") != EXPECTED_MARKETPLACE_ENTRY_NAME:
         errors.append(
             f"marketplace.json entry 'name' must be {EXPECTED_MARKETPLACE_ENTRY_NAME!r}."
@@ -392,6 +501,12 @@ def validate_marketplace(root: Path, errors: list[str]) -> None:
     if not isinstance(source, dict):
         errors.append("marketplace.json entry 'source' must be an object.")
     else:
+        check_key_set(
+            errors,
+            "marketplace.json plugin entry source",
+            set(source),
+            EXPECTED_MARKETPLACE_SOURCE_KEYS,
+        )
         if source.get("source") != EXPECTED_MARKETPLACE_SOURCE_TYPE:
             errors.append(
                 "marketplace.json entry source.source must be "
@@ -418,6 +533,12 @@ def validate_marketplace(root: Path, errors: list[str]) -> None:
     if not isinstance(policy, dict):
         errors.append("marketplace.json entry 'policy' must be an object.")
     else:
+        check_key_set(
+            errors,
+            "marketplace.json plugin entry policy",
+            set(policy),
+            EXPECTED_MARKETPLACE_POLICY_KEYS,
+        )
         if policy.get("installation") != EXPECTED_MARKETPLACE_INSTALLATION_POLICY:
             errors.append(
                 "marketplace.json entry policy.installation must be "
@@ -516,6 +637,34 @@ def validate_forbidden_components(root: Path, errors: list[str]) -> None:
                 errors.append(f"Forbidden component present: {current / name}")
 
 
+def readme_claim_clauses(text: str) -> list[str]:
+    visible = re.sub(r"[`*_~]", "", text)
+    return [
+        " ".join(clause.split())
+        for clause in README_CLAUSE_SPLIT_PATTERN.split(visible)
+        if clause.strip()
+    ]
+
+
+def status_match_is_negated(clause: str, match: re.Match[str]) -> bool:
+    before = clause[max(0, match.start() - 64) : match.start()]
+    after = clause[match.end() : match.end() + 64]
+    return bool(
+        README_STATUS_NEGATION_BEFORE_PATTERN.search(before)
+        or README_STATUS_PENDING_AFTER_PATTERN.search(after)
+    )
+
+
+def status_match_is_allowed_historical(
+    clause: str,
+    match: re.Match[str],
+) -> bool:
+    return bool(
+        README_HISTORICAL_CUE_PATTERN.search(clause[: match.start()])
+        and README_INVALIDATION_CUE_PATTERN.search(clause[match.end() :])
+    )
+
+
 def validate_readmes(root: Path, errors: list[str]) -> None:
     plugin_root = root / PLUGIN_RELATIVE
     for name in README_NAMES:
@@ -536,6 +685,33 @@ def validate_readmes(root: Path, errors: list[str]) -> None:
                     f"Plugin README must record the current marketplace/version "
                     f"identity: {name}: {marker!r}"
                 )
+
+        for match in PLUGIN_DEVELOPMENT_VERSION_PATTERN.finditer(text):
+            if match.group(0) != EXPECTED_VERSION:
+                errors.append(
+                    "Plugin README development-version mismatch: "
+                    f"{name}: found {match.group(0)!r}; expected only "
+                    f"{EXPECTED_VERSION!r}."
+                )
+
+        for clause in readme_claim_clauses(text):
+            has_gate_context = bool(README_GATE_CONTEXT_PATTERN.search(clause))
+            has_current_action_context = bool(
+                README_VERIFIED_ACTION_PATTERN.search(clause)
+                and README_CURRENT_IDENTITY_CUE_PATTERN.search(clause)
+            )
+            if not (has_gate_context or has_current_action_context):
+                continue
+            for match in README_POSITIVE_GATE_STATUS_PATTERN.finditer(clause):
+                if status_match_is_negated(
+                    clause, match
+                ) or status_match_is_allowed_historical(clause, match):
+                    continue
+                errors.append(
+                    "Plugin README Phase C identity contradiction: "
+                    f"{name}: {clause!r}."
+                )
+                break
 
 
 def main() -> int:

@@ -1342,11 +1342,31 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+class DuplicateJSONKeyError(ValueError):
+    def __init__(self, key: str) -> None:
+        super().__init__(key)
+        self.key = key
+
+
+def reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    document: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in document:
+            raise DuplicateJSONKeyError(key)
+        document[key] = value
+    return document
+
+
 def load_json(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=reject_duplicate_json_keys,
+        )
     except FileNotFoundError as exc:
         raise ValueError(f"File does not exist: {path}") from exc
+    except DuplicateJSONKeyError as exc:
+        raise ValueError(f"Duplicate JSON key in {path}: {exc.key!r}.") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
 
