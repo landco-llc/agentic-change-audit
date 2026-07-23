@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
 SOURCE_REF = "0123456789abcdef0123456789abcdef01234567"
-VERSION = "0.1.0-dev.2"
+VERSION = "0.1.0-dev.3"
 ARCHIVE_ROOT = "agentic-change-audit"
 NOTICE = ROOT / "NOTICE"
 LICENSE = ROOT / "LICENSE"
@@ -29,10 +29,7 @@ BUILD = ROOT / "scripts/build-distribution.py"
 VERIFY = ROOT / "scripts/verify-distribution.py"
 CONFIG = ROOT / "release/distribution-files.json"
 PLUGIN_MANIFEST = ROOT / "plugins/agentic-change-audit/.codex-plugin/plugin.json"
-PROHIBITED_IDENTITY_FILE_SHA256 = {
-    ".agents/plugins/marketplace.json": (
-        "b333ca1544a6ed8f71da168ef646e0298421c7480da53239618298108877153a"
-    ),
+PROHIBITED_SUBMISSION_IDENTITY_FILE_SHA256 = {
     "submission/codex-plugin/listing.json": (
         "da7f2eff4eef5fa3be4c86432390923e14e2f8d9cc6a72ec779d3fa57efef70d"
     ),
@@ -727,7 +724,7 @@ class VersionAndScopeContractTests(AttributionTestCase):
         path.write_bytes(canonical_json_bytes(manifest))
         return run_plugin_validator(repo)
 
-    def test_version_scope_01_exact_dev2_plugin_is_accepted(self):
+    def test_version_scope_01_exact_dev3_plugin_is_accepted(self):
         with tempfile.TemporaryDirectory() as temp:
             result = run_plugin_validator(make_plugin_repo(temp))
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
@@ -739,10 +736,10 @@ class VersionAndScopeContractTests(AttributionTestCase):
                 "Codex Plugin validation: PASS",
             )
 
-    def test_version_scope_03_dev3_plugin_is_rejected(self):
+    def test_version_scope_03_stale_dev2_plugin_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             self.assert_rejected(
-                self.mutate_plugin_version(temp, "0.1.0-dev.3"),
+                self.mutate_plugin_version(temp, "0.1.0-dev.2"),
                 "Codex Plugin validation: PASS",
             )
 
@@ -765,8 +762,24 @@ class VersionAndScopeContractTests(AttributionTestCase):
             )
             self.assert_rejected(run_skill_validator(repo), "Skill validation: PASS")
 
-    def test_version_scope_06_prohibited_identity_files_match_base(self):
-        for relative, expected_sha256 in PROHIBITED_IDENTITY_FILE_SHA256.items():
+    def test_version_scope_06_marketplace_semantics_and_submission_files_match_base(self):
+        marketplace = json.loads(
+            (ROOT / ".agents/plugins/marketplace.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("agentic-change-audit", marketplace["name"])
+        self.assertEqual(
+            "Agentic Change Audit", marketplace["interface"]["displayName"]
+        )
+        self.assertEqual(1, len(marketplace["plugins"]))
+        entry = marketplace["plugins"][0]
+        self.assertEqual("agentic-change-audit", entry["name"])
+        self.assertEqual("local", entry["source"]["source"])
+        self.assertEqual("./plugins/agentic-change-audit", entry["source"]["path"])
+        self.assertEqual("AVAILABLE", entry["policy"]["installation"])
+        self.assertEqual("ON_INSTALL", entry["policy"]["authentication"])
+        self.assertEqual("Productivity", entry["category"])
+
+        for relative, expected_sha256 in PROHIBITED_SUBMISSION_IDENTITY_FILE_SHA256.items():
             self.assertEqual(expected_sha256, sha256((ROOT / relative).read_bytes()), relative)
 
 

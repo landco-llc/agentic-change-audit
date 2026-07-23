@@ -10,7 +10,7 @@ This development Plugin is not submitted to, listed in, or available from OpenAI
 
 ## Submission status
 
-- **Desktop gate: passed, for the development foundation.** The Plugin was verified in the ChatGPT desktop app: it registers through the CLI marketplace, appears and installs under the **L&Co.LLC Open Source** marketplace, responds to explicit `$agentic-change-audit` invocation, and leaves the Git working tree unchanged after an audit run. That gate covers this development foundation only.
+- **Desktop gate: superseded for the neutral marketplace identity.** Earlier desktop evidence covered the previous marketplace identity and Plugin version. It does not verify the renamed **Agentic Change Audit marketplace** or Plugin version `0.1.0-dev.3`; repeat marketplace registration, discovery, installation, explicit invocation, and Git working-tree non-mutation checks in Phase C.
 - **Official OpenAI submission is not complete.** No portal action is performed or evidenced by this repository lane. Portal state remains a human verification gate.
 - **Public policy URLs are prepared.** [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md) and [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md) are published from this repository. Publisher identity verification, logo approval, and the submission itself all remain pending human decisions.
 - **No public Directory availability is claimed.** This Plugin is not listed in, available from, or approved for OpenAI's public Plugins Directory. Install it from this repository's local marketplace only.
@@ -48,13 +48,13 @@ codex plugin marketplace add .
 codex plugin marketplace list
 ```
 
-The `codex plugin marketplace add .` command registers the current repository's `.agents/plugins/marketplace.json` as a local marketplace source named `landco-llc-open-source`. It does not install the Plugin by itself and does not contact any external service.
+The `codex plugin marketplace add .` command registers the current repository's `.agents/plugins/marketplace.json` as a local marketplace source named `agentic-change-audit`. It does not install the Plugin by itself and does not contact any external service.
 
 ## Install and test in ChatGPT desktop
 
 1. Restart the ChatGPT desktop app after adding or updating the marketplace, so it picks up the new source.
 2. Open **Plugins**.
-3. Select the **L&Co.LLC Open Source** marketplace.
+3. Select the **Agentic Change Audit marketplace**.
 4. Install **Agentic Change Audit**.
 5. Start a new task and invoke the Plugin to test it.
 
@@ -105,7 +105,7 @@ The audit result produced through this Plugin is not a security certification, l
 
 ## Version
 
-This Plugin uses a development version identifier, `0.1.0-dev.2`. It is not a public release or a stable Plugin version, and it does not correspond to a tagged Skill release.
+This Plugin uses a development version identifier, `0.1.0-dev.3`. It is not a public release or a stable Plugin version, and it does not correspond to a tagged Skill release.
 
 ## Related documents
 

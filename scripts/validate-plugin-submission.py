@@ -148,7 +148,10 @@ EXPECTED_NEGATIVE_COUNT = 3
 VALID_TEST_TYPES = ("positive", "negative")
 VALID_MODES = ("FULL", "FOCUSED_REAUDIT", "RELEASE", "DOCS_ONLY")
 
-EXPECTED_MANIFEST_VERSION = "0.1.0-dev.2"
+EXPECTED_MANIFEST_VERSION = "0.1.0-dev.3"
+# Phase A changes runtime marketplace identity only. Submission release notes
+# stay fixed until the separately authorized Phase B synchronization lane.
+EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION = "0.1.0-dev.2"
 EXPECTED_MANIFEST_CAPABILITIES = ["Read"]
 FORBIDDEN_MANIFEST_KEYS = ("mcpServers", "apps", "hooks")
 
@@ -1339,11 +1342,31 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+class DuplicateJSONKeyError(ValueError):
+    def __init__(self, key: str) -> None:
+        super().__init__(key)
+        self.key = key
+
+
+def reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    document: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in document:
+            raise DuplicateJSONKeyError(key)
+        document[key] = value
+    return document
+
+
 def load_json(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=reject_duplicate_json_keys,
+        )
     except FileNotFoundError as exc:
         raise ValueError(f"File does not exist: {path}") from exc
+    except DuplicateJSONKeyError as exc:
+        raise ValueError(f"Duplicate JSON key in {path}: {exc.key!r}.") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
 
@@ -2517,10 +2540,10 @@ def validate_release_notes(root: Path, errors: list[str]) -> None:
         return
     text = path.read_text(encoding="utf-8")
 
-    if EXPECTED_MANIFEST_VERSION not in text:
+    if EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION not in text:
         errors.append(
-            f"release-notes.md must record the current Plugin version "
-            f"{EXPECTED_MANIFEST_VERSION!r}."
+            f"release-notes.md must retain the Phase B input Plugin version "
+            f"{EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION!r}."
         )
 
 
