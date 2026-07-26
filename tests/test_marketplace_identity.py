@@ -2179,5 +2179,433 @@ class ThirdRemediationCorpusContractTests(unittest.TestCase):
             self.assertGreaterEqual(languages.count(language) * 2, 12)
 
 
+class FourthRemediationExactInvalidTests(IdentityPolicyTestCase):
+    """Exact RF01 false-PASS records from the third re-audit ledger."""
+
+
+FOURTH_REMEDIATION_EXACT_INVALID_CASES = (
+    (
+        "fourth_exact_third_en_rf01_06",
+        PLUGIN_READMES[0],
+        "ACA-THIRD-FRESH-EN-RF01-06: It is not true that the current Phase C Desktop gate has not passed.",
+    ),
+    (
+        "fourth_exact_third_ja_pair_16_i",
+        PLUGIN_READMES[1],
+        "ACA-THIRD-FRESH-JA-PAIR-16-I: 将来の確認は予定されていますが、現在のmarketplace installは検証済みです。",
+    ),
+    (
+        "fourth_exact_third_ja_rf01_06",
+        PLUGIN_READMES[1],
+        "ACA-THIRD-FRESH-JA-RF01-06: 現在のPhase C Desktop gateが合格済みではないとはいえません。",
+    ),
+    (
+        "fourth_exact_third_zh_pair_16_i",
+        PLUGIN_READMES[2],
+        "ACA-THIRD-FRESH-ZH-PAIR-16-I: 未來檢查仍待進行，但是目前marketplace安裝已驗證。",
+    ),
+    (
+        "fourth_exact_third_zh_rf01_06",
+        PLUGIN_READMES[2],
+        "ACA-THIRD-FRESH-ZH-RF01-06: 不能說目前Phase C桌面gate並未通過。",
+    ),
+    (
+        "fourth_exact_third_mx_rf01_06",
+        PLUGIN_READMES[0],
+        "ACA-THIRD-FRESH-MX-RF01-06: It is not true that 現在の Phase C Desktop gate は not passed。",
+    ),
+    (
+        "fourth_exact_confirm_fp_en_01",
+        PLUGIN_READMES[0],
+        "ACA-THIRD-CONFIRM-FP-EN-01: The statement that the current Phase C Desktop gate did not pass is false.",
+    ),
+    (
+        "fourth_exact_confirm_fp_ja_01",
+        PLUGIN_READMES[1],
+        "ACA-THIRD-CONFIRM-FP-JA-01: 来月の再確認を予定していますが、現在のmarketplace登録は成功しました。",
+    ),
+    (
+        "fourth_exact_confirm_fp_zh_01",
+        PLUGIN_READMES[2],
+        "ACA-THIRD-CONFIRM-FP-ZH-01: 未來另行審查，但是目前桌面註冊已成功。",
+    ),
+    (
+        "fourth_exact_confirm_fp_ja_02",
+        PLUGIN_READMES[1],
+        "ACA-THIRD-CONFIRM-FP-JA-02: 「現在のPhase C Desktop gateは合格済みではない」という説明は誤りです。",
+    ),
+)
+
+install_invalid_regression_cases(
+    FourthRemediationExactInvalidTests,
+    tuple(
+        InvalidRegressionCase(
+            case_id,
+            "exact fourth-remediation RF01 real-subprocess regression",
+            "invalid",
+            "plugin",
+            append_text(relative, text),
+            "Plugin README Phase C identity contradiction",
+        )
+        for case_id, relative, text in FOURTH_REMEDIATION_EXACT_INVALID_CASES
+    ),
+)
+
+
+class FourthRemediationExactValidTests(IdentityPolicyTestCase):
+    """Exact RF02 false-reject records from the third re-audit ledger."""
+
+
+FOURTH_REMEDIATION_EXACT_VALID_CASES = (
+    (
+        "fourth_exact_third_en_pair_13_v",
+        PLUGIN_READMES[0],
+        "ACA-THIRD-FRESH-EN-PAIR-13-V: The test case quotes “current Desktop registration succeeded” without asserting that result.",
+    ),
+    (
+        "fourth_exact_third_ja_pair_13_v",
+        PLUGIN_READMES[1],
+        "ACA-THIRD-FRESH-JA-PAIR-13-V: fixtureに「現在のDesktop登録は成功しました」と記載しますが、現在の状態を示しません。",
+    ),
+    (
+        "fourth_exact_third_zh_pair_13_v",
+        PLUGIN_READMES[2],
+        "ACA-THIRD-FRESH-ZH-PAIR-13-V: fixture描述「目前桌面註冊已成功」但不表示目前狀態。",
+    ),
+    (
+        "fourth_exact_third_zh_pair_14_v",
+        PLUGIN_READMES[2],
+        "ACA-THIRD-FRESH-ZH-PAIR-14-V: 目前Phase C桌面gate尚未驗證完成。",
+    ),
+    (
+        "fourth_exact_third_mx_pair_13_v",
+        PLUGIN_READMES[0],
+        "ACA-THIRD-FRESH-MX-PAIR-13-V: The test case 描述「現在のDesktop註冊 succeeded」without asserting that result。",
+    ),
+    (
+        "fourth_exact_third_mx_pair_14_v",
+        PLUGIN_READMES[0],
+        "ACA-THIRD-FRESH-MX-PAIR-14-V: 目前 Phase C Desktop gate は not yet verified。",
+    ),
+    (
+        "fourth_exact_confirm_fr_en_01",
+        PLUGIN_READMES[0],
+        "ACA-THIRD-CONFIRM-FR-EN-01: The current Phase C Desktop gate is not yet verified.",
+    ),
+    (
+        "fourth_exact_confirm_fr_en_02",
+        PLUGIN_READMES[0],
+        "ACA-THIRD-CONFIRM-FR-EN-02: This fixture quotes “the current Desktop registration passed” without claiming that outcome.",
+    ),
+    (
+        "fourth_exact_confirm_fr_zh_01",
+        PLUGIN_READMES[2],
+        "ACA-THIRD-CONFIRM-FR-ZH-01: 目前Phase C桌面gate尚未驗證完成。",
+    ),
+    (
+        "fourth_exact_confirm_fr_mx_01",
+        PLUGIN_READMES[0],
+        "ACA-THIRD-CONFIRM-FR-MX-01: 目前 Phase C Desktop gate は not yet verified。",
+    ),
+)
+
+install_positive_cases(
+    FourthRemediationExactValidTests,
+    tuple(
+        (case_id, "plugin", append_text(relative, text))
+        for case_id, relative, text in FOURTH_REMEDIATION_EXACT_VALID_CASES
+    ),
+)
+
+
+class FourthRemediationAdditionalValidTests(IdentityPolicyTestCase):
+    """Thirty-two fresh predicate/reporting controls."""
+
+
+class FourthRemediationAdditionalInvalidTests(IdentityPolicyTestCase):
+    """Thirty-two minimally paired current-success controls."""
+
+
+FOURTH_REMEDIATION_ADDITIONAL_PAIRS = (
+    # English: eight pairs / sixteen subprocess tests.
+    (
+        "fourth_pair_en_01",
+        "English",
+        PLUGIN_READMES[0],
+        "The current Phase C Desktop gate remains unverified.",
+        "The current Phase C Desktop gate is not unverified.",
+    ),
+    (
+        "fourth_pair_en_02",
+        "English",
+        PLUGIN_READMES[0],
+        "The current Phase C Desktop gate remains incomplete.",
+        "The current Phase C Desktop gate is not incomplete.",
+    ),
+    (
+        "fourth_pair_en_03",
+        "English",
+        PLUGIN_READMES[0],
+        "The current Phase C Desktop gate remains pending.",
+        "The current Phase C Desktop gate is not pending.",
+    ),
+    (
+        "fourth_pair_en_04",
+        "English",
+        PLUGIN_READMES[0],
+        "The current Phase C Desktop registration remains unsuccessful.",
+        "The current Phase C Desktop registration is not unsuccessful.",
+    ),
+    (
+        "fourth_pair_en_05",
+        "English",
+        PLUGIN_READMES[0],
+        "The current Phase C Desktop check has not yet passed.",
+        "The current Phase C Desktop check has now passed.",
+    ),
+    (
+        "fourth_pair_en_06",
+        "English",
+        PLUGIN_READMES[0],
+        "The fixture records the wording “current Desktop registration succeeded”.",
+        "The fixture records “current Desktop registration succeeded” as the current result.",
+    ),
+    (
+        "fourth_pair_en_07",
+        "English",
+        PLUGIN_READMES[0],
+        "The test contains the input `current Phase C Desktop gate passed` for expected rejection.",
+        "The test confirms `current Phase C Desktop gate passed` as the current outcome.",
+    ),
+    (
+        "fourth_pair_en_08",
+        "English",
+        PLUGIN_READMES[0],
+        "After the review, the current marketplace registration will be verified.",
+        "A later review is planned, but the current marketplace registration is verified.",
+    ),
+    # Japanese: eight pairs / sixteen subprocess tests.
+    (
+        "fourth_pair_ja_01",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "現在のPhase C Desktop gateは未検証です。",
+        "現在のPhase C Desktop gateは未検証ではありません。",
+    ),
+    (
+        "fourth_pair_ja_02",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "現在のPhase C Desktop gateは未完了です。",
+        "現在のPhase C Desktop gateは未完了ではない。",
+    ),
+    (
+        "fourth_pair_ja_03",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "現在のPhase C Desktop gateはまだ合格していません。",
+        "現在のPhase C Desktop gateは合格済みです。",
+    ),
+    (
+        "fourth_pair_ja_04",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "現在のmarketplace登録は検証済みではありません。",
+        "現在のmarketplace登録は検証済みです。",
+    ),
+    (
+        "fourth_pair_ja_05",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "fixtureは「現在のDesktop登録は成功しました」という文言を記録しています。",
+        "fixtureは「現在のDesktop登録は成功しました」を現在の結果として記録しています。",
+    ),
+    (
+        "fourth_pair_ja_06",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "テストは入力「現在のPhase C gateは合格済み」を拒否対象として説明します。",
+        "テストは「現在のPhase C gateは合格済み」を現在結果として確認します。",
+    ),
+    (
+        "fourth_pair_ja_07",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "「現在のmarketplace発見は完了しました」はfixtureに記録された入力です。",
+        "「現在のmarketplace発見は完了しました」は現在の状態です。",
+    ),
+    (
+        "fourth_pair_ja_08",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "次回の確認で現在のmarketplace installは検証済みになる予定です。",
+        "次回の確認は予定されていますが、現在のmarketplace installは検証済みです。",
+    ),
+    # Taiwan Traditional Chinese: eight pairs / sixteen subprocess tests.
+    (
+        "fourth_pair_zh_01",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "目前Phase C桌面gate仍未驗證。",
+        "目前Phase C桌面gate並非未驗證。",
+    ),
+    (
+        "fourth_pair_zh_02",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "目前Phase C桌面gate仍未完成。",
+        "目前Phase C桌面gate不是未完成。",
+    ),
+    (
+        "fourth_pair_zh_03",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "目前Phase C桌面gate尚未通過。",
+        "目前Phase C桌面gate已通過。",
+    ),
+    (
+        "fourth_pair_zh_04",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "目前marketplace安裝尚未驗證完成。",
+        "目前marketplace安裝已驗證完成。",
+    ),
+    (
+        "fourth_pair_zh_05",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "fixture記錄「目前桌面註冊已成功」這項用語。",
+        "fixture記錄「目前桌面註冊已成功」作為目前結果。",
+    ),
+    (
+        "fourth_pair_zh_06",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "測試描述輸入「目前Phase C gate已通過」並預期拒絕。",
+        "測試確認「目前Phase C gate已通過」是目前結果。",
+    ),
+    (
+        "fourth_pair_zh_07",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "「目前marketplace探索已完成」出現在fixture輸入中。",
+        "「目前marketplace探索已完成」是目前狀態。",
+    ),
+    (
+        "fourth_pair_zh_08",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "重新審查後，目前marketplace安裝將被驗證。",
+        "未來另行審查，但是目前marketplace安裝已驗證。",
+    ),
+    # Mixed language and Markdown: eight pairs / sixteen subprocess tests.
+    (
+        "fourth_pair_mixed_01",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "現在の Phase C Desktop gate remains unverified。",
+        "現在の Phase C Desktop gate is not unverified。",
+    ),
+    (
+        "fourth_pair_mixed_02",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "目前 Phase C Desktop gate は not yet verified。",
+        "目前 Phase C Desktop gate は verified。",
+    ),
+    (
+        "fourth_pair_mixed_03",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "目前 Phase C Desktop gate 尚未 passed。",
+        "目前 Phase C Desktop gate 已 passed。",
+    ),
+    (
+        "fourth_pair_mixed_04",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "The fixture 記録s `現在の Desktop registration succeeded` as input。",
+        "The fixture confirms `現在の Desktop registration succeeded` as the current result。",
+    ),
+    (
+        "fourth_pair_mixed_05",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[1],
+        "The test case describes\n「現在のPhase C gateは合格済み」as rejected input。",
+        "The test case confirms\n「現在のPhase C gateは合格済み」as current result。",
+    ),
+    (
+        "fourth_pair_mixed_06",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[2],
+        "禁止用語 [current Desktop gate passed](https://example.invalid/fourth) 僅作為測試輸入。",
+        "[current Desktop gate passed](https://example.invalid/fourth) 代表目前結果。",
+    ),
+    (
+        "fourth_pair_mixed_07",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "> After 再審查, current marketplace registration will be verified。",
+        "> A future 再審查 is planned, but current marketplace registration is verified。",
+    ),
+    (
+        "fourth_pair_mixed_08",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "Current Phase C Desktop status is incomplete。",
+        "Current Phase C Desktop status is not incomplete。",
+    ),
+)
+
+install_positive_cases(
+    FourthRemediationAdditionalValidTests,
+    tuple(
+        (f"{case_id}_valid", "plugin", append_text(relative, valid_text))
+        for case_id, _language, relative, valid_text, _invalid_text
+        in FOURTH_REMEDIATION_ADDITIONAL_PAIRS
+    ),
+)
+
+install_invalid_regression_cases(
+    FourthRemediationAdditionalInvalidTests,
+    tuple(
+        InvalidRegressionCase(
+            f"{case_id}_invalid",
+            "fourth-remediation minimally paired semantic boundary control",
+            "invalid",
+            "plugin",
+            append_text(relative, invalid_text),
+            "Plugin README Phase C identity contradiction",
+        )
+        for case_id, _language, relative, _valid_text, invalid_text
+        in FOURTH_REMEDIATION_ADDITIONAL_PAIRS
+    ),
+)
+
+
+class FourthRemediationCorpusContractTests(unittest.TestCase):
+    def test_exact_and_additional_real_subprocess_contract(self):
+        exact_invalid_ids = [
+            case[0] for case in FOURTH_REMEDIATION_EXACT_INVALID_CASES
+        ]
+        exact_valid_ids = [case[0] for case in FOURTH_REMEDIATION_EXACT_VALID_CASES]
+        pair_ids = [case[0] for case in FOURTH_REMEDIATION_ADDITIONAL_PAIRS]
+        self.assertEqual(10, len(exact_invalid_ids))
+        self.assertEqual(10, len(exact_valid_ids))
+        self.assertEqual(20, len(set(exact_invalid_ids + exact_valid_ids)))
+        self.assertEqual(32, len(pair_ids))
+        self.assertEqual(32, len(set(pair_ids)))
+        self.assertEqual(32, len(FOURTH_REMEDIATION_ADDITIONAL_PAIRS))
+        self.assertEqual(64, len(FOURTH_REMEDIATION_ADDITIONAL_PAIRS) * 2)
+        languages = [case[1] for case in FOURTH_REMEDIATION_ADDITIONAL_PAIRS]
+        for language in (
+            "English",
+            "Japanese",
+            "Taiwan Traditional Chinese",
+            "Mixed-language / Markdown",
+        ):
+            self.assertGreaterEqual(languages.count(language) * 2, 16)
+
+
 if __name__ == "__main__":
     unittest.main()
