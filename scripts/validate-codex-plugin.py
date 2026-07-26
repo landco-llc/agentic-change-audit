@@ -230,16 +230,35 @@ README_STATUS_NON_CURRENT_AFTER_PATTERN = re.compile(
 README_NON_ASSERTION_CUE_PATTERN = re.compile(
     r"\b(?:does not|doesn't|do not|don't|did not|never)\s+"
     r"(?:assert|claim|state|represent|mean)\b|"
+    r"\b(?:is|are|was|were)\s+not\s+"
+    r"(?:asserting|claiming|stating|representing)\b|"
     r"\b(?:must|should|is expected to|is intended to)\s+"
-    r"(?:reject|forbid|prohibit)\b|"
+    r"(?:be\s+)?(?:reject(?:ed)?|forbid(?:den)?|prohibit(?:ed)?)\b|"
     r"\b(?:rejects?|forbids?|prohibits?)\s+(?:the\s+)?claim\b|"
     r"\b(?:forbidden|prohibited|invalid)\s+(?:wording|claim|example)\b|"
+    r"\b(?:forbidden|prohibited)\b|"
+    r"\b(?:is|are|was|were)\s+(?:an?\s+)?"
+    r"(?:forbidden|prohibited|invalid)"
+    r"(?:\s+(?:wording|claim|example))?\b|"
+    r"\b(?:does not|doesn't|do not|don't)\s+represent\s+"
+    r"(?:the\s+)?current\s+state\b|"
     r"\bnot\s+(?:the\s+)?current\s+state\b|\bis not a claim\b|"
-    r"主張し(?:ない|ません)|意味し(?:ない|ません)|認め(?:ない|ません)|"
-    r"拒否(?:する|される)|禁止(?:する|される)?|"
-    r"現在(?:の)?状態を示し(?:ない|ません)|"
+    r"\b(?:quoted|shown)\s+only\s+to\s+explain\s+"
+    r"(?:the\s+)?rejection\s+rule\b|"
+    r"主張(?:してい(?:ない|ません)|し(?:ない|ません))|"
+    r"意味し(?:ない|ません)|認め(?:ない|ません)|"
+    r"拒否(?:する|される|されます|されるべき|される予定)|"
+    r"禁止(?:する|される|されます|用語|文言)?|"
+    r"無効(?:な)?(?:例|主張|文言|表現)?|"
+    r"現在(?:の)?(?:状態|state)(?:を示し(?:ない|ません)|"
+    r"では(?:ない|ありません))|"
+    r"拒否規則を説明するため(?:だけ|のみ)?の?(?:引用|例)|"
     r"並未主張|不主張|不代表|不表示目前狀態|並非目前狀態|"
-    r"拒絕|禁止|不得主張",
+    r"(?:必須|必需|預期(?:會)?|應)(?:被)?拒絕|"
+    r"拒絕規則|拒絕|禁止用語|禁止(?:的)?(?:說法|文言|範例)|"
+    r"不得(?:主張|作為目前結果)|"
+    r"無效(?:範例|說法|主張|例)?|"
+    r"僅用於說明拒絕規則",
     re.IGNORECASE,
 )
 README_FIXTURE_REPORTING_PATTERN = re.compile(
@@ -258,17 +277,28 @@ README_NON_ASSERTION_AFTER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 README_CONTRAST_PATTERN = re.compile(
-    r"\b(?:but|however|rather|instead|yet)\b|"
+    r"\b(?:but|however|rather|instead|yet|while|whereas)\b|"
     r"(?:が|しかし|ではなく|一方|而是|但是|但|卻)",
     re.IGNORECASE,
 )
 README_INDEPENDENT_CLAIM_BOUNDARY_PATTERN = re.compile(
     r"[,，、]\s*(?:and|then|also|the\s+current|currently|"
-    r"現在|現行|目前|並且|而且)\b",
+    r"現在|現行|目前|並且|而且)\b|"
+    r"\band\s+(?:this|that|the\s+current|current|another|different|"
+    r"unrelated|the\s+fixture|the\s+example)\b",
+    re.IGNORECASE,
+)
+README_EXPLANATORY_SUBJECT_PATTERN = re.compile(
+    r"\b(?:readme|document|wording|phrase|claim|fixture|example|"
+    r"test case|code example|quoted text|quotation)\b|"
+    r"文書|文言|表現|語句|主張|fixture|例|code例|引用|"
+    r"文件|用語|說法|主張|範例|程式碼範例",
     re.IGNORECASE,
 )
 README_TRAILING_NON_ASSERTION_LINK_PATTERN = re.compile(
-    r"^\s*(?:だと|とは|という(?:文言|主張)?(?:は)?|を|的說法)?"
+    r"^\s*[\"'”’」』）》）】]*\s*"
+    r"(?:(?:だと|とは|という(?:文言|主張)?(?:は)?|を|が|は|と|"
+    r"的說法|這項主張|this claim|that claim))?"
     r"\s*[,、，:]?\s*$",
     re.IGNORECASE,
 )
@@ -739,7 +769,10 @@ def status_match_is_non_current(clause: str, match: re.Match[str]) -> bool:
     )
 
 
-def status_match_is_quoted(clause: str, match: re.Match[str]) -> bool:
+def status_match_quote_span(
+    clause: str,
+    match: re.Match[str],
+) -> tuple[int, int] | None:
     for opening, closing in (("\"", "\""), ("'", "'"), ("“", "”"), ("‘", "’"), ("「", "」"), ("『", "』")):
         cursor = 0
         while True:
@@ -750,14 +783,19 @@ def status_match_is_quoted(clause: str, match: re.Match[str]) -> bool:
             if end < 0:
                 break
             if start < match.start() and match.end() <= end:
-                return True
+                return start, end + len(closing)
             cursor = end + len(closing)
-    return False
+    return None
+
+
+def status_match_is_quoted(clause: str, match: re.Match[str]) -> bool:
+    return status_match_quote_span(clause, match) is not None
 
 
 def status_match_is_non_assertive(clause: str, match: re.Match[str]) -> bool:
     before = clause[: match.start()]
     after = clause[match.end() :]
+    quote_span = status_match_quote_span(clause, match)
 
     for cue in README_NON_ASSERTION_CUE_PATTERN.finditer(before):
         governed_text = before[cue.end() :]
@@ -768,13 +806,19 @@ def status_match_is_non_assertive(clause: str, match: re.Match[str]) -> bool:
 
     for cue in README_NON_ASSERTION_CUE_PATTERN.finditer(after):
         governed_text = after[: cue.start()]
-        if README_TRAILING_NON_ASSERTION_LINK_PATTERN.fullmatch(governed_text):
+        if len(governed_text) > 128 or README_CONTRAST_PATTERN.search(
+            governed_text
+        ) or README_INDEPENDENT_CLAIM_BOUNDARY_PATTERN.search(governed_text):
+            continue
+        explanatory_subject = README_EXPLANATORY_SUBJECT_PATTERN.search(
+            before[-160:]
+        )
+        if (
+            quote_span is not None
+            or explanatory_subject
+            or README_TRAILING_NON_ASSERTION_LINK_PATTERN.fullmatch(governed_text)
+        ):
             return True
-
-    if status_match_is_quoted(clause, match) and README_NON_ASSERTION_CUE_PATTERN.search(
-        clause
-    ):
-        return True
 
     return bool(
         README_FIXTURE_REPORTING_PATTERN.search(before[-128:])

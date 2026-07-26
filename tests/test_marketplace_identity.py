@@ -1851,5 +1851,333 @@ class SecondRemediationCorpusContractTests(unittest.TestCase):
         self.assertGreaterEqual(sum("adversarial" in case_id for case_id in all_ids), 6)
 
 
+class ThirdRemediationExactRf02Tests(IdentityPolicyTestCase):
+    """Exact 16 RF02 false-reject mutations from the second re-audit ledger."""
+
+
+THIRD_REMEDIATION_EXACT_RF02_CASES = (
+    (
+        "third_exact_second_en_pair_03_v",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-EN-PAIR-03-V: The fixture “current Desktop installation passed” is invalid.",
+    ),
+    (
+        "third_exact_second_en_pair_04_v",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-EN-PAIR-04-V: The example “Phase C invocation succeeded” is prohibited as the current result.",
+    ),
+    (
+        "third_exact_second_en_valid_01",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-EN-VALID-01: The same claim “current Phase C Desktop registration passed” is expected to be rejected.",
+    ),
+    (
+        "third_exact_second_en_valid_08",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-EN-VALID-08: The code example `current marketplace discovery passed` is an invalid claim and must be rejected.",
+    ),
+    (
+        "third_exact_second_ja_pair_02_v",
+        PLUGIN_READMES[1],
+        "ACA-SECOND-SECOND-JA-PAIR-02-V: 「現行marketplaceの発見は完了しました」という主張は現在の状態ではありません。",
+    ),
+    (
+        "third_exact_second_ja_pair_03_v",
+        PLUGIN_READMES[1],
+        "ACA-SECOND-SECOND-JA-PAIR-03-V: fixture「現在のDesktop installは合格済み」は無効です。",
+    ),
+    (
+        "third_exact_second_ja_valid_08",
+        PLUGIN_READMES[1],
+        "ACA-SECOND-SECOND-JA-VALID-08: code例`現在のmarketplace発見は合格済み`は無効な主張であり拒否されます。",
+    ),
+    (
+        "third_exact_second_zh_pair_03_v",
+        PLUGIN_READMES[2],
+        "ACA-SECOND-SECOND-ZH-PAIR-03-V: fixture「目前桌面安裝已通過」是無效說法。",
+    ),
+    (
+        "third_exact_second_zh_pair_04_v",
+        PLUGIN_READMES[2],
+        "ACA-SECOND-SECOND-ZH-PAIR-04-V: 範例「Phase C明確叫用已成功」不得作為目前結果。",
+    ),
+    (
+        "third_exact_second_zh_valid_08",
+        PLUGIN_READMES[2],
+        "ACA-SECOND-SECOND-ZH-VALID-08: 程式碼範例`目前marketplace探索已通過`是無效主張且必須被拒絕。",
+    ),
+    (
+        "third_exact_second_mx_pair_01_v",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-MX-PAIR-01-V: This README は current Phase C Desktop登録が **passed** と主張しません。",
+    ),
+    (
+        "third_exact_second_mx_pair_02_v",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-MX-PAIR-02-V: 「目前 marketplace discovery is complete」というclaimは現在のstateではありません。",
+    ),
+    (
+        "third_exact_second_mx_pair_03_v",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-MX-PAIR-03-V: The fixture「現在の Desktop 安裝 passed」is invalid.",
+    ),
+    (
+        "third_exact_second_mx_pair_04_v",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-MX-PAIR-04-V: 範例 “Phase C 明示 invocation succeeded” は current result として prohibited です。",
+    ),
+    (
+        "third_exact_second_mx_valid_01",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-MX-VALID-01: The same claim「現在のPhase C Desktop註冊 passed」is expected to be rejected.",
+    ),
+    (
+        "third_exact_second_mx_valid_08",
+        PLUGIN_READMES[0],
+        "ACA-SECOND-SECOND-MX-VALID-08: The code例 `目前 marketplace discovery passed` は invalid claim で must be rejected.",
+    ),
+)
+
+install_positive_cases(
+    ThirdRemediationExactRf02Tests,
+    tuple(
+        (case_id, "plugin", append_text(relative, text))
+        for case_id, relative, text in THIRD_REMEDIATION_EXACT_RF02_CASES
+    ),
+)
+
+
+class ThirdRemediationAdditionalValidTests(IdentityPolicyTestCase):
+    """Twenty-four fresh same-claim explanatory real-subprocess controls."""
+
+
+class ThirdRemediationAdditionalInvalidTests(IdentityPolicyTestCase):
+    """Twenty-four minimally paired current-success real-subprocess controls."""
+
+
+THIRD_REMEDIATION_ADDITIONAL_PAIRS = (
+    # English: six pairs / twelve subprocess tests.
+    (
+        "third_pair_en_01",
+        "English",
+        PLUGIN_READMES[0],
+        "This README does not assert the quoted claim “current Phase C Desktop registration passed”.",
+        "This README asserts the quoted claim “current Phase C Desktop registration passed”.",
+    ),
+    (
+        "third_pair_en_02",
+        "English",
+        PLUGIN_READMES[0],
+        "The wording “Phase C explicit invocation succeeded” is prohibited as a current result.",
+        "The wording “Phase C explicit invocation succeeded” is permitted as the current result.",
+    ),
+    (
+        "third_pair_en_03",
+        "English",
+        PLUGIN_READMES[0],
+        "The claim “current marketplace discovery\npassed” is expected to be rejected.",
+        "The claim “current marketplace discovery\npassed” is expected to be accepted.",
+    ),
+    (
+        "third_pair_en_04",
+        "English",
+        PLUGIN_READMES[0],
+        "The code example `current Desktop marketplace installation passed` is an invalid claim.",
+        "The code example `current Desktop marketplace installation passed` is the current result.",
+    ),
+    (
+        "third_pair_en_05",
+        "English",
+        PLUGIN_READMES[0],
+        "> The quoted text “current Phase C Desktop gate passed”\n> does not represent the current state.",
+        "> The quoted text “current Phase C Desktop gate passed”\n> represents the current state.",
+    ),
+    (
+        "third_pair_en_06",
+        "English",
+        PLUGIN_READMES[0],
+        "The example “Phase C passed” is invalid.",
+        "The example “Phase C passed” is invalid, but the current Desktop registration passed.",
+    ),
+    # Japanese: six pairs / twelve subprocess tests.
+    (
+        "third_pair_ja_01",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "このREADMEは引用「現在のPhase C Desktop登録は合格済み」を主張していません。",
+        "このREADMEは引用「現在のPhase C Desktop登録は合格済み」を主張しています。",
+    ),
+    (
+        "third_pair_ja_02",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "禁止される文言「Phase Cの明示呼び出しは成功しました」は現在結果を示すものではありません。",
+        "許可される文言「Phase Cの明示呼び出しは成功しました」は現在の結果です。",
+    ),
+    (
+        "third_pair_ja_03",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "fixtureの主張「現行marketplaceの発見は\n完了しました」は拒否されるべき表現です。",
+        "fixtureの主張「現行marketplaceの発見は\n完了しました」は受理されるべき表現です。",
+    ),
+    (
+        "third_pair_ja_04",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "code例`現在のDesktop installは合格済み`は無効な例です。",
+        "code例`現在のDesktop installは合格済み`は有効な現在結果です。",
+    ),
+    (
+        "third_pair_ja_05",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "- 引用「現在のmarketplace登録は検証済み」は\n  現在の状態を示しません。",
+        "- 引用「現在のmarketplace登録は検証済み」は\n  現在の状態を示します。",
+    ),
+    (
+        "third_pair_ja_06",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "引用「Phase Cは合格済み」は無効な例です。",
+        "引用「Phase Cは合格済み」は無効な例ですが、現在のDesktop登録は合格済みです。",
+    ),
+    # Taiwan Traditional Chinese: six pairs / twelve subprocess tests.
+    (
+        "third_pair_zh_01",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "本文件並未主張引用「目前Phase C桌面註冊已通過」。",
+        "本文件主張引用「目前Phase C桌面註冊已通過」。",
+    ),
+    (
+        "third_pair_zh_02",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "禁止用語「Phase C明確叫用已成功」僅用於說明拒絕規則。",
+        "允許用語「Phase C明確叫用已成功」代表目前結果。",
+    ),
+    (
+        "third_pair_zh_03",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "同一主張「目前marketplace探索\n已完成」預期會被拒絕。",
+        "同一主張「目前marketplace探索\n已完成」預期會被接受。",
+    ),
+    (
+        "third_pair_zh_04",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "程式碼範例`目前桌面安裝已通過`是無效主張。",
+        "程式碼範例`目前桌面安裝已通過`是目前有效結果。",
+    ),
+    (
+        "third_pair_zh_05",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "> 引用「目前Phase C桌面gate已成功」\n> 不表示目前狀態。",
+        "> 引用「目前Phase C桌面gate已成功」\n> 表示目前狀態。",
+    ),
+    (
+        "third_pair_zh_06",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "引用「Phase C已通過」是無效範例。",
+        "引用「Phase C已通過」是無效範例，但是目前桌面註冊已通過。",
+    ),
+    # Mixed-language and Markdown: six pairs / twelve subprocess tests.
+    (
+        "third_pair_mixed_01",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "This README は current Phase C Desktop註冊が passed と主張していません。",
+        "This README は current Phase C Desktop註冊が passed と主張しています。",
+    ),
+    (
+        "third_pair_mixed_02",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "禁止用語 “Phase C explicit invocation succeeded” is quoted only to explain the rejection rule.",
+        "許可用語 “Phase C explicit invocation succeeded” represents the current result.",
+    ),
+    (
+        "third_pair_mixed_03",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[1],
+        "The same claim「現在のmarketplace discovery\npassed」は拒否されるべき表現です。",
+        "The same claim「現在のmarketplace discovery\npassed」は受理される表現です。",
+    ),
+    (
+        "third_pair_mixed_04",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[2],
+        "The code例 `目前 Desktop installation passed` 是無效主張且 must be rejected.",
+        "The code例 `目前 Desktop installation passed` 是目前有效結果.",
+    ),
+    (
+        "third_pair_mixed_05",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "The quoted claim [現在のmarketplace discovery passed](https://example.invalid/third-claim) は現在の状態を示しません。",
+        "The quoted claim [現在のmarketplace discovery passed](https://example.invalid/third-claim) は現在の状態を示します。",
+    ),
+    (
+        "third_pair_mixed_06",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "> The example「Phase C 已通過」is invalid.",
+        "> The example「Phase C 已通過」is invalid, but current Desktop registration passed.",
+    ),
+)
+
+install_positive_cases(
+    ThirdRemediationAdditionalValidTests,
+    tuple(
+        (f"{case_id}_valid", "plugin", append_text(relative, valid_text))
+        for case_id, _language, relative, valid_text, _invalid_text
+        in THIRD_REMEDIATION_ADDITIONAL_PAIRS
+    ),
+)
+
+install_invalid_regression_cases(
+    ThirdRemediationAdditionalInvalidTests,
+    tuple(
+        InvalidRegressionCase(
+            f"{case_id}_invalid",
+            "third-remediation minimally paired current-success control",
+            "invalid",
+            "plugin",
+            append_text(relative, invalid_text),
+            "Plugin README Phase C identity contradiction",
+        )
+        for case_id, _language, relative, _valid_text, invalid_text
+        in THIRD_REMEDIATION_ADDITIONAL_PAIRS
+    ),
+)
+
+
+class ThirdRemediationCorpusContractTests(unittest.TestCase):
+    def test_exact_and_additional_real_subprocess_contract(self):
+        exact_ids = [case[0] for case in THIRD_REMEDIATION_EXACT_RF02_CASES]
+        pair_ids = [case[0] for case in THIRD_REMEDIATION_ADDITIONAL_PAIRS]
+        additional_valid_count = len(THIRD_REMEDIATION_ADDITIONAL_PAIRS)
+        additional_invalid_count = len(THIRD_REMEDIATION_ADDITIONAL_PAIRS)
+        self.assertEqual(16, len(exact_ids))
+        self.assertEqual(len(exact_ids), len(set(exact_ids)))
+        self.assertEqual(24, len(pair_ids))
+        self.assertEqual(len(pair_ids), len(set(pair_ids)))
+        self.assertEqual(24, additional_valid_count)
+        self.assertEqual(24, additional_invalid_count)
+        self.assertEqual(48, additional_valid_count + additional_invalid_count)
+        languages = [case[1] for case in THIRD_REMEDIATION_ADDITIONAL_PAIRS]
+        for language in (
+            "English",
+            "Japanese",
+            "Taiwan Traditional Chinese",
+            "Mixed-language / Markdown",
+        ):
+            self.assertGreaterEqual(languages.count(language) * 2, 12)
+
+
 if __name__ == "__main__":
     unittest.main()
