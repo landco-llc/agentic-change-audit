@@ -99,6 +99,17 @@ def append_text(relative: str, text: str) -> Mutation:
     return mutate
 
 
+def append_exact_text(relative: str, text: str) -> Mutation:
+    def mutate(root: Path) -> None:
+        target = root / relative
+        target.write_text(
+            target.read_text(encoding="utf-8") + text,
+            encoding="utf-8",
+        )
+
+    return mutate
+
+
 def replace_bytes(relative: str, before: bytes, after: bytes) -> Mutation:
     def mutate(root: Path) -> None:
         target = root / relative
@@ -1768,7 +1779,7 @@ SECOND_REMEDIATION_ADDITIONAL_INVALID_CASES = (
     ("second_invalid_mixed_07", PLUGIN_READMES[0], "The current neutral identity is documented。desktop註冊は成功しました。"),
     ("second_invalid_mixed_08_adversarial", PLUGIN_READMES[1], "「Desktop gate passed」は禁止例です。しかし current Desktop gate 已通過。"),
     ("second_invalid_mixed_09_adversarial", PLUGIN_READMES[2], "Earlier desktop gate passed and is superseded。現在のDesktop gateは合格済みです。"),
-    ("second_invalid_mixed_10_adversarial", PLUGIN_READMES[0], "The current Phase C statement is:\n```text\nDesktop gate passed.\n```"),
+    ("second_invalid_mixed_10_adversarial", PLUGIN_READMES[0], "The current Phase C statement is:\n```text\nneutral fixture\n```\nThe current Phase C Desktop gate passed."),
     ("second_invalid_mixed_11", PLUGIN_READMES[1], "0.1.0-dev.3 の marketplace [discovery](https://example.invalid/discovery)\n驗證完成。"),
     ("second_invalid_mixed_12", PLUGIN_READMES[2], "Current working-tree non-mutation と明示呼び出しは approved。"),
 )
@@ -3470,6 +3481,482 @@ class FifthRemediationCorpusContractTests(unittest.TestCase):
             },
             pair_ids,
         )
+
+
+class SixthRemediationExactValidTests(IdentityPolicyTestCase):
+    """Exact false-reject records from the fifth-remediation re-audit."""
+
+
+class SixthRemediationExactInvalidTests(IdentityPolicyTestCase):
+    """Exact false-PASS records from the fifth-remediation re-audit."""
+
+
+SIXTH_REMEDIATION_EXACT_CASES = (
+    (
+        "ACA-FIFTH-INDEP-EN-SPAN-10",
+        "English",
+        PLUGIN_READMES[0],
+        "valid",
+        "The evidence note archives neutral sample terminology. The fixture records &ldquo;current Desktop registration succeeded&rdquo; as prohibited wording.\n\n<!-- ACA-FIFTH-INDEP-EN-SPAN-10 -->",
+        "html_named_entity_reporting",
+    ),
+    (
+        "ACA-FIFTH-INDEP-EN-SPAN-11",
+        "English",
+        PLUGIN_READMES[0],
+        "valid",
+        "```text\nThe current Phase C Desktop gate passed.\n```\n\n<!-- ACA-FIFTH-INDEP-EN-SPAN-11 -->",
+        "fenced_code_hidden_claim",
+    ),
+    (
+        "ACA-FIFTH-INDEP-EN-SPAN-12",
+        "English",
+        PLUGIN_READMES[0],
+        "valid",
+        "    The current Phase C Desktop gate passed.\n\n<!-- ACA-FIFTH-INDEP-EN-SPAN-12 -->",
+        "indented_code_hidden_claim",
+    ),
+    (
+        "ACA-FIFTH-INDEP-EN-SPAN-16",
+        "English",
+        PLUGIN_READMES[0],
+        "valid",
+        "[neutral source][destination-only]\n[destination-only]: https://example.invalid/current/Phase-C/Desktop/gate/passed\n\n<!-- ACA-FIFTH-INDEP-EN-SPAN-16 -->",
+        "claimy_reference_destination_hidden",
+    ),
+    (
+        "ACA-FIFTH-INDEP-JA-SPAN-10",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "valid",
+        "監査メモは中立な入力文言を記録します。 The fixture records &ldquo;現在のDesktop登録は成功しました&rdquo; as prohibited wording.\n\n<!-- ACA-FIFTH-INDEP-JA-SPAN-10 -->",
+        "html_named_entity_reporting",
+    ),
+    (
+        "ACA-FIFTH-INDEP-JA-SPAN-11",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "valid",
+        "```text\n現在のPhase C Desktop gateは合格済みです。\n```\n\n<!-- ACA-FIFTH-INDEP-JA-SPAN-11 -->",
+        "fenced_code_hidden_claim",
+    ),
+    (
+        "ACA-FIFTH-INDEP-JA-SPAN-12",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "valid",
+        "    現在のPhase C Desktop gateは合格済みです。\n\n<!-- ACA-FIFTH-INDEP-JA-SPAN-12 -->",
+        "indented_code_hidden_claim",
+    ),
+    (
+        "ACA-FIFTH-INDEP-JA-SPAN-16",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "valid",
+        "[neutral source][destination-only]\n[destination-only]: https://example.invalid/current/Phase-C/Desktop/gate/passed\n\n<!-- ACA-FIFTH-INDEP-JA-SPAN-16 -->",
+        "claimy_reference_destination_hidden",
+    ),
+    (
+        "ACA-FIFTH-INDEP-ZH-SPAN-09",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "invalid",
+        "目前Phase C桌面gate已通&#36942;。\n\n<!-- ACA-FIFTH-INDEP-ZH-SPAN-09 -->",
+        "html_decimal_entity_positive",
+    ),
+    (
+        "ACA-FIFTH-INDEP-ZH-SPAN-10",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "valid",
+        "稽核備忘錄記錄中立輸入用語。 The fixture records &ldquo;目前桌面註冊已成功&rdquo; as prohibited wording.\n\n<!-- ACA-FIFTH-INDEP-ZH-SPAN-10 -->",
+        "html_named_entity_reporting",
+    ),
+    (
+        "ACA-FIFTH-INDEP-ZH-SPAN-11",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "valid",
+        "```text\n目前Phase C桌面gate已通過。\n```\n\n<!-- ACA-FIFTH-INDEP-ZH-SPAN-11 -->",
+        "fenced_code_hidden_claim",
+    ),
+    (
+        "ACA-FIFTH-INDEP-ZH-SPAN-12",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "valid",
+        "    目前Phase C桌面gate已通過。\n\n<!-- ACA-FIFTH-INDEP-ZH-SPAN-12 -->",
+        "indented_code_hidden_claim",
+    ),
+    (
+        "ACA-FIFTH-INDEP-ZH-SPAN-16",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "valid",
+        "[neutral source][destination-only]\n[destination-only]: https://example.invalid/current/Phase-C/Desktop/gate/passed\n\n<!-- ACA-FIFTH-INDEP-ZH-SPAN-16 -->",
+        "claimy_reference_destination_hidden",
+    ),
+    (
+        "ACA-FIFTH-INDEP-MX-SPAN-10",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "valid",
+        "The 監査 memo records 中立 input 用語。 The fixture records &ldquo;目前 Desktop registration succeeded&rdquo; as prohibited wording.\n\n<!-- ACA-FIFTH-INDEP-MX-SPAN-10 -->",
+        "html_named_entity_reporting",
+    ),
+    (
+        "ACA-FIFTH-INDEP-MX-SPAN-11",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "valid",
+        "```text\n現在の Phase C Desktop gate passed。\n```\n\n<!-- ACA-FIFTH-INDEP-MX-SPAN-11 -->",
+        "fenced_code_hidden_claim",
+    ),
+    (
+        "ACA-FIFTH-INDEP-MX-SPAN-12",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "valid",
+        "    現在の Phase C Desktop gate passed。\n\n<!-- ACA-FIFTH-INDEP-MX-SPAN-12 -->",
+        "indented_code_hidden_claim",
+    ),
+    (
+        "ACA-FIFTH-INDEP-MX-SPAN-16",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "valid",
+        "[neutral source][destination-only]\n[destination-only]: https://example.invalid/current/Phase-C/Desktop/gate/passed\n\n<!-- ACA-FIFTH-INDEP-MX-SPAN-16 -->",
+        "claimy_reference_destination_hidden",
+    ),
+    (
+        "ACA-FIFTH-INDEP-BOUND-JA-11-A",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "valid",
+        "```\n現在のPhase C Desktop gateは合格済みです。\n```\n\n<!-- ACA-FIFTH-INDEP-BOUND-JA-11-A -->",
+        "fenced_code_closure",
+    ),
+    (
+        "ACA-FIFTH-INDEP-BOUND-ZH-08-A",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "valid",
+        "```\n目前Phase C桌面gate已通過。\n```\n\n<!-- ACA-FIFTH-INDEP-BOUND-ZH-08-A -->",
+        "fenced_code_closure",
+    ),
+    (
+        "ACA-FIFTH-INDEP-BOUND-MX-05-A",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "valid",
+        "```\n現在の Phase C Desktop gate passed。\n```\n\n<!-- ACA-FIFTH-INDEP-BOUND-MX-05-A -->",
+        "fenced_code_closure",
+    ),
+)
+
+
+install_positive_cases(
+    SixthRemediationExactValidTests,
+    tuple(
+        (
+            f"sixth_exact_{case_id.lower().replace('-', '_')}",
+            "plugin",
+            append_exact_text(relative, text),
+        )
+        for case_id, _language, relative, expected, text, _coverage
+        in SIXTH_REMEDIATION_EXACT_CASES
+        if expected == "valid"
+    ),
+)
+
+install_invalid_regression_cases(
+    SixthRemediationExactInvalidTests,
+    tuple(
+        InvalidRegressionCase(
+            f"sixth_exact_{case_id.lower().replace('-', '_')}",
+            "exact sixth-remediation false-PASS regression",
+            "invalid",
+            "plugin",
+            append_exact_text(relative, text),
+            "Plugin README Phase C identity contradiction",
+        )
+        for case_id, _language, relative, expected, text, _coverage
+        in SIXTH_REMEDIATION_EXACT_CASES
+        if expected == "invalid"
+    ),
+)
+
+
+@dataclass(frozen=True)
+class SixthLanguageSpec:
+    slug: str
+    language: str
+    relative: str
+    claim: str
+    alternate_claim: str
+    encoded_claim: str
+    reported: str
+
+
+@dataclass(frozen=True)
+class SixthAdditionalCase:
+    case_id: str
+    category: str
+    language: str
+    relative: str
+    expected: str
+    text: str
+    polarity: str
+
+
+SIXTH_LANGUAGE_SPECS = (
+    SixthLanguageSpec(
+        "en",
+        "English",
+        PLUGIN_READMES[0],
+        "The current Phase C Desktop gate passed.",
+        "Current Desktop registration succeeded.",
+        "The current Phase C Desktop gate pass&#101;d.",
+        "The fixture records “{claim}” as prohibited wording.",
+    ),
+    SixthLanguageSpec(
+        "ja",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "現在のPhase C Desktop gateは合格済みです。",
+        "現在のDesktop登録は成功しました。",
+        "現在のPhase C Desktop gateは合&#26684;済みです。",
+        "The fixture records “{claim}” as prohibited wording.",
+    ),
+    SixthLanguageSpec(
+        "zh",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "目前Phase C桌面gate已通過。",
+        "目前桌面註冊已成功。",
+        "目前Phase C桌面gate已通&#36942;。",
+        "The fixture records “{claim}” as prohibited wording.",
+    ),
+    SixthLanguageSpec(
+        "mx",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "現在の Phase C Desktop gate passed。",
+        "目前 Desktop registration succeeded。",
+        "現在の Phase C Desktop gate pass&#101;d。",
+        "The fixture records “{claim}” as prohibited wording.",
+    ),
+)
+
+
+def build_sixth_additional_cases() -> tuple[SixthAdditionalCase, ...]:
+    cases: list[SixthAdditionalCase] = []
+
+    def add(
+        spec: SixthLanguageSpec,
+        category: str,
+        index: int,
+        expected: str,
+        text: str,
+    ) -> None:
+        cases.append(
+            SixthAdditionalCase(
+                f"sixth_{category}_{spec.slug}_{index:02d}",
+                category,
+                spec.language,
+                spec.relative,
+                expected,
+                text,
+                "positive" if expected == "invalid" else "negative",
+            )
+        )
+
+    for spec in SIXTH_LANGUAGE_SPECS:
+        reported_claim = spec.claim.rstrip(".。")
+        reported_alternate_claim = spec.alternate_claim.rstrip(".。")
+        reported_encoded_claim = spec.encoded_claim.rstrip(".。")
+        entity_valid = (
+            spec.reported.format(claim=reported_claim)
+            .replace("“", "&ldquo;")
+            .replace("”", "&rdquo;"),
+            spec.reported.format(claim=reported_alternate_claim)
+            .replace("“", "&#8220;")
+            .replace("”", "&#8221;"),
+            spec.reported.format(claim=reported_claim)
+            .replace("“", "&#x201c;")
+            .replace("”", "&#x201d;"),
+            spec.reported.format(claim=reported_encoded_claim),
+        )
+        entity_invalid = (
+            spec.claim.replace(" ", "&#32;", 1),
+            spec.alternate_claim.replace(" ", "&#x20;", 1),
+            spec.encoded_claim,
+            f"&#{ord(spec.claim[0])};{spec.claim[1:]}",
+        )
+        for index, text in enumerate(entity_valid + entity_invalid, 1):
+            expected = "valid" if index <= len(entity_valid) else "invalid"
+            add(spec, "entity", index, expected, text)
+
+        code_valid = (
+            f"```text\n{spec.claim}\n```",
+            f"~~~text\n{spec.alternate_claim}\n~~~",
+            f"````markdown\n```\n{spec.claim}\n```\n````",
+            f"    {spec.claim}",
+            f"The fixture stores `{spec.alternate_claim}` as code.",
+            f"> ```text\n> {spec.claim}\n> ```",
+        )
+        code_invalid = (
+            f"```text\nneutral fixture\n```\n\n{spec.claim}",
+            f"`neutral code` {spec.claim}",
+            f"- `{spec.alternate_claim}`\n- {spec.claim}",
+            f"> ```text\n> neutral fixture\n> ```\n\n{spec.claim}",
+            f"    neutral fixture\n\n{spec.alternate_claim}",
+            f"~~~text\nneutral fixture\n~~~\n\n## Result\n{spec.claim}",
+        )
+        for index, text in enumerate(code_valid + code_invalid, 1):
+            expected = "valid" if index <= len(code_valid) else "invalid"
+            add(spec, "code", index, expected, text)
+
+        destination = (
+            "https://example.invalid/current/Phase-C/Desktop/gate/passed"
+        )
+        link_valid = (
+            f"[neutral source][sixth-{spec.slug}-ref]\n"
+            f"[sixth-{spec.slug}-ref]: {destination}",
+            f'[neutral source](https://example.invalid/neutral "{spec.claim}")',
+            spec.reported.format(
+                claim=f"[{spec.alternate_claim}](https://example.invalid/sample)"
+            ),
+            f"<{destination}>",
+        )
+        link_invalid = (
+            f"[{spec.claim}](https://example.invalid/neutral)",
+            f"[{spec.alternate_claim}][sixth-{spec.slug}-plain]\n"
+            f"[sixth-{spec.slug}-plain]: https://example.invalid/neutral",
+            f"Current result: [{spec.alternate_claim}]"
+            "(https://example.invalid/current)",
+            f"[neutral](https://example.invalid/neutral)\n\n{spec.claim}",
+        )
+        for index, text in enumerate(link_valid + link_invalid, 1):
+            expected = "valid" if index <= len(link_valid) else "invalid"
+            add(spec, "link", index, expected, text)
+
+        cross_valid = (
+            spec.reported.format(
+                claim=f"[{spec.encoded_claim}]"
+                "(https://example.invalid/entity-link)"
+            ),
+            f"```text\n{spec.encoded_claim}\n```\n\n[neutral](https://example.invalid)",
+            f"> [neutral][sixth-{spec.slug}-cross]\n>\n"
+            f"> [sixth-{spec.slug}-cross]: {destination}",
+            f"- The fixture stores `{spec.encoded_claim}` as code.\n"
+            "- Neutral rendered result.",
+        )
+        cross_invalid = (
+            f"```text\nneutral\n```\n\n[{spec.encoded_claim}]"
+            "(https://example.invalid/current)",
+            f"[neutral][sixth-{spec.slug}-cross-invalid]\n"
+            f"[sixth-{spec.slug}-cross-invalid]: https://example.invalid\n\n"
+            f"{spec.encoded_claim}",
+            f"> `neutral code`\n>\n> {spec.encoded_claim}",
+            f"- [neutral](https://example.invalid)\n- {spec.encoded_claim}",
+        )
+        for index, text in enumerate(cross_valid + cross_invalid, 1):
+            expected = "valid" if index <= len(cross_valid) else "invalid"
+            add(spec, "cross", index, expected, text)
+
+    return tuple(cases)
+
+
+SIXTH_REMEDIATION_ADDITIONAL_CASES = build_sixth_additional_cases()
+
+
+class SixthRemediationAdditionalValidTests(IdentityPolicyTestCase):
+    """Entity, code, link, and cross-interaction negative controls."""
+
+
+class SixthRemediationAdditionalInvalidTests(IdentityPolicyTestCase):
+    """Entity, code, link, and cross-interaction positive controls."""
+
+
+install_positive_cases(
+    SixthRemediationAdditionalValidTests,
+    tuple(
+        (case.case_id, "plugin", append_text(case.relative, case.text))
+        for case in SIXTH_REMEDIATION_ADDITIONAL_CASES
+        if case.expected == "valid"
+    ),
+)
+
+install_invalid_regression_cases(
+    SixthRemediationAdditionalInvalidTests,
+    tuple(
+        InvalidRegressionCase(
+            case.case_id,
+            "sixth-remediation structural parser control",
+            "invalid",
+            "plugin",
+            append_text(case.relative, case.text),
+            "Plugin README Phase C identity contradiction",
+        )
+        for case in SIXTH_REMEDIATION_ADDITIONAL_CASES
+        if case.expected == "invalid"
+    ),
+)
+
+
+class SixthRemediationCorpusContractTests(unittest.TestCase):
+    def test_exact_and_additional_real_subprocess_contract(self):
+        exact_ids = [case[0] for case in SIXTH_REMEDIATION_EXACT_CASES]
+        self.assertEqual(20, len(exact_ids))
+        self.assertEqual(20, len(set(exact_ids)))
+        self.assertEqual(
+            {"valid": 19, "invalid": 1},
+            {
+                expected: sum(
+                    case[3] == expected
+                    for case in SIXTH_REMEDIATION_EXACT_CASES
+                )
+                for expected in ("valid", "invalid")
+            },
+        )
+
+        additional = SIXTH_REMEDIATION_ADDITIONAL_CASES
+        self.assertEqual(144, len(additional))
+        self.assertEqual(144, len({case.case_id for case in additional}))
+        expected_category_counts = {
+            "entity": 32,
+            "code": 48,
+            "link": 32,
+            "cross": 32,
+        }
+        self.assertEqual(
+            expected_category_counts,
+            {
+                category: sum(case.category == category for case in additional)
+                for category in expected_category_counts
+            },
+        )
+        for language in (spec.language for spec in SIXTH_LANGUAGE_SPECS):
+            language_cases = [
+                case for case in additional if case.language == language
+            ]
+            self.assertEqual(36, len(language_cases))
+            self.assertEqual(
+                {"positive", "negative"},
+                {case.polarity for case in language_cases},
+            )
+            for category in expected_category_counts:
+                category_cases = [
+                    case
+                    for case in language_cases
+                    if case.category == category
+                ]
+                self.assertIn("valid", {case.expected for case in category_cases})
+                self.assertIn(
+                    "invalid",
+                    {case.expected for case in category_cases},
+                )
 
 
 if __name__ == "__main__":

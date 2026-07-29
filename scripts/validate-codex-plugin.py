@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import re
@@ -158,11 +159,14 @@ README_CLAUSE_SPLIT_PATTERN = re.compile(
     r"(?:[!?。！？;；]+|\.(?=\s|$))",
     re.IGNORECASE,
 )
-README_MARKDOWN_LINK_PATTERN = re.compile(r"!?\[([^\]]*)\]\([^\n)]*\)")
-README_MARKDOWN_FENCE_PATTERN = re.compile(
-    r"^\s{0,3}(?P<fence>`{3,}|~{3,})(?:[^`]*)$"
+README_MARKDOWN_FENCE_OPEN_PATTERN = re.compile(
+    r"^\s{0,3}(?P<fence>`{3,}|~{3,})(?P<info>.*)$"
+)
+README_MARKDOWN_FENCE_CLOSE_PATTERN = re.compile(
+    r"^\s{0,3}(?P<fence>`{3,}|~{3,})\s*$"
 )
 README_MARKDOWN_HEADING_PATTERN = re.compile(r"^\s{0,3}#{1,6}\s+(?P<text>.*)$")
+README_MARKDOWN_SETEXT_PATTERN = re.compile(r"^\s{0,3}(?:=+|-+)\s*$")
 README_MARKDOWN_LIST_ITEM_PATTERN = re.compile(
     r"^\s*(?:[-+*]|\d+[.)])\s+(?P<text>.*)$"
 )
@@ -171,6 +175,11 @@ README_MARKDOWN_BLOCKQUOTE_PATTERN = re.compile(
 )
 README_MARKDOWN_THEMATIC_BREAK_PATTERN = re.compile(
     r"^\s{0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$"
+)
+README_MARKDOWN_REFERENCE_DEFINITION_PATTERN = re.compile(
+    r"^\s{0,3}\[(?P<label>[^\]\n]+)\]:\s*"
+    r"(?P<destination><[^>\n]*>|\S+)"
+    r"(?:\s+(?P<title>\"[^\"]*\"|'[^']*'|\([^)]*\)))?\s*$"
 )
 README_DIAGNOSTIC_EXCERPT_LENGTH = 720
 README_GATE_CONTEXT_PATTERN = re.compile(
@@ -399,15 +408,41 @@ README_ANAPHORIC_STATUS_PREFIX_PATTERN = re.compile(
 )
 
 
+class ReadmeMarkdownSpan(NamedTuple):
+    kind: str
+    source_start: int
+    source_end: int
+    text: str
+    children: tuple["ReadmeMarkdownSpan", ...]
+
+
+class ReadmeMarkdownBlock(NamedTuple):
+    block_id: int
+    kind: str
+    source_start: int
+    source_end: int
+    spans: tuple[ReadmeMarkdownSpan, ...]
+
+
+class ReadmeSourceLine(NamedTuple):
+    text: str
+    source_start: int
+    source_end: int
+
+
 class ReadmeVisibleSpan(NamedTuple):
     kind: str
     start: int
     end: int
+    source_start: int
+    source_end: int
 
 
 class ReadmeBlock(NamedTuple):
     block_id: int
     kind: str
+    source_start: int
+    source_end: int
     text: str
     spans: tuple[ReadmeVisibleSpan, ...]
 
@@ -416,6 +451,8 @@ class ReadmeClaimClause(NamedTuple):
     block_id: int
     block_kind: str
     block_text: str
+    source_start: int
+    source_end: int
     readiness_context: str
     clause_id: int
     text: str
@@ -871,31 +908,122 @@ def validate_forbidden_components(root: Path, errors: list[str]) -> None:
                 errors.append(f"Forbidden component present: {current / name}")
 
 
-def markdown_visible_inline(text: str) -> tuple[str, tuple[ReadmeVisibleSpan, ...]]:
-    output: list[str] = []
-    spans: list[ReadmeVisibleSpan] = []
+def normalize_reference_label(label: str) -> str:
+    return " ".join(html.unescape(label).split()).casefold()
 
-    def append_visible(value: str) -> None:
-        for character in value:
-            if character.isspace():
-                if output and output[-1] != " ":
-                    output.append(" ")
-            else:
-                output.append(character)
 
-    cursor = 0
+def _find_unescaped(text: str, needle: str, start: int) -> int:
+    cursor = start
+    while True:
+        found = text.find(needle, cursor)
+        if found < 0:
+            return -1
+        backslashes = 0
+        check = found - 1
+        while check >= 0 and text[check] == "\\":
+            backslashes += 1
+            check -= 1
+        if backslashes % 2 == 0:
+            return found
+        cursor = found + len(needle)
+
+
+def _find_closing_parenthesis(text: str, start: int) -> int:
+    depth = 0
+    cursor = start
     while cursor < len(text):
-        link = README_MARKDOWN_LINK_PATTERN.match(text, cursor)
-        if link is not None:
-            start = len(output)
-            append_visible(re.sub(r"[*_~`]", "", link.group(1)))
-            spans.append(ReadmeVisibleSpan("link_label", start, len(output)))
-            cursor = link.end()
+        character = text[cursor]
+        if character == "\\":
+            cursor += 2
+            continue
+        if character == "(":
+            depth += 1
+        elif character == ")":
+            if depth == 0:
+                return cursor
+            depth -= 1
+        cursor += 1
+    return -1
+
+
+def _append_markdown_span(
+    spans: list[ReadmeMarkdownSpan],
+    kind: str,
+    source_start: int,
+    source_end: int,
+    value: str,
+    children: tuple[ReadmeMarkdownSpan, ...] = (),
+) -> None:
+    if not value and not children:
+        return
+    if (
+        kind == "text"
+        and spans
+        and spans[-1].kind == "text"
+        and spans[-1].source_end == source_start
+        and not spans[-1].children
+    ):
+        previous = spans[-1]
+        spans[-1] = ReadmeMarkdownSpan(
+            "text",
+            previous.source_start,
+            source_end,
+            previous.text + value,
+            (),
+        )
+        return
+    spans.append(
+        ReadmeMarkdownSpan(
+            kind,
+            source_start,
+            source_end,
+            value,
+            children,
+        )
+    )
+
+
+def parse_markdown_inline_spans(
+    text: str,
+    source_start: int,
+    reference_labels: frozenset[str],
+    *,
+    parse_quotes: bool = True,
+) -> tuple[ReadmeMarkdownSpan, ...]:
+    spans: list[ReadmeMarkdownSpan] = []
+    cursor = 0
+    quote_pairs = (
+        ("\"", "\""),
+        ("“", "”"),
+        ("‘", "’"),
+        ("「", "」"),
+        ("『", "』"),
+    )
+
+    while cursor < len(text):
+        absolute = source_start + cursor
+
+        if text[cursor] == "\\" and cursor + 1 < len(text):
+            _append_markdown_span(
+                spans,
+                "text",
+                absolute,
+                absolute + 2,
+                text[cursor + 1],
+            )
+            cursor += 2
             continue
 
         if text[cursor] == "<":
-            tag_end = text.find(">", cursor + 1)
+            tag_end = _find_unescaped(text, ">", cursor + 1)
             if tag_end >= 0:
+                _append_markdown_span(
+                    spans,
+                    "html_tag",
+                    absolute,
+                    source_start + tag_end + 1,
+                    text[cursor : tag_end + 1],
+                )
                 cursor = tag_end + 1
                 continue
 
@@ -904,13 +1032,92 @@ def markdown_visible_inline(text: str) -> tuple[str, tuple[ReadmeVisibleSpan, ..
             while marker_end < len(text) and text[marker_end] == "`":
                 marker_end += 1
             marker = text[cursor:marker_end]
-            closing = text.find(marker, marker_end)
+            closing = _find_unescaped(text, marker, marker_end)
             if closing >= 0:
-                start = len(output)
-                append_visible(text[marker_end:closing])
-                spans.append(ReadmeVisibleSpan("inline_code", start, len(output)))
+                content_start = marker_end
+                content_end = closing
+                _append_markdown_span(
+                    spans,
+                    "inline_code",
+                    source_start + cursor,
+                    source_start + closing + len(marker),
+                    text[content_start:content_end],
+                )
                 cursor = closing + len(marker)
                 continue
+
+        link_start = cursor + 1 if text.startswith("![", cursor) else cursor
+        if link_start < len(text) and text[link_start] == "[":
+            label_end = _find_unescaped(text, "]", link_start + 1)
+            if label_end >= 0:
+                label = text[link_start + 1 : label_end]
+                label_source_start = source_start + link_start + 1
+                label_children = parse_markdown_inline_spans(
+                    label,
+                    label_source_start,
+                    reference_labels,
+                )
+                suffix = label_end + 1
+                is_image = link_start != cursor
+                if suffix < len(text) and text[suffix] == "(":
+                    destination_end = _find_closing_parenthesis(
+                        text,
+                        suffix + 1,
+                    )
+                    if destination_end >= 0:
+                        _append_markdown_span(
+                            spans,
+                            "inline_link_label",
+                            source_start + cursor,
+                            source_start + label_end + 1,
+                            label,
+                            label_children,
+                        )
+                        _append_markdown_span(
+                            spans,
+                            "inline_link_destination",
+                            source_start + suffix,
+                            source_start + destination_end + 1,
+                            text[suffix + 1 : destination_end],
+                        )
+                        cursor = destination_end + 1
+                        continue
+                if suffix < len(text) and text[suffix] == "[":
+                    reference_end = _find_unescaped(text, "]", suffix + 1)
+                    if reference_end >= 0:
+                        reference = text[suffix + 1 : reference_end] or label
+                        if normalize_reference_label(reference) in reference_labels:
+                            _append_markdown_span(
+                                spans,
+                                "reference_link_label",
+                                source_start + cursor,
+                                source_start + label_end + 1,
+                                label,
+                                label_children,
+                            )
+                            _append_markdown_span(
+                                spans,
+                                "reference_link_destination",
+                                source_start + suffix,
+                                source_start + reference_end + 1,
+                                reference,
+                            )
+                            cursor = reference_end + 1
+                            continue
+                if (
+                    not is_image
+                    and normalize_reference_label(label) in reference_labels
+                ):
+                    _append_markdown_span(
+                        spans,
+                        "reference_link_label",
+                        source_start + cursor,
+                        source_start + label_end + 1,
+                        label,
+                        label_children,
+                    )
+                    cursor = label_end + 1
+                    continue
 
         emphasis_marker = next(
             (
@@ -922,116 +1129,496 @@ def markdown_visible_inline(text: str) -> tuple[str, tuple[ReadmeVisibleSpan, ..
         )
         if emphasis_marker is not None:
             content_start = cursor + len(emphasis_marker)
-            closing = text.find(emphasis_marker, content_start)
+            closing = _find_unescaped(text, emphasis_marker, content_start)
             if closing >= 0:
-                start = len(output)
-                append_visible(
-                    re.sub(
-                        r"[*_~`]",
-                        "",
-                        text[content_start:closing],
-                    )
+                content = text[content_start:closing]
+                children = parse_markdown_inline_spans(
+                    content,
+                    source_start + content_start,
+                    reference_labels,
                 )
-                spans.append(
-                    ReadmeVisibleSpan("emphasis_visible", start, len(output))
+                _append_markdown_span(
+                    spans,
+                    "emphasis",
+                    absolute,
+                    source_start + closing + len(emphasis_marker),
+                    content,
+                    children,
                 )
                 cursor = closing + len(emphasis_marker)
                 continue
 
-        append_visible(text[cursor])
+        if parse_quotes:
+            quote_pair = next(
+                (
+                    (opening, closing)
+                    for opening, closing in quote_pairs
+                    if text.startswith(opening, cursor)
+                ),
+                None,
+            )
+            if quote_pair is not None:
+                opening, closing_marker = quote_pair
+                content_start = cursor + len(opening)
+                closing = _find_unescaped(text, closing_marker, content_start)
+                if closing >= 0:
+                    content = text[content_start:closing]
+                    children = (
+                        ReadmeMarkdownSpan(
+                            "text",
+                            absolute,
+                            absolute + len(opening),
+                            opening,
+                            (),
+                        ),
+                        *parse_markdown_inline_spans(
+                            content,
+                            source_start + content_start,
+                            reference_labels,
+                            parse_quotes=False,
+                        ),
+                        ReadmeMarkdownSpan(
+                            "text",
+                            source_start + closing,
+                            source_start + closing + len(closing_marker),
+                            closing_marker,
+                            (),
+                        ),
+                    )
+                    _append_markdown_span(
+                        spans,
+                        "quoted_text",
+                        absolute,
+                        source_start + closing + len(closing_marker),
+                        text[cursor : closing + len(closing_marker)],
+                        tuple(children),
+                    )
+                    cursor = closing + len(closing_marker)
+                    continue
+
+        _append_markdown_span(
+            spans,
+            "text",
+            absolute,
+            absolute + 1,
+            text[cursor],
+        )
         cursor += 1
 
-    while output and output[-1] == " ":
-        output.pop()
-    visible_length = len(output)
-    return (
-        "".join(output),
-        tuple(
-            ReadmeVisibleSpan(span.kind, span.start, min(span.end, visible_length))
-            for span in spans
-            if span.start < min(span.end, visible_length)
-        ),
-    )
+    return tuple(spans)
 
 
-def readme_visible_blocks(text: str) -> list[ReadmeBlock]:
-    blocks: list[ReadmeBlock] = []
+def _source_lines(text: str) -> list[ReadmeSourceLine]:
+    lines: list[ReadmeSourceLine] = []
+    offset = 0
+    for raw_line in text.splitlines(keepends=True):
+        content = raw_line.rstrip("\r\n")
+        lines.append(ReadmeSourceLine(content, offset, offset + len(content)))
+        offset += len(raw_line)
+    if not lines and text:
+        lines.append(ReadmeSourceLine(text, 0, len(text)))
+    return lines
+
+
+def _reference_labels(lines: list[ReadmeSourceLine]) -> frozenset[str]:
+    labels: set[str] = set()
+    for line in lines:
+        quote = README_MARKDOWN_BLOCKQUOTE_PATTERN.match(line.text)
+        content = quote.group("text") if quote else line.text
+        definition = README_MARKDOWN_REFERENCE_DEFINITION_PATTERN.match(content)
+        if definition is not None:
+            labels.add(normalize_reference_label(definition.group("label")))
+    return frozenset(labels)
+
+
+def _indented_code_content(content: str) -> tuple[str, int] | None:
+    if content.startswith("\t"):
+        return content[1:], 1
+    if content.startswith("    "):
+        return content[4:], 4
+    return None
+
+
+def parse_readme_markdown(text: str) -> list[ReadmeMarkdownBlock]:
+    source_lines = _source_lines(text)
+    reference_labels = _reference_labels(source_lines)
+    blocks: list[ReadmeMarkdownBlock] = []
     current_kind: str | None = None
     current_quote_depth = 0
-    current_lines: list[str] = []
-    fence_marker: str | None = None
+    current_lines: list[ReadmeSourceLine] = []
+    current_source_start = 0
+    current_source_end = 0
+    fence_character: str | None = None
+    fence_length = 0
 
-    def append_block(kind: str, raw_text: str) -> None:
-        visible, spans = markdown_visible_inline(raw_text)
-        if kind == "fenced_code" and visible:
-            spans = (*spans, ReadmeVisibleSpan("fenced_code", 0, len(visible)))
-        blocks.append(ReadmeBlock(len(blocks), kind, visible, tuple(spans)))
+    def block_spans(
+        kind: str,
+        lines: list[ReadmeSourceLine],
+    ) -> tuple[ReadmeMarkdownSpan, ...]:
+        spans: list[ReadmeMarkdownSpan] = []
+        for index, line in enumerate(lines):
+            if index:
+                previous = lines[index - 1]
+                _append_markdown_span(
+                    spans,
+                    "soft_break",
+                    previous.source_end,
+                    line.source_start,
+                    "\n",
+                )
+            if kind in {"fenced_code", "indented_code"}:
+                _append_markdown_span(
+                    spans,
+                    "code_content",
+                    line.source_start,
+                    line.source_end,
+                    line.text,
+                )
+            else:
+                spans.extend(
+                    parse_markdown_inline_spans(
+                        line.text,
+                        line.source_start,
+                        reference_labels,
+                    )
+                )
+        return tuple(spans)
+
+    def append_block(
+        kind: str,
+        lines: list[ReadmeSourceLine],
+        source_start: int,
+        source_end: int,
+        *,
+        spans: tuple[ReadmeMarkdownSpan, ...] | None = None,
+    ) -> None:
+        blocks.append(
+            ReadmeMarkdownBlock(
+                len(blocks),
+                kind,
+                source_start,
+                source_end,
+                block_spans(kind, lines) if spans is None else spans,
+            )
+        )
 
     def flush() -> None:
         nonlocal current_kind, current_quote_depth, current_lines
+        nonlocal current_source_start, current_source_end
         if current_kind is not None:
-            append_block(current_kind, "\n".join(current_lines))
+            append_block(
+                current_kind,
+                current_lines,
+                current_source_start,
+                current_source_end,
+            )
         current_kind = None
         current_quote_depth = 0
         current_lines = []
+        current_source_start = 0
+        current_source_end = 0
 
-    for raw_line in text.splitlines():
-        quote = README_MARKDOWN_BLOCKQUOTE_PATTERN.match(raw_line)
+    line_index = 0
+    while line_index < len(source_lines):
+        source_line = source_lines[line_index]
+        quote = README_MARKDOWN_BLOCKQUOTE_PATTERN.match(source_line.text)
         quote_depth = quote.group("prefix").count(">") if quote else 0
-        content = quote.group("text") if quote else raw_line
+        content = quote.group("text") if quote else source_line.text
+        content_start = (
+            source_line.source_start + quote.start("text")
+            if quote
+            else source_line.source_start
+        )
+        content_line = ReadmeSourceLine(
+            content,
+            content_start,
+            content_start + len(content),
+        )
 
-        if fence_marker is not None:
-            closing = README_MARKDOWN_FENCE_PATTERN.match(content)
-            if closing is not None and closing.group("fence")[0] == fence_marker[0]:
+        if fence_character is not None:
+            closing = README_MARKDOWN_FENCE_CLOSE_PATTERN.match(content)
+            if (
+                closing is not None
+                and closing.group("fence")[0] == fence_character
+                and len(closing.group("fence")) >= fence_length
+            ):
+                current_source_end = source_line.source_end
                 flush()
-                fence_marker = None
+                fence_character = None
+                fence_length = 0
             else:
-                current_lines.append(content)
+                current_lines.append(content_line)
+                current_source_end = source_line.source_end
+            line_index += 1
+            continue
+
+        if current_kind == "indented_code":
+            indented = _indented_code_content(content)
+            if indented is not None:
+                value, prefix_length = indented
+                current_lines.append(
+                    ReadmeSourceLine(
+                        value,
+                        content_start + prefix_length,
+                        content_start + len(content),
+                    )
+                )
+                current_source_end = source_line.source_end
+                line_index += 1
+                continue
+            if not content.strip():
+                current_lines.append(
+                    ReadmeSourceLine("", content_start, content_start)
+                )
+                current_source_end = source_line.source_end
+                line_index += 1
+                continue
+            flush()
             continue
 
         if not content.strip():
             flush()
+            line_index += 1
             continue
 
-        fence = README_MARKDOWN_FENCE_PATTERN.match(content)
+        fence = README_MARKDOWN_FENCE_OPEN_PATTERN.match(content)
         if fence is not None:
             flush()
             current_kind = "fenced_code"
             current_quote_depth = quote_depth
-            fence_marker = fence.group("fence")
+            current_source_start = source_line.source_start
+            current_source_end = source_line.source_end
+            fence_character = fence.group("fence")[0]
+            fence_length = len(fence.group("fence"))
+            line_index += 1
+            continue
+
+        if (
+            current_kind in {"paragraph", "blockquote_paragraph"}
+            and current_quote_depth == quote_depth
+            and README_MARKDOWN_SETEXT_PATTERN.match(content)
+        ):
+            current_kind = "heading"
+            current_source_end = source_line.source_end
+            flush()
+            line_index += 1
             continue
 
         if README_MARKDOWN_THEMATIC_BREAK_PATTERN.match(content):
             flush()
-            append_block("thematic_break", "")
+            append_block(
+                "thematic_break",
+                [],
+                source_line.source_start,
+                source_line.source_end,
+                spans=(),
+            )
+            line_index += 1
             continue
 
         heading = README_MARKDOWN_HEADING_PATTERN.match(content)
         if heading is not None:
             flush()
-            append_block("heading", heading.group("text"))
+            heading_start = content_start + heading.start("text")
+            heading_line = ReadmeSourceLine(
+                heading.group("text"),
+                heading_start,
+                heading_start + len(heading.group("text")),
+            )
+            append_block(
+                "heading",
+                [heading_line],
+                source_line.source_start,
+                source_line.source_end,
+            )
+            line_index += 1
+            continue
+
+        definition = README_MARKDOWN_REFERENCE_DEFINITION_PATTERN.match(content)
+        if definition is not None:
+            flush()
+            definition_spans: list[ReadmeMarkdownSpan] = []
+            for kind, group_name in (
+                ("reference_definition_label", "label"),
+                ("reference_definition_destination", "destination"),
+                ("reference_definition_title", "title"),
+            ):
+                value = definition.group(group_name)
+                if value is None:
+                    continue
+                _append_markdown_span(
+                    definition_spans,
+                    kind,
+                    content_start + definition.start(group_name),
+                    content_start + definition.end(group_name),
+                    value,
+                )
+            append_block(
+                "reference_definition",
+                [],
+                source_line.source_start,
+                source_line.source_end,
+                spans=tuple(definition_spans),
+            )
+            line_index += 1
             continue
 
         list_item = README_MARKDOWN_LIST_ITEM_PATTERN.match(content)
         if list_item is not None:
             flush()
+            item_start = content_start + list_item.start("text")
             current_kind = "list_item"
             current_quote_depth = quote_depth
-            current_lines = [list_item.group("text")]
+            current_source_start = source_line.source_start
+            current_source_end = source_line.source_end
+            current_lines = [
+                ReadmeSourceLine(
+                    list_item.group("text"),
+                    item_start,
+                    item_start + len(list_item.group("text")),
+                )
+            ]
+            line_index += 1
+            continue
+
+        indented = _indented_code_content(content)
+        if indented is not None:
+            value, prefix_length = indented
+            flush()
+            current_kind = "indented_code"
+            current_quote_depth = quote_depth
+            current_source_start = source_line.source_start
+            current_source_end = source_line.source_end
+            current_lines = [
+                ReadmeSourceLine(
+                    value,
+                    content_start + prefix_length,
+                    content_start + len(content),
+                )
+            ]
+            line_index += 1
             continue
 
         next_kind = "blockquote_paragraph" if quote_depth else "paragraph"
         if current_kind == "list_item" and current_quote_depth == quote_depth:
-            current_lines.append(content.strip())
+            stripped = content.strip()
+            stripped_start = content_start + content.find(stripped)
+            current_lines.append(
+                ReadmeSourceLine(
+                    stripped,
+                    stripped_start,
+                    stripped_start + len(stripped),
+                )
+            )
+            current_source_end = source_line.source_end
+            line_index += 1
             continue
         if current_kind != next_kind or current_quote_depth != quote_depth:
             flush()
             current_kind = next_kind
             current_quote_depth = quote_depth
-        current_lines.append(content)
+            current_source_start = source_line.source_start
+        current_lines.append(content_line)
+        current_source_end = source_line.source_end
+        line_index += 1
 
     flush()
     return blocks
+
+
+def project_readme_visible_text(
+    blocks: list[ReadmeMarkdownBlock],
+) -> list[ReadmeBlock]:
+    projected: list[ReadmeBlock] = []
+    invisible_blocks = {
+        "fenced_code",
+        "indented_code",
+        "thematic_break",
+        "reference_definition",
+    }
+    invisible_spans = {
+        "html_tag",
+        "inline_link_destination",
+        "reference_link_destination",
+        "reference_definition_label",
+        "reference_definition_destination",
+        "reference_definition_title",
+        "code_content",
+    }
+    semantic_kinds = {
+        "inline_code": "inline_code",
+        "quoted_text": "quoted_text",
+        "emphasis": "emphasis_visible",
+        "inline_link_label": "link_label",
+        "reference_link_label": "link_label",
+    }
+
+    for block in blocks:
+        output: list[str] = []
+        visible_spans: list[ReadmeVisibleSpan] = []
+
+        def append_visible(value: str) -> None:
+            for character in html.unescape(value):
+                if character.isspace():
+                    if output and output[-1] != " ":
+                        output.append(" ")
+                else:
+                    output.append(character)
+
+        def project_span(span: ReadmeMarkdownSpan) -> None:
+            if span.kind in invisible_spans:
+                return
+            start = len(output)
+            if span.children:
+                for child in span.children:
+                    project_span(child)
+            else:
+                append_visible(span.text)
+            end = len(output)
+            visible_kind = semantic_kinds.get(span.kind)
+            if visible_kind is not None and start < end:
+                visible_spans.append(
+                    ReadmeVisibleSpan(
+                        visible_kind,
+                        start,
+                        end,
+                        span.source_start,
+                        span.source_end,
+                    )
+                )
+
+        if block.kind not in invisible_blocks:
+            for span in block.spans:
+                project_span(span)
+        while output and output[-1] == " ":
+            output.pop()
+        visible_length = len(output)
+        projected.append(
+            ReadmeBlock(
+                block.block_id,
+                block.kind,
+                block.source_start,
+                block.source_end,
+                "".join(output),
+                tuple(
+                    ReadmeVisibleSpan(
+                        span.kind,
+                        span.start,
+                        min(span.end, visible_length),
+                        span.source_start,
+                        span.source_end,
+                    )
+                    for span in visible_spans
+                    if span.start < min(span.end, visible_length)
+                ),
+            )
+        )
+
+    return projected
+
+
+def readme_visible_blocks(text: str) -> list[ReadmeBlock]:
+    return project_readme_visible_text(parse_readme_markdown(text))
 
 
 def readme_claim_clauses(text: str) -> list[ReadmeClaimClause]:
@@ -1061,6 +1648,8 @@ def readme_claim_clauses(text: str) -> list[ReadmeClaimClause]:
                         span.kind,
                         max(span.start, visible_start) - visible_start,
                         min(span.end, visible_end) - visible_start,
+                        span.source_start,
+                        span.source_end,
                     )
                     for span in block.spans
                     if span.start < visible_end and span.end > visible_start
@@ -1070,6 +1659,8 @@ def readme_claim_clauses(text: str) -> list[ReadmeClaimClause]:
                         block_id=block.block_id,
                         block_kind=block.kind,
                         block_text=block.text,
+                        source_start=block.source_start,
+                        source_end=block.source_end,
                         readiness_context=readiness_context,
                         clause_id=clause_id,
                         text=stripped,
@@ -1164,7 +1755,10 @@ def build_claim_occurrence(
         status_end=match.end(),
         claim_start=claim_start,
         claim_end=claim_end,
-        quote_span=status_match_quote_span(clause.text, match),
+        quote_span=(
+            containing_span("quoted_text")
+            or status_match_quote_span(clause.text, match)
+        ),
         inline_code_span=containing_span("inline_code"),
         link_label_span=containing_span("link_label"),
         emphasis_visible_span=containing_span("emphasis_visible"),
