@@ -159,10 +159,20 @@ README_CLAUSE_SPLIT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 README_MARKDOWN_LINK_PATTERN = re.compile(r"!?\[([^\]]*)\]\([^\n)]*\)")
-README_MARKDOWN_LINE_PREFIX_PATTERN = re.compile(
-    r"(?m)^\s{0,3}(?:#{1,6}\s+|>\s?|[-+*]\s+|\d+[.)]\s+)"
+README_MARKDOWN_FENCE_PATTERN = re.compile(
+    r"^\s{0,3}(?P<fence>`{3,}|~{3,})(?:[^`]*)$"
 )
-README_MAX_CLAIM_WINDOW = 720
+README_MARKDOWN_HEADING_PATTERN = re.compile(r"^\s{0,3}#{1,6}\s+(?P<text>.*)$")
+README_MARKDOWN_LIST_ITEM_PATTERN = re.compile(
+    r"^\s*(?:[-+*]|\d+[.)])\s+(?P<text>.*)$"
+)
+README_MARKDOWN_BLOCKQUOTE_PATTERN = re.compile(
+    r"^\s{0,3}(?P<prefix>(?:>\s*)+)(?P<text>.*)$"
+)
+README_MARKDOWN_THEMATIC_BREAK_PATTERN = re.compile(
+    r"^\s{0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$"
+)
+README_DIAGNOSTIC_EXCERPT_LENGTH = 720
 README_GATE_CONTEXT_PATTERN = re.compile(
     r"(?<![A-Za-z0-9])phase\s*c(?![A-Za-z0-9])|desktop\s+gate|"
     r"neutral[- ]marketplace identity|"
@@ -236,9 +246,9 @@ README_STATUS_PENDING_AFTER_PATTERN = re.compile(
 README_STATUS_NON_CURRENT_BEFORE_PATTERN = re.compile(
     r"\b(?:will|would|shall|must|should|may)\s+(?:later\s+)?"
     r"(?:be\s+)?(?:re[- ]?)?$|"
-    r"\b(?:when|if|once|after)\b[^.!?。！？;；]{0,96}$|"
-    r"(?:将来|今後|次回|予定|再(?:検証|確認|実施|試験)|待ち)[^。！？;；]{0,48}$|"
-    r"(?:須於未來|未來|將|重新|仍待)[^。！？;；]{0,48}$",
+    r"\b(?:when|if|once|after)\b[^.!?。！？;；]*$|"
+    r"(?:将来|今後|次回|予定|再(?:検証|確認|実施|試験)|待ち)[^。！？;；]*$|"
+    r"(?:須於未來|未來|將|重新|仍待)[^。！？;；]*$",
     re.IGNORECASE,
 )
 README_STATUS_NON_CURRENT_AFTER_PATTERN = re.compile(
@@ -281,34 +291,6 @@ README_NON_ASSERTION_CUE_PATTERN = re.compile(
     r"僅用於說明拒絕規則",
     re.IGNORECASE,
 )
-README_FIXTURE_REPORTING_PATTERN = re.compile(
-    r"\b(?:fixture|example|test case)\b[^.!?。！？;；]{0,64}"
-    r"\b(?:may say|quotes?|contains?|describes?)\b|"
-    r"fixture[^。！？;；]{0,64}(?:例|説明|記載)|"
-    r"fixture[^。！？;；]{0,64}(?:範例|說法|描述)",
-    re.IGNORECASE,
-)
-README_REPORTING_ROLE_PATTERN = re.compile(
-    r"\b(?:fixture|test(?:\s+case)?|example|documentation|document|guide|"
-    r"wording|phrase|input|quoted\s+text|code\s+example)\b"
-    r"[^.!?。！？;；]{0,96}"
-    r"\b(?:records?|reports?|quotes?|contains?|describes?|names?|mentions?|"
-    r"discusses?|shows?|uses?|appears?)\b|"
-    r"\b(?:records?|reports?|quotes?|contains?|describes?|names?|mentions?|"
-    r"discusses?|shows?|uses?|appears?)\b"
-    r"[^.!?。！？;；]{0,96}"
-    r"\b(?:fixture|test(?:\s+case)?|example|documentation|document|guide|"
-    r"wording|phrase|input|quoted\s+text|code\s+example)\b|"
-    r"(?:fixture|テスト|例|文書|文言|入力|引用|code例)"
-    r"[^。！？;；]{0,96}(?:記録|記載|報告|説明|引用|扱|現れ)|"
-    r"(?:記録|記載|報告|説明|引用|扱|現れ)"
-    r"[^。！？;；]{0,96}(?:fixture|テスト|例|文書|文言|入力|引用|code例)|"
-    r"(?:fixture|測試|範例|文件|用語|說法|輸入|引用|程式碼範例)"
-    r"[^。！？;；]{0,96}(?:記錄|描述|報告|說明|引用|提及|出現)|"
-    r"(?:記錄|描述|報告|說明|引用|提及|出現)"
-    r"[^。！？;；]{0,96}(?:fixture|測試|範例|文件|用語|說法|輸入|引用|程式碼範例)",
-    re.IGNORECASE,
-)
 README_REPORTING_MENTION_PATTERN = re.compile(
     r"\b(?:wording|phrase|input|example|claim|quote|quoted\s+text|"
     r"code\s+example)\b|"
@@ -317,17 +299,19 @@ README_REPORTING_MENTION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 README_REPORTING_SUBJECT_PATTERN = re.compile(
-    r"\b(?:fixture|test(?:\s+case)?|example|documentation|document|guide|"
+    r"\b(?:fixture|test(?:\s+case)?|example|documentation|document|guide|report|"
     r"wording|phrase|input|quote|quoted\s+text|code\s+example)\b|"
-    r"fixture|テスト|例|文書|文言|入力|引用|code例|"
-    r"fixture|測試|範例|文件|用語|說法|輸入|引用|程式碼範例",
+    r"fixture|テスト|例|文書|文言|入力|引用|code例|報告|"
+    r"fixture|測試|範例|文件|用語|說法|輸入|引用|程式碼範例|報告",
     re.IGNORECASE,
 )
 README_REPORTING_VERB_PATTERN = re.compile(
     r"\b(?:records?|reports?|quotes?|contains?|describes?|names?|mentions?|"
-    r"discusses?|shows?|uses?|appears?|archives?|preserves?|stores?|saves?)\b|"
-    r"記録|記載|報告|説明|保存|引用(?:する|します|した|して)|扱|現れ|"
-    r"記錄|描述|報告|說明|保存|引用(?:為|作為|於|在)|提及|出現",
+    r"discusses?|shows?|uses?|appears?|says?|archives?|preserves?|stores?|saves?|"
+    r"rejects?|forbids?|prohibits?)\b|"
+    r"記録|記載|報告|説明|保存|言及|"
+    r"引用(?:する|します|した|して)|扱|現れ|拒否|禁止|"
+    r"記錄|描述|報告|說明|保存|引用(?:為|作為|於|在)|提及|出現|拒絕|禁止",
     re.IGNORECASE,
 )
 README_ASSERTIVE_REPORTING_ROLE_PATTERN = re.compile(
@@ -407,7 +391,7 @@ README_ANAPHORIC_STATUS_PREFIX_PATTERN = re.compile(
     r"it|this|that|they|both|which|is|are|was|were|"
     r"has|have|had|now|currently)\b[\s,，、:：]*|"
     r"(?:しかし|ではなく|一方|それ|これは|その結果|そして|また|も|"
-    r"但是|然而|而是|但|卻|其|它|這|該|並且|而且|現已|已|也)"
+    r"は|が|但是|然而|而是|但|卻|其|它|這|該|並且|而且|現已|已|也)"
     r"[\s,，、:：]*|"
     r"(?:English|日本語|中文)?\s*(?:status|result|outcome|状態|結果|狀態)"
     r"[\s,，、:：]*)*",
@@ -415,13 +399,44 @@ README_ANAPHORIC_STATUS_PREFIX_PATTERN = re.compile(
 )
 
 
+class ReadmeVisibleSpan(NamedTuple):
+    kind: str
+    start: int
+    end: int
+
+
+class ReadmeBlock(NamedTuple):
+    block_id: int
+    kind: str
+    text: str
+    spans: tuple[ReadmeVisibleSpan, ...]
+
+
+class ReadmeClaimClause(NamedTuple):
+    block_id: int
+    block_kind: str
+    block_text: str
+    readiness_context: str
+    clause_id: int
+    text: str
+    spans: tuple[ReadmeVisibleSpan, ...]
+
+
 class ReadmeClaimOccurrence(NamedTuple):
+    block_id: int
+    block_kind: str
+    block_text: str
+    readiness_context: str
+    clause_id: int
     clause: str
     status_start: int
     status_end: int
     claim_start: int
     claim_end: int
     quote_span: tuple[int, int] | None
+    inline_code_span: tuple[int, int] | None
+    link_label_span: tuple[int, int] | None
+    emphasis_visible_span: tuple[int, int] | None
 
     @property
     def before(self) -> str:
@@ -856,18 +871,214 @@ def validate_forbidden_components(root: Path, errors: list[str]) -> None:
                 errors.append(f"Forbidden component present: {current / name}")
 
 
-def readme_claim_clauses(text: str) -> list[str]:
-    visible = README_MARKDOWN_LINK_PATTERN.sub(r"\1", text)
-    visible = README_MARKDOWN_LINE_PREFIX_PATTERN.sub("", visible)
-    visible = re.sub(r"</?[^>\n]+>", " ", visible)
-    visible = re.sub(r"[*_~]", "", visible)
-    # A Markdown soft/hard line break changes presentation, not claim meaning.
-    visible = re.sub(r"[ \t]*\r?\n[ \t]*", " ", visible)
-    return [
-        " ".join(clause.split())
-        for clause in README_CLAUSE_SPLIT_PATTERN.split(visible)
-        if clause.strip()
-    ]
+def markdown_visible_inline(text: str) -> tuple[str, tuple[ReadmeVisibleSpan, ...]]:
+    output: list[str] = []
+    spans: list[ReadmeVisibleSpan] = []
+
+    def append_visible(value: str) -> None:
+        for character in value:
+            if character.isspace():
+                if output and output[-1] != " ":
+                    output.append(" ")
+            else:
+                output.append(character)
+
+    cursor = 0
+    while cursor < len(text):
+        link = README_MARKDOWN_LINK_PATTERN.match(text, cursor)
+        if link is not None:
+            start = len(output)
+            append_visible(re.sub(r"[*_~`]", "", link.group(1)))
+            spans.append(ReadmeVisibleSpan("link_label", start, len(output)))
+            cursor = link.end()
+            continue
+
+        if text[cursor] == "<":
+            tag_end = text.find(">", cursor + 1)
+            if tag_end >= 0:
+                cursor = tag_end + 1
+                continue
+
+        if text[cursor] == "`":
+            marker_end = cursor
+            while marker_end < len(text) and text[marker_end] == "`":
+                marker_end += 1
+            marker = text[cursor:marker_end]
+            closing = text.find(marker, marker_end)
+            if closing >= 0:
+                start = len(output)
+                append_visible(text[marker_end:closing])
+                spans.append(ReadmeVisibleSpan("inline_code", start, len(output)))
+                cursor = closing + len(marker)
+                continue
+
+        emphasis_marker = next(
+            (
+                marker
+                for marker in ("**", "__", "~~", "*", "_")
+                if text.startswith(marker, cursor)
+            ),
+            None,
+        )
+        if emphasis_marker is not None:
+            content_start = cursor + len(emphasis_marker)
+            closing = text.find(emphasis_marker, content_start)
+            if closing >= 0:
+                start = len(output)
+                append_visible(
+                    re.sub(
+                        r"[*_~`]",
+                        "",
+                        text[content_start:closing],
+                    )
+                )
+                spans.append(
+                    ReadmeVisibleSpan("emphasis_visible", start, len(output))
+                )
+                cursor = closing + len(emphasis_marker)
+                continue
+
+        append_visible(text[cursor])
+        cursor += 1
+
+    while output and output[-1] == " ":
+        output.pop()
+    visible_length = len(output)
+    return (
+        "".join(output),
+        tuple(
+            ReadmeVisibleSpan(span.kind, span.start, min(span.end, visible_length))
+            for span in spans
+            if span.start < min(span.end, visible_length)
+        ),
+    )
+
+
+def readme_visible_blocks(text: str) -> list[ReadmeBlock]:
+    blocks: list[ReadmeBlock] = []
+    current_kind: str | None = None
+    current_quote_depth = 0
+    current_lines: list[str] = []
+    fence_marker: str | None = None
+
+    def append_block(kind: str, raw_text: str) -> None:
+        visible, spans = markdown_visible_inline(raw_text)
+        if kind == "fenced_code" and visible:
+            spans = (*spans, ReadmeVisibleSpan("fenced_code", 0, len(visible)))
+        blocks.append(ReadmeBlock(len(blocks), kind, visible, tuple(spans)))
+
+    def flush() -> None:
+        nonlocal current_kind, current_quote_depth, current_lines
+        if current_kind is not None:
+            append_block(current_kind, "\n".join(current_lines))
+        current_kind = None
+        current_quote_depth = 0
+        current_lines = []
+
+    for raw_line in text.splitlines():
+        quote = README_MARKDOWN_BLOCKQUOTE_PATTERN.match(raw_line)
+        quote_depth = quote.group("prefix").count(">") if quote else 0
+        content = quote.group("text") if quote else raw_line
+
+        if fence_marker is not None:
+            closing = README_MARKDOWN_FENCE_PATTERN.match(content)
+            if closing is not None and closing.group("fence")[0] == fence_marker[0]:
+                flush()
+                fence_marker = None
+            else:
+                current_lines.append(content)
+            continue
+
+        if not content.strip():
+            flush()
+            continue
+
+        fence = README_MARKDOWN_FENCE_PATTERN.match(content)
+        if fence is not None:
+            flush()
+            current_kind = "fenced_code"
+            current_quote_depth = quote_depth
+            fence_marker = fence.group("fence")
+            continue
+
+        if README_MARKDOWN_THEMATIC_BREAK_PATTERN.match(content):
+            flush()
+            append_block("thematic_break", "")
+            continue
+
+        heading = README_MARKDOWN_HEADING_PATTERN.match(content)
+        if heading is not None:
+            flush()
+            append_block("heading", heading.group("text"))
+            continue
+
+        list_item = README_MARKDOWN_LIST_ITEM_PATTERN.match(content)
+        if list_item is not None:
+            flush()
+            current_kind = "list_item"
+            current_quote_depth = quote_depth
+            current_lines = [list_item.group("text")]
+            continue
+
+        next_kind = "blockquote_paragraph" if quote_depth else "paragraph"
+        if current_kind == "list_item" and current_quote_depth == quote_depth:
+            current_lines.append(content.strip())
+            continue
+        if current_kind != next_kind or current_quote_depth != quote_depth:
+            flush()
+            current_kind = next_kind
+            current_quote_depth = quote_depth
+        current_lines.append(content)
+
+    flush()
+    return blocks
+
+
+def readme_claim_clauses(text: str) -> list[ReadmeClaimClause]:
+    clauses: list[ReadmeClaimClause] = []
+    blocks = readme_visible_blocks(text)
+    for block_index, block in enumerate(blocks):
+        if not block.text:
+            continue
+        readiness_context = " ".join(
+            candidate.text
+            for candidate in blocks[max(0, block_index - 2) : block_index + 1]
+            if candidate.text
+        )
+        segment_start = 0
+        clause_id = 0
+        boundaries = list(README_CLAUSE_SPLIT_PATTERN.finditer(block.text))
+        for boundary in (*boundaries, None):
+            segment_end = boundary.start() if boundary is not None else len(block.text)
+            raw_segment = block.text[segment_start:segment_end]
+            stripped = raw_segment.strip()
+            if stripped:
+                left_trim = len(raw_segment) - len(raw_segment.lstrip())
+                visible_start = segment_start + left_trim
+                visible_end = visible_start + len(stripped)
+                spans = tuple(
+                    ReadmeVisibleSpan(
+                        span.kind,
+                        max(span.start, visible_start) - visible_start,
+                        min(span.end, visible_end) - visible_start,
+                    )
+                    for span in block.spans
+                    if span.start < visible_end and span.end > visible_start
+                )
+                clauses.append(
+                    ReadmeClaimClause(
+                        block_id=block.block_id,
+                        block_kind=block.kind,
+                        block_text=block.text,
+                        readiness_context=readiness_context,
+                        clause_id=clause_id,
+                        text=stripped,
+                        spans=spans,
+                    )
+                )
+                clause_id += 1
+            segment_start = boundary.end() if boundary is not None else segment_end
+    return clauses
 
 
 def status_match_quote_span(
@@ -927,40 +1138,57 @@ def claim_scope_bounds(
 
 
 def build_claim_occurrence(
-    clause: str,
+    clause: ReadmeClaimClause,
     match: re.Match[str],
 ) -> ReadmeClaimOccurrence:
-    claim_start, claim_end = claim_scope_bounds(clause, match)
+    claim_start, claim_end = claim_scope_bounds(clause.text, match)
+
+    def containing_span(kind: str) -> tuple[int, int] | None:
+        for span in clause.spans:
+            if (
+                span.kind == kind
+                and span.start <= match.start()
+                and match.end() <= span.end
+            ):
+                return span.start, span.end
+        return None
+
     return ReadmeClaimOccurrence(
-        clause=clause,
+        block_id=clause.block_id,
+        block_kind=clause.block_kind,
+        block_text=clause.block_text,
+        readiness_context=clause.readiness_context,
+        clause_id=clause.clause_id,
+        clause=clause.text,
         status_start=match.start(),
         status_end=match.end(),
         claim_start=claim_start,
         claim_end=claim_end,
-        quote_span=status_match_quote_span(clause, match),
+        quote_span=status_match_quote_span(clause.text, match),
+        inline_code_span=containing_span("inline_code"),
+        link_label_span=containing_span("link_label"),
+        emphasis_visible_span=containing_span("emphasis_visible"),
     )
 
 
 def status_match_has_polarity_reversal(
     occurrence: ReadmeClaimOccurrence,
 ) -> bool:
-    before = occurrence.clause[max(0, occurrence.status_start - 192) : occurrence.status_start]
-    after = occurrence.clause[occurrence.status_end : occurrence.status_end + 192]
     return bool(
-        README_POLARITY_REVERSAL_BEFORE_PATTERN.search(before)
-        or README_POLARITY_REVERSAL_AFTER_PATTERN.search(after)
+        README_POLARITY_REVERSAL_BEFORE_PATTERN.search(occurrence.before)
+        or README_POLARITY_REVERSAL_AFTER_PATTERN.search(occurrence.after)
     )
 
 
 def status_match_is_negated(
     occurrence: ReadmeClaimOccurrence,
 ) -> bool:
-    before = occurrence.before[-128:]
-    after = occurrence.after[:128]
     direct_negation = bool(
-        README_STATUS_NEGATION_BEFORE_PATTERN.search(before)
-        or README_STATUS_COMPOUND_NEGATION_BEFORE_PATTERN.search(before)
-        or README_STATUS_PENDING_AFTER_PATTERN.search(after)
+        README_STATUS_NEGATION_BEFORE_PATTERN.search(occurrence.before)
+        or README_STATUS_COMPOUND_NEGATION_BEFORE_PATTERN.search(
+            occurrence.before
+        )
+        or README_STATUS_PENDING_AFTER_PATTERN.search(occurrence.after)
     )
     return direct_negation and not status_match_has_polarity_reversal(occurrence)
 
@@ -968,45 +1196,53 @@ def status_match_is_negated(
 def status_match_is_non_current(
     occurrence: ReadmeClaimOccurrence,
 ) -> bool:
-    before = occurrence.before[-128:]
-    after = occurrence.after[:128]
     return bool(
-        README_STATUS_NON_CURRENT_BEFORE_PATTERN.search(before)
-        or README_STATUS_NON_CURRENT_AFTER_PATTERN.search(after)
+        README_STATUS_NON_CURRENT_BEFORE_PATTERN.search(occurrence.before)
+        or README_STATUS_NON_CURRENT_AFTER_PATTERN.search(occurrence.after)
     )
 
 
-def status_match_is_quoted(clause: str, match: re.Match[str]) -> bool:
-    return status_match_quote_span(clause, match) is not None
+def status_match_structural_span(
+    occurrence: ReadmeClaimOccurrence,
+) -> tuple[int, int] | None:
+    spans = tuple(
+        span
+        for span in (
+            occurrence.quote_span,
+            occurrence.inline_code_span,
+            occurrence.link_label_span,
+        )
+        if span is not None
+    )
+    return min(spans, key=lambda span: span[1] - span[0]) if spans else None
 
 
-def quoted_status_is_reporting(
+def structural_status_is_reporting(
     occurrence: ReadmeClaimOccurrence,
 ) -> bool:
-    quote_span = occurrence.quote_span
-    if quote_span is None:
+    structural_span = status_match_structural_span(occurrence)
+    if structural_span is None:
         return False
-    quote_start, quote_end = quote_span
-    outer_before = occurrence.clause[max(0, quote_start - 192) : quote_start]
-    outer_after = occurrence.clause[quote_end : quote_end + 192]
-    before_role = outer_before[-96:]
-    after_role = outer_after[:96]
-    has_reporting_relation = bool(
-        (
-            README_REPORTING_SUBJECT_PATTERN.search(before_role)
-            and (
-                README_REPORTING_VERB_PATTERN.search(before_role)
-                or README_REPORTING_VERB_PATTERN.search(after_role)
-            )
-        )
-        or (
-            README_REPORTING_SUBJECT_PATTERN.search(after_role)
-            and README_REPORTING_VERB_PATTERN.search(after_role)
-        )
+    span_start, span_end = structural_span
+    outer_before = occurrence.clause[occurrence.claim_start:span_start]
+    outer_after = occurrence.clause[span_end:occurrence.claim_end]
+    span_before_status = occurrence.clause[span_start:occurrence.status_start]
+    span_after_status = occurrence.clause[occurrence.status_end:span_end]
+    relation_context = (
+        f"{outer_before} {span_before_status} "
+        f"{span_after_status} {outer_after}"
     )
-    if not has_reporting_relation:
+    has_reporting_relation = bool(
+        README_REPORTING_SUBJECT_PATTERN.search(relation_context)
+        and README_REPORTING_VERB_PATTERN.search(relation_context)
+    )
+    has_explicit_non_assertion = bool(
+        README_NON_ASSERTION_CUE_PATTERN.search(relation_context)
+        or README_NON_ASSERTION_AFTER_PATTERN.search(outer_after)
+    )
+    if not (has_reporting_relation or has_explicit_non_assertion):
         return False
-    if README_ASSERTIVE_REPORTING_ROLE_PATTERN.search(outer_after):
+    if README_ASSERTIVE_REPORTING_ROLE_PATTERN.search(relation_context):
         return False
     return True
 
@@ -1014,21 +1250,19 @@ def quoted_status_is_reporting(
 def unquoted_status_is_reporting(
     occurrence: ReadmeClaimOccurrence,
 ) -> bool:
-    before = occurrence.before[-192:]
-    after = occurrence.after[:192]
-    context = f"{before} {after}"
+    context = occurrence.clause[occurrence.claim_start : occurrence.claim_end]
     has_reporting_relation = bool(
-        README_REPORTING_ROLE_PATTERN.search(context)
-        or (
-            README_REPORTING_SUBJECT_PATTERN.search(context)
-            and README_REPORTING_VERB_PATTERN.search(context)
-        )
+        README_REPORTING_SUBJECT_PATTERN.search(context)
+        and README_REPORTING_VERB_PATTERN.search(context)
     )
     if not has_reporting_relation:
         return False
+    if README_ASSERTIVE_REPORTING_ROLE_PATTERN.search(context):
+        return False
     return bool(
-        README_REPORTING_MENTION_PATTERN.search(before)
-        and not README_ASSERTIVE_REPORTING_ROLE_PATTERN.search(after)
+        README_REPORTING_MENTION_PATTERN.search(context)
+        or README_NON_ASSERTION_CUE_PATTERN.search(context)
+        or README_NON_ASSERTION_AFTER_PATTERN.search(occurrence.after)
     )
 
 
@@ -1037,41 +1271,39 @@ def status_match_is_non_assertive(
 ) -> bool:
     before = occurrence.before
     after = occurrence.after
-    quote_span = occurrence.quote_span
+    structural_span = status_match_structural_span(occurrence)
 
-    if quote_span is not None:
-        if quoted_status_is_reporting(occurrence):
-            return True
-    elif unquoted_status_is_reporting(occurrence):
+    if structural_status_is_reporting(occurrence):
+        return True
+    if structural_span is None and unquoted_status_is_reporting(occurrence):
         return True
 
     for cue in README_NON_ASSERTION_CUE_PATTERN.finditer(before):
         governed_text = before[cue.end() :]
-        if len(governed_text) <= 128 and not README_CONTRAST_PATTERN.search(
+        if not README_CONTRAST_PATTERN.search(
             governed_text
         ) and not README_INDEPENDENT_CLAIM_BOUNDARY_PATTERN.search(governed_text):
             return True
 
     for cue in README_NON_ASSERTION_CUE_PATTERN.finditer(after):
         governed_text = after[: cue.start()]
-        if len(governed_text) > 128 or README_CONTRAST_PATTERN.search(
+        if README_CONTRAST_PATTERN.search(
             governed_text
         ) or README_INDEPENDENT_CLAIM_BOUNDARY_PATTERN.search(governed_text):
             continue
-        explanatory_subject = README_EXPLANATORY_SUBJECT_PATTERN.search(
-            before[-160:]
-        )
+        explanatory_subject = README_EXPLANATORY_SUBJECT_PATTERN.search(before)
         if (
-            quote_span is not None
+            structural_span is not None
             or explanatory_subject
             or README_TRAILING_NON_ASSERTION_LINK_PATTERN.fullmatch(governed_text)
         ):
             return True
 
     return bool(
-        README_FIXTURE_REPORTING_PATTERN.search(before[-128:])
+        README_REPORTING_SUBJECT_PATTERN.search(before)
+        and README_REPORTING_VERB_PATTERN.search(before)
         and README_NON_ASSERTION_AFTER_PATTERN.search(
-            after[:128].lstrip("\"'”’」』）》）】` ,、，:")
+            after.lstrip("\"'”’」』）》）】` ,、，:")
         )
     )
 
@@ -1087,47 +1319,43 @@ def status_match_is_allowed_historical(
     )
 
 
-def readme_claim_window(
-    clauses: list[str],
-    index: int,
+def readme_claim_excerpt(
+    clause: ReadmeClaimClause,
     match: re.Match[str],
 ) -> str:
-    preceding = clauses[index - 1][-240:] if index else ""
-    current = clauses[index][max(0, match.start() - 240) : match.end() + 240]
-    following = clauses[index + 1][:240] if index + 1 < len(clauses) else ""
-    window = " ; ".join(part for part in (preceding, current, following) if part)
-    if len(window) <= README_MAX_CLAIM_WINDOW:
-        return window
-    current_offset = len(preceding) + 3 if preceding else 0
-    current_start = max(0, match.start() - 240)
-    center = current_offset + match.start() - current_start
-    start = max(0, center - README_MAX_CLAIM_WINDOW // 2)
-    return window[start : start + README_MAX_CLAIM_WINDOW]
+    if len(clause.text) <= README_DIAGNOSTIC_EXCERPT_LENGTH:
+        return clause.text
+    center = (match.start() + match.end()) // 2
+    start = max(0, center - README_DIAGNOSTIC_EXCERPT_LENGTH // 2)
+    end = start + README_DIAGNOSTIC_EXCERPT_LENGTH
+    return clause.text[start:end]
 
 
 def occurrence_has_readiness_context(
     occurrence: ReadmeClaimOccurrence,
-    fallback_window: str,
 ) -> bool:
     scoped_claim = occurrence.clause[
         occurrence.claim_start : occurrence.claim_end
-    ]
-    action_scope = occurrence.clause[
-        max(occurrence.claim_start, occurrence.status_start - 64) :
-        min(occurrence.claim_end, occurrence.status_end + 64)
     ]
     has_local_gate_context = bool(
         README_GATE_CONTEXT_PATTERN.search(scoped_claim)
     )
     has_local_current_action_context = bool(
-        README_VERIFIED_ACTION_PATTERN.search(action_scope)
+        README_VERIFIED_ACTION_PATTERN.search(scoped_claim)
         and README_CURRENT_IDENTITY_CUE_PATTERN.search(scoped_claim)
     )
     if has_local_gate_context or has_local_current_action_context:
         return True
     if (
-        README_VERIFIED_ACTION_PATTERN.search(action_scope)
-        and README_CURRENT_IDENTITY_CUE_PATTERN.search(fallback_window)
+        README_VERIFIED_ACTION_PATTERN.search(scoped_claim)
+        and README_CURRENT_IDENTITY_CUE_PATTERN.search(
+            occurrence.readiness_context
+        )
+    ):
+        return True
+    if (
+        README_VERIFIED_ACTION_PATTERN.search(scoped_claim)
+        and README_GATE_CONTEXT_PATTERN.search(occurrence.readiness_context)
     ):
         return True
 
@@ -1135,10 +1363,12 @@ def occurrence_has_readiness_context(
     if not README_ANAPHORIC_STATUS_PREFIX_PATTERN.fullmatch(prefix):
         return False
     return bool(
-        README_GATE_CONTEXT_PATTERN.search(fallback_window)
+        README_GATE_CONTEXT_PATTERN.search(occurrence.readiness_context)
         or (
-            README_VERIFIED_ACTION_PATTERN.search(fallback_window)
-            and README_CURRENT_IDENTITY_CUE_PATTERN.search(fallback_window)
+            README_VERIFIED_ACTION_PATTERN.search(occurrence.readiness_context)
+            and README_CURRENT_IDENTITY_CUE_PATTERN.search(
+                occurrence.readiness_context
+            )
         )
     )
 
@@ -1173,24 +1403,29 @@ def validate_readmes(root: Path, errors: list[str]) -> None:
                 )
 
         clauses = readme_claim_clauses(text)
-        for index, clause in enumerate(clauses):
+        for clause in clauses:
             status_matches = [
                 (match, False)
-                for match in README_POSITIVE_GATE_STATUS_PATTERN.finditer(clause)
+                for match in README_POSITIVE_GATE_STATUS_PATTERN.finditer(
+                    clause.text
+                )
             ]
             status_matches.extend(
                 (match, True)
-                for match in README_NEGATIVE_STATE_STATUS_PATTERN.finditer(clause)
+                for match in README_NEGATIVE_STATE_STATUS_PATTERN.finditer(
+                    clause.text
+                )
             )
-            for match in README_NEGATIVE_STATE_PREDICATE_PATTERN.finditer(clause):
+            for match in README_NEGATIVE_STATE_PREDICATE_PATTERN.finditer(
+                clause.text
+            ):
                 occurrence = build_claim_occurrence(clause, match)
                 if status_match_has_polarity_reversal(occurrence):
                     status_matches.append((match, True))
             status_matches.sort(key=lambda item: item[0].start())
             for match, negative_state_reversal in status_matches:
                 occurrence = build_claim_occurrence(clause, match)
-                window = readme_claim_window(clauses, index, match)
-                if not occurrence_has_readiness_context(occurrence, window):
+                if not occurrence_has_readiness_context(occurrence):
                     continue
                 if (
                     (
@@ -1202,9 +1437,12 @@ def validate_readmes(root: Path, errors: list[str]) -> None:
                     or status_match_is_allowed_historical(occurrence)
                 ):
                     continue
+                excerpt = readme_claim_excerpt(clause, match)
                 errors.append(
                     "Plugin README Phase C identity contradiction: "
-                    f"{name}: {window!r}."
+                    f"{name}: block={clause.block_id}/"
+                    f"{clause.block_kind}, clause={clause.clause_id}: "
+                    f"{excerpt!r}."
                 )
                 break
 
