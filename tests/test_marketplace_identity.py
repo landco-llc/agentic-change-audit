@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -106,6 +107,21 @@ def append_exact_text(relative: str, text: str) -> Mutation:
             target.read_text(encoding="utf-8") + text,
             encoding="utf-8",
         )
+
+    return mutate
+
+
+def replace_text(relative: str, text: str) -> Mutation:
+    """Replace a Markdown document with an isolated canonical fixture."""
+
+    def mutate(root: Path) -> None:
+        body = text.rstrip("\n")
+        fixture = (
+            "Agentic Change Audit marketplace\n\n"
+            "0.1.0-dev.3\n\n"
+            f"{body}\n"
+        )
+        (root / relative).write_text(fixture, encoding="utf-8")
 
     return mutate
 
@@ -3655,13 +3671,26 @@ SIXTH_REMEDIATION_EXACT_CASES = (
 )
 
 
+def sixth_exact_mutation(case_id: str, relative: str, text: str) -> Mutation:
+    """Apply canonical V2 replacements for host-contaminated exact cases."""
+
+    if case_id.endswith(("SPAN-12", "SPAN-16")):
+        if case_id.endswith("SPAN-16"):
+            text = text.replace(
+                "[neutral source][destination-only]\n[destination-only]:",
+                "[neutral source][destination-only]\n\n[destination-only]:",
+            )
+        return replace_text(relative, text)
+    return append_exact_text(relative, text)
+
+
 install_positive_cases(
     SixthRemediationExactValidTests,
     tuple(
         (
             f"sixth_exact_{case_id.lower().replace('-', '_')}",
             "plugin",
-            append_exact_text(relative, text),
+            sixth_exact_mutation(case_id, relative, text),
         )
         for case_id, _language, relative, expected, text, _coverage
         in SIXTH_REMEDIATION_EXACT_CASES
@@ -3677,7 +3706,7 @@ install_invalid_regression_cases(
             "exact sixth-remediation false-PASS regression",
             "invalid",
             "plugin",
-            append_exact_text(relative, text),
+            sixth_exact_mutation(case_id, relative, text),
             "Plugin README Phase C identity contradiction",
         )
         for case_id, _language, relative, expected, text, _coverage
@@ -3838,7 +3867,11 @@ def build_sixth_additional_cases() -> tuple[SixthAdditionalCase, ...]:
             f"[neutral](https://example.invalid/neutral)\n\n{spec.claim}",
         )
         for index, text in enumerate(link_valid + link_invalid, 1):
-            expected = "valid" if index <= len(link_valid) else "invalid"
+            expected = (
+                "invalid"
+                if index == 4
+                else "valid" if index <= len(link_valid) else "invalid"
+            )
             add(spec, "link", index, expected, text)
 
         cross_valid = (
@@ -3871,6 +3904,20 @@ def build_sixth_additional_cases() -> tuple[SixthAdditionalCase, ...]:
 SIXTH_REMEDIATION_ADDITIONAL_CASES = build_sixth_additional_cases()
 
 
+def sixth_additional_mutation(case: SixthAdditionalCase) -> Mutation:
+    """Apply canonical V2 fixtures where appending inherited host structure."""
+
+    if case.case_id.endswith("_04") and case.category == "code":
+        return replace_text(case.relative, case.text)
+    if case.case_id.endswith("_01") and case.category == "link":
+        text = case.text.replace(
+            f"[neutral source][sixth-{case.case_id[-5:-3]}-ref]\n",
+            f"[neutral source][sixth-{case.case_id[-5:-3]}-ref]\n\n",
+        )
+        return replace_text(case.relative, text)
+    return append_text(case.relative, case.text)
+
+
 class SixthRemediationAdditionalValidTests(IdentityPolicyTestCase):
     """Entity, code, link, and cross-interaction negative controls."""
 
@@ -3882,7 +3929,7 @@ class SixthRemediationAdditionalInvalidTests(IdentityPolicyTestCase):
 install_positive_cases(
     SixthRemediationAdditionalValidTests,
     tuple(
-        (case.case_id, "plugin", append_text(case.relative, case.text))
+        (case.case_id, "plugin", sixth_additional_mutation(case))
         for case in SIXTH_REMEDIATION_ADDITIONAL_CASES
         if case.expected == "valid"
     ),
@@ -3896,7 +3943,7 @@ install_invalid_regression_cases(
             "sixth-remediation structural parser control",
             "invalid",
             "plugin",
-            append_text(case.relative, case.text),
+            sixth_additional_mutation(case),
             "Plugin README Phase C identity contradiction",
         )
         for case in SIXTH_REMEDIATION_ADDITIONAL_CASES
@@ -3924,6 +3971,28 @@ class SixthRemediationCorpusContractTests(unittest.TestCase):
         additional = SIXTH_REMEDIATION_ADDITIONAL_CASES
         self.assertEqual(144, len(additional))
         self.assertEqual(144, len({case.case_id for case in additional}))
+        self.assertEqual(
+            {"valid": 68, "invalid": 76},
+            {
+                expected: sum(case.expected == expected for case in additional)
+                for expected in ("valid", "invalid")
+            },
+        )
+        self.assertEqual(
+            {
+                "sixth_link_en_04",
+                "sixth_link_ja_04",
+                "sixth_link_zh_04",
+                "sixth_link_mx_04",
+            },
+            {
+                case.case_id
+                for case in additional
+                if case.category == "link"
+                and case.case_id.endswith("_04")
+                and case.expected == "invalid"
+            },
+        )
         expected_category_counts = {
             "entity": 32,
             "code": 48,
@@ -3957,6 +4026,491 @@ class SixthRemediationCorpusContractTests(unittest.TestCase):
                     "invalid",
                     {case.expected for case in category_cases},
                 )
+
+
+@dataclass(frozen=True)
+class SeventhLanguageSpec:
+    slug: str
+    language: str
+    relative: str
+    claim: str
+    entity_character: str
+
+
+@dataclass(frozen=True)
+class SeventhRegressionCase:
+    case_id: str
+    family: str
+    language: str
+    relative: str
+    expected: str
+    distinction: str
+    text: str
+
+
+SEVENTH_LANGUAGE_SPECS = (
+    SeventhLanguageSpec(
+        "en",
+        "English",
+        PLUGIN_READMES[0],
+        "The current Phase C Desktop gate is verified.",
+        "d",
+    ),
+    SeventhLanguageSpec(
+        "ja",
+        "Japanese",
+        PLUGIN_READMES[1],
+        "現在のPhase C Desktop gateは合格済みです。",
+        "格",
+    ),
+    SeventhLanguageSpec(
+        "zh",
+        "Taiwan Traditional Chinese",
+        PLUGIN_READMES[2],
+        "目前Phase C桌面gate已驗證完成。",
+        "成",
+    ),
+    SeventhLanguageSpec(
+        "mx",
+        "Mixed-language / Markdown",
+        PLUGIN_READMES[0],
+        "現在の Phase C Desktop gate is verified。",
+        "d",
+    ),
+)
+
+
+def build_seventh_regression_cases() -> tuple[SeventhRegressionCase, ...]:
+    cases: list[SeventhRegressionCase] = []
+
+    def add(
+        spec: SeventhLanguageSpec,
+        family: str,
+        ordinal: int,
+        expected: str,
+        distinction: str,
+        body: str,
+    ) -> None:
+        case_id = f"seventh_{family}_{spec.slug}_{ordinal:02d}"
+        cases.append(
+            SeventhRegressionCase(
+                case_id,
+                family,
+                spec.language,
+                spec.relative,
+                expected,
+                distinction,
+                f"{body}\n\n<!-- {case_id} -->",
+            )
+        )
+
+    for spec in SEVENTH_LANGUAGE_SPECS:
+        character = spec.entity_character
+        codepoint = ord(character)
+        claim_without_terminal = spec.claim.rstrip(".。")
+        valid_entity_literals = (
+            (
+                "semicolonless_decimal",
+                spec.claim.replace(character, f"&#{codepoint}", 1),
+            ),
+            (
+                "semicolonless_hexadecimal",
+                spec.claim.replace(character, f"&#x{codepoint:x}", 1),
+            ),
+            (
+                "overlong_decimal_reference",
+                spec.claim.replace(character, f"&#{codepoint:08d};", 1),
+            ),
+            (
+                "unknown_named_reference",
+                spec.claim.replace(character, "&NotACommonMarkEntity;", 1),
+            ),
+        )
+        invalid_entity_claims = (
+            (
+                "terminated_decimal_reference",
+                spec.claim.replace(character, f"&#{codepoint};", 1),
+            ),
+            (
+                "terminated_lower_hex_reference",
+                spec.claim.replace(character, f"&#x{codepoint:x};", 1),
+            ),
+            (
+                "terminated_upper_hex_reference",
+                spec.claim.replace(character, f"&#X{codepoint:X};", 1),
+            ),
+            (
+                "terminated_zero_padded_hex_reference",
+                spec.claim.replace(character, f"&#x{codepoint:06x};", 1),
+            ),
+        )
+        for ordinal, (distinction, body) in enumerate(
+            valid_entity_literals + invalid_entity_claims,
+            1,
+        ):
+            add(
+                spec,
+                "entity_boundary",
+                ordinal,
+                "valid" if ordinal <= 4 else "invalid",
+                distinction,
+                body,
+            )
+
+        paragraph_cases = (
+            (
+                "valid",
+                "four_space_top_level_code",
+                f"# Neutral separator\n\n    {spec.claim}",
+            ),
+            (
+                "valid",
+                "tab_top_level_code",
+                f"---\n\n\t{spec.claim}",
+            ),
+            ("valid", "six_space_top_level_code", f"      {spec.claim}"),
+            (
+                "valid",
+                "multiline_indented_code",
+                f"Neutral boundary\n\n    neutral specimen\n    {spec.claim}",
+            ),
+            (
+                "invalid",
+                "four_space_open_paragraph_continuation",
+                f"Neutral paragraph continues\n    {spec.claim}",
+            ),
+            (
+                "invalid",
+                "tab_open_paragraph_continuation",
+                f"Neutral paragraph continues\n\t{spec.claim}",
+            ),
+            (
+                "invalid",
+                "three_space_paragraph_continuation",
+                f"Neutral paragraph continues\n   {spec.claim}",
+            ),
+            (
+                "invalid",
+                "two_space_paragraph_continuation",
+                f"Neutral paragraph continues\n  {spec.claim}",
+            ),
+        )
+        for ordinal, (expected, distinction, body) in enumerate(
+            paragraph_cases,
+            1,
+        ):
+            add(
+                spec,
+                "paragraph_indentation",
+                ordinal,
+                expected,
+                distinction,
+                body,
+            )
+
+        fence_cases = (
+            (
+                "valid",
+                "closed_backtick_fence",
+                f"```text\n{spec.claim}\n```",
+            ),
+            (
+                "valid",
+                "closed_tilde_fence",
+                f"~~~~text\n{spec.claim}\n~~~~",
+            ),
+            (
+                "valid",
+                "long_fence_contains_short_fence",
+                f"`````markdown\n```\n{spec.claim}\n```\n`````",
+            ),
+            (
+                "valid",
+                "unclosed_fence_to_container_end",
+                f"```text\n{spec.claim}",
+            ),
+            (
+                "invalid",
+                "backtick_in_three_tick_info_string",
+                f"```bad`info\n{spec.claim}\n```",
+            ),
+            (
+                "invalid",
+                "backtick_in_four_tick_info_string",
+                f"````bad`info\n{spec.claim}\n````",
+            ),
+            (
+                "invalid",
+                "claim_after_exact_closing_fence",
+                f"```text\nneutral specimen\n```\n{spec.claim}",
+            ),
+            (
+                "invalid",
+                "claim_after_indented_closing_fence",
+                f"```text\nneutral specimen\n  ```\n{spec.claim}",
+            ),
+        )
+        for ordinal, (expected, distinction, body) in enumerate(fence_cases, 1):
+            add(
+                spec,
+                "fence_validity",
+                ordinal,
+                expected,
+                distinction,
+                body,
+            )
+
+        blockquote_cases = (
+            (
+                "valid",
+                "blockquote_fenced_code",
+                f"> ```text\n> {spec.claim}\n> ```",
+            ),
+            (
+                "valid",
+                "nested_blockquote_fenced_code",
+                f"> > ~~~text\n> > {spec.claim}\n> > ~~~",
+            ),
+            (
+                "valid",
+                "blockquote_indented_code",
+                f">     {spec.claim}",
+            ),
+            (
+                "valid",
+                "blockquote_list_nested_fence",
+                f"> - ```text\n>   {spec.claim}\n>   ```",
+            ),
+            (
+                "invalid",
+                "lazy_blockquote_paragraph_continuation",
+                f"> Neutral paragraph\n{spec.claim}",
+            ),
+            (
+                "invalid",
+                "explicit_blockquote_paragraph_continuation",
+                f"> Neutral paragraph\n> {spec.claim}",
+            ),
+            (
+                "invalid",
+                "nested_blockquote_lazy_continuation",
+                f"> > Neutral paragraph\n{spec.claim}",
+            ),
+            (
+                "invalid",
+                "claim_after_blockquote_fence",
+                f"> ```text\n> neutral specimen\n> ```\n{spec.claim}",
+            ),
+        )
+        for ordinal, (expected, distinction, body) in enumerate(
+            blockquote_cases,
+            1,
+        ):
+            add(
+                spec,
+                "blockquote_container",
+                ordinal,
+                expected,
+                distinction,
+                body,
+            )
+
+        list_cases = (
+            (
+                "valid",
+                "bullet_item_direct_fence",
+                f"- ```text\n  {spec.claim}\n  ```",
+            ),
+            (
+                "valid",
+                "ordered_item_direct_tilde_fence",
+                f"1. ~~~text\n   {spec.claim}\n   ~~~",
+            ),
+            (
+                "valid",
+                "bullet_item_second_block_fence",
+                f"- neutral item\n\n  ```text\n  {spec.claim}\n  ```",
+            ),
+            (
+                "valid",
+                "nested_list_item_fence",
+                f"- outer item\n  - ```text\n    {spec.claim}\n    ```",
+            ),
+            (
+                "invalid",
+                "same_item_paragraph_after_fence",
+                f"- ```text\n  neutral specimen\n  ```\n  {spec.claim}",
+            ),
+            (
+                "invalid",
+                "next_ordered_item_visible_claim",
+                f"1. ```text\n   neutral specimen\n   ```\n2. {spec.claim}",
+            ),
+            (
+                "invalid",
+                "nested_sibling_item_visible_claim",
+                f"- outer item\n  - ```text\n    neutral specimen\n    ```\n  - {spec.claim}",
+            ),
+            (
+                "invalid",
+                "top_level_claim_after_list_fence",
+                f"- ```text\n  neutral specimen\n  ```\n\n{spec.claim}",
+            ),
+        )
+        for ordinal, (expected, distinction, body) in enumerate(list_cases, 1):
+            add(
+                spec,
+                "list_item_fence",
+                ordinal,
+                expected,
+                distinction,
+                body,
+            )
+
+        historical_cases = (
+            (
+                "valid",
+                "invalidation_before_quoted_occurrence",
+                f"An earlier superseded and invalid record says “{spec.claim}”",
+            ),
+            (
+                "valid",
+                "invalidation_after_unquoted_occurrence",
+                f"An earlier record said {claim_without_terminal}, and that old result is invalid.",
+            ),
+            (
+                "valid",
+                "prior_invalid_record_unquoted_occurrence",
+                f"The prior invalid marketplace record stated {spec.claim}",
+            ),
+            (
+                "valid",
+                "reported_prohibited_quotation",
+                f"The historical fixture records “{claim_without_terminal}” as prohibited wording.",
+            ),
+            (
+                "invalid",
+                "historical_then_independent_paragraph",
+                f"An earlier invalid record said “{spec.claim}”\n\n{spec.claim}",
+            ),
+            (
+                "invalid",
+                "historical_then_current_contrast",
+                f"An earlier invalid record said “{spec.claim}”, but currently {spec.claim}",
+            ),
+            (
+                "invalid",
+                "historical_list_then_current_item",
+                f"- An earlier invalid record said “{spec.claim}”\n- {spec.claim}",
+            ),
+            (
+                "invalid",
+                "historical_blockquote_then_current_prose",
+                f"> An earlier invalid record said “{spec.claim}”\n\n{spec.claim}",
+            ),
+        )
+        for ordinal, (expected, distinction, body) in enumerate(
+            historical_cases,
+            1,
+        ):
+            add(
+                spec,
+                "historical_relation",
+                ordinal,
+                expected,
+                distinction,
+                body,
+            )
+
+    return tuple(cases)
+
+
+SEVENTH_REMEDIATION_REGRESSION_CASES = build_seventh_regression_cases()
+
+
+class SeventhRemediationAdditionalValidTests(IdentityPolicyTestCase):
+    """CommonMark structural and relation preservation controls."""
+
+
+class SeventhRemediationAdditionalInvalidTests(IdentityPolicyTestCase):
+    """CommonMark structural and relation rejection controls."""
+
+
+install_positive_cases(
+    SeventhRemediationAdditionalValidTests,
+    tuple(
+        (case.case_id, "plugin", append_text(case.relative, case.text))
+        for case in SEVENTH_REMEDIATION_REGRESSION_CASES
+        if case.expected == "valid"
+    ),
+)
+
+install_invalid_regression_cases(
+    SeventhRemediationAdditionalInvalidTests,
+    tuple(
+        InvalidRegressionCase(
+            case.case_id,
+            f"seventh-remediation {case.family} CommonMark control",
+            "invalid",
+            "plugin",
+            append_text(case.relative, case.text),
+            "Plugin README Phase C identity contradiction",
+        )
+        for case in SEVENTH_REMEDIATION_REGRESSION_CASES
+        if case.expected == "invalid"
+    ),
+)
+
+
+class SeventhRemediationCorpusContractTests(unittest.TestCase):
+    def test_unique_balanced_real_subprocess_regression_contract(self):
+        cases = SEVENTH_REMEDIATION_REGRESSION_CASES
+        self.assertEqual(192, len(cases))
+        self.assertEqual(192, len({case.case_id for case in cases}))
+        self.assertEqual(
+            192,
+            len(
+                {
+                    hashlib.sha256(case.text.encode("utf-8")).hexdigest()
+                    for case in cases
+                }
+            ),
+        )
+        self.assertEqual(
+            {"valid": 96, "invalid": 96},
+            {
+                expected: sum(case.expected == expected for case in cases)
+                for expected in ("valid", "invalid")
+            },
+        )
+        expected_families = {
+            "entity_boundary",
+            "paragraph_indentation",
+            "fence_validity",
+            "blockquote_container",
+            "list_item_fence",
+            "historical_relation",
+        }
+        self.assertEqual(expected_families, {case.family for case in cases})
+        for family in expected_families:
+            family_cases = [case for case in cases if case.family == family]
+            self.assertEqual(32, len(family_cases))
+            self.assertEqual(16, sum(case.expected == "valid" for case in family_cases))
+            self.assertEqual(16, sum(case.expected == "invalid" for case in family_cases))
+        for language in (spec.language for spec in SEVENTH_LANGUAGE_SPECS):
+            language_cases = [case for case in cases if case.language == language]
+            self.assertEqual(48, len(language_cases))
+            self.assertEqual(24, sum(case.expected == "valid" for case in language_cases))
+            self.assertEqual(24, sum(case.expected == "invalid" for case in language_cases))
+        self.assertEqual(
+            192,
+            len(
+                {
+                    (case.family, case.language, case.distinction)
+                    for case in cases
+                }
+            ),
+        )
 
 
 if __name__ == "__main__":
