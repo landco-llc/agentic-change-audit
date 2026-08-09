@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "work-record.schema.json",
+  "title": "ACA orchestration work record",
+  "type": "object",
+  "x-aca-allowed-transitions": {"PLANNED": ["PREFLIGHT", "HARD_GATE", "ABANDONED"], "PREFLIGHT": ["IMPLEMENTING", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"], "IMPLEMENTING": ["IMPLEMENTED_DRAFT_PR", "HARD_GATE", "BLOCKED"], "IMPLEMENTED_DRAFT_PR": ["AUDITING", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"], "AUDITING": ["PASS", "PASS_WITH_COMMENTS", "CHANGES_REQUESTED", "BLOCKED", "NOT_AUDITABLE"], "CHANGES_REQUESTED": ["CORRECTING", "HARD_GATE", "ABANDONED"], "CORRECTING": ["REAUDITING", "HARD_GATE", "BLOCKED"], "REAUDITING": ["PASS", "PASS_WITH_COMMENTS", "CHANGES_REQUESTED", "BLOCKED", "NOT_AUDITABLE"], "PASS": ["FAST_TRACK_ELIGIBLE", "HARD_GATE", "READY", "ABANDONED"], "PASS_WITH_COMMENTS": ["FAST_TRACK_ELIGIBLE", "HARD_GATE", "READY", "ABANDONED"], "FAST_TRACK_ELIGIBLE": ["READY", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"], "HARD_GATE": ["PREFLIGHT", "IMPLEMENTING", "AUDITING", "CORRECTING", "READY", "BLOCKED", "ABANDONED"], "READY": ["MERGED", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"], "MERGED": ["POST_MERGE_SYNC", "BLOCKED"], "POST_MERGE_SYNC": ["COMPLETED", "BLOCKED"]},
+  "additionalProperties": false,
+  "required": ["id", "objective", "requirements_basis", "allowed_scope", "prohibited_scope", "risk_class", "hard_gate_triggers", "auto_continue", "role_assignment", "fixed_base", "branch", "expected_checks", "evidence", "completion_criteria", "next_work_rule", "state", "state_history"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"},
+    "objective": {"type": "string", "minLength": 1},
+    "requirements_basis": {"$ref": "#/$defs/evidenceReference"},
+    "allowed_scope": {"$ref": "#/$defs/scope"},
+    "prohibited_scope": {"$ref": "#/$defs/scope"},
+    "risk_class": {"enum": ["LOW", "MODERATE", "HIGH", "HUMAN_GATE"]},
+    "hard_gate_triggers": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "auto_continue": {"type": "boolean"},
+    "role_assignment": {"type": "object", "additionalProperties": false, "required": ["implementation_model", "implementation_reasoning", "audit_model", "audit_reasoning"], "properties": {"implementation_model": {"type": "string", "minLength": 1}, "implementation_reasoning": {"type": "string", "minLength": 1}, "audit_model": {"type": "string", "minLength": 1}, "audit_reasoning": {"type": "string", "minLength": 1}}},
+    "fixed_base": {"$ref": "#/$defs/gitIdentity"},
+    "branch": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "expected_head": {"$ref": "#/$defs/gitIdentity"},
+    "expected_checks": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceReference"}},
+    "completion_criteria": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "next_work_rule": {"type": "string", "minLength": 1},
+    "state": {"$ref": "#/$defs/state"},
+    "state_history": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/transition"}}
+  },
+  "$defs": {
+    "state": {"enum": ["PLANNED", "PREFLIGHT", "IMPLEMENTING", "IMPLEMENTED_DRAFT_PR", "AUDITING", "CHANGES_REQUESTED", "CORRECTING", "REAUDITING", "PASS", "PASS_WITH_COMMENTS", "BLOCKED", "NOT_AUDITABLE", "FAST_TRACK_ELIGIBLE", "HARD_GATE", "READY", "MERGED", "POST_MERGE_SYNC", "COMPLETED", "ABANDONED"]},
+    "scope": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9._/-]+$"}},
+    "gitIdentity": {"type": "object", "additionalProperties": false, "required": ["ref", "commit"], "properties": {"ref": {"type": "string", "minLength": 1}, "commit": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}}},
+    "evidenceReference": {"type": "object", "additionalProperties": false, "required": ["reference", "proves", "observed_at"], "properties": {"reference": {"type": "string", "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.)[A-Za-z0-9._#:/ -]+$"}, "proves": {"type": "string", "minLength": 1}, "observed_at": {"type": "string", "format": "date-time"}}},
+    "transition": {"type": "object", "additionalProperties": false, "required": ["from_state", "to_state", "recorded_at", "actor_role", "reason", "evidence_refs"], "properties": {"from_state": {"$ref": "#/$defs/state"}, "to_state": {"$ref": "#/$defs/state"}, "recorded_at": {"type": "string", "format": "date-time"}, "actor_role": {"enum": ["CONTROLLER", "IMPLEMENTATION", "INDEPENDENT_AUDIT", "CORRECTION", "FRESH_REAUDIT", "HUMAN", "EXTERNAL_SYSTEM"]}, "reason": {"type": "string", "minLength": 1}, "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceReference"}}, "expected_head": {"$ref": "#/$defs/gitIdentity"}, "correction_cycle": {"type": "integer", "minimum": 0, "maximum": 3}}, "allOf": [{"if": {"properties": {"to_state": {"enum": ["AUDITING", "REAUDITING", "FAST_TRACK_ELIGIBLE", "READY", "MERGED", "POST_MERGE_SYNC"]}}, "required": ["to_state"]}, "then": {"required": ["expected_head"]}}, {"if": {"properties": {"to_state": {"const": "CORRECTING"}}, "required": ["to_state"]}, "then": {"required": ["correction_cycle"]}}]}
+  }
+}
