@@ -16,3 +16,28 @@ repository's audit standard, runtime controls, or human release authority.
 
 Use the two JSON schemas as the canonical field contract. A record or result is
 not authority to merge, release, deploy, broaden scope, or accept risk.
+
+## Offline validation
+
+Validate work records with the immutable work-record schema and orchestration
+semantic rules:
+
+```sh
+python3 scripts/validate-orchestration.py --kind record path/to/work-record.json
+```
+
+Validate work results with the immutable work-result schema and result
+semantic rules:
+
+```sh
+python3 scripts/validate-orchestration.py --kind result path/to/work-result.json
+```
+
+The validator is deterministic, network-free, and read-only. It checks Draft
+2020-12 schema conformance with date-time formats, rejects duplicate JSON keys,
+and reports stable diagnostics for work-record continuity, final state,
+identity, transition vocabulary, required target identity, correction cycles,
+and role separation. For work results it checks transition identity and state,
+applicable target and pull-request identity, permitted role outputs, allowed
+scope, blocking check statuses, bounded next-work fields, and actor-role
+alignment.
