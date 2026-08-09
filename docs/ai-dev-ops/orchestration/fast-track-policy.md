@@ -9,7 +9,10 @@ automatic risk acceptance, blanket merge permission, or release permission.
 The Controller may enter `FAST_TRACK_ELIGIBLE` only when all of these are
 evidenced in the work record:
 
-1. An independent fixed-head result is `PASS` or `PASS_WITH_COMMENTS`.
+1. An independent fixed-head result has the public ACA verdict `PASS` or
+   `PASS WITH COMMENTS`. The corresponding control states are `PASS` and
+   `PASS_WITH_COMMENTS` respectively; verdict strings are public audit
+   outcomes, while control-state identifiers are internal orchestration values.
 2. The delegation identifies the work item, exact expected head, allowed scope,
    expiration or validity condition, and responsible human authority.
 3. Required checks are complete and non-blocking.

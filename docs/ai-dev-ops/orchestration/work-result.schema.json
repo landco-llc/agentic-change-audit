@@ -2,26 +2,86 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "work-result.schema.json",
   "title": "ACA orchestration work result",
+  "description": "The result owns the observed target identity and one transition snapshot for its bounded output.",
   "type": "object",
   "x-aca-allowed-transitions": {"PLANNED": ["PREFLIGHT", "HARD_GATE", "ABANDONED"], "PREFLIGHT": ["IMPLEMENTING", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"], "IMPLEMENTING": ["IMPLEMENTED_DRAFT_PR", "HARD_GATE", "BLOCKED"], "IMPLEMENTED_DRAFT_PR": ["AUDITING", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"], "AUDITING": ["PASS", "PASS_WITH_COMMENTS", "CHANGES_REQUESTED", "BLOCKED", "NOT_AUDITABLE"], "CHANGES_REQUESTED": ["CORRECTING", "HARD_GATE", "ABANDONED"], "CORRECTING": ["REAUDITING", "HARD_GATE", "BLOCKED"], "REAUDITING": ["PASS", "PASS_WITH_COMMENTS", "CHANGES_REQUESTED", "BLOCKED", "NOT_AUDITABLE"], "PASS": ["FAST_TRACK_ELIGIBLE", "HARD_GATE", "READY", "ABANDONED"], "PASS_WITH_COMMENTS": ["FAST_TRACK_ELIGIBLE", "HARD_GATE", "READY", "ABANDONED"], "FAST_TRACK_ELIGIBLE": ["READY", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"], "HARD_GATE": ["PREFLIGHT", "IMPLEMENTING", "AUDITING", "CORRECTING", "READY", "BLOCKED", "ABANDONED"], "READY": ["MERGED", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"], "MERGED": ["POST_MERGE_SYNC", "BLOCKED"], "POST_MERGE_SYNC": ["COMPLETED", "BLOCKED"]},
   "additionalProperties": false,
-  "required": ["work_id", "role", "result_state", "target_head", "scope_observation", "checks", "evidence", "transition", "limitations", "next_work"],
+  "required": ["work_id", "role", "result_state", "repository", "branch", "base_sha", "target_sha", "pr_applicable", "scope_observation", "checks", "evidence", "transition", "limitations", "next_work"],
   "properties": {
-    "work_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"},
+    "work_id": {"$ref": "#/$defs/workId"},
     "role": {"enum": ["CONTROLLER", "IMPLEMENTATION", "INDEPENDENT_AUDIT", "CORRECTION", "FRESH_REAUDIT", "HUMAN", "EXTERNAL_SYSTEM"]},
     "result_state": {"$ref": "#/$defs/state"},
-    "target_head": {"$ref": "#/$defs/gitIdentity"},
+    "repository": {"$ref": "#/$defs/repository"},
+    "branch": {"$ref": "#/$defs/branch"},
+    "base_sha": {"$ref": "#/$defs/commitSha"},
+    "target_sha": {"$ref": "#/$defs/commitSha"},
+    "pr_applicable": {"type": "boolean"},
+    "pr_number": {"$ref": "#/$defs/prNumber"},
     "scope_observation": {"type": "object", "additionalProperties": false, "required": ["allowed_scope_only", "changed_files"], "properties": {"allowed_scope_only": {"type": "boolean"}, "changed_files": {"type": "array", "items": {"type": "string", "pattern": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9._/-]+$"}}}},
     "checks": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["name", "status", "evidence_ref"], "properties": {"name": {"type": "string", "minLength": 1}, "status": {"enum": ["PASSED", "FAILED", "NOT_RUN", "NOT_APPLICABLE"]}, "evidence_ref": {"$ref": "#/$defs/evidenceReference"}}}},
     "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceReference"}},
     "transition": {"$ref": "#/$defs/transition"},
     "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}},
-    "next_work": {"type": "object", "additionalProperties": false, "required": ["action", "rule"], "properties": {"action": {"enum": ["NONE", "PROPOSE_ONE_NEW_WORK", "HUMAN_GATE"]}, "rule": {"type": "string", "minLength": 1}, "proposed_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"}}}
+    "next_work": {"type": "object", "additionalProperties": false, "required": ["action", "rule"], "properties": {"action": {"enum": ["NONE", "PROPOSE_ONE_NEW_WORK", "HUMAN_GATE"]}, "rule": {"type": "string", "minLength": 1}, "proposed_id": {"$ref": "#/$defs/workId"}}}
   },
+  "allOf": [
+    {"if": {"properties": {"pr_applicable": {"const": true}}, "required": ["pr_applicable"]}, "then": {"required": ["pr_number"]}, "else": {"not": {"required": ["pr_number"]}}}
+  ],
   "$defs": {
+    "workId": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"},
     "state": {"enum": ["PLANNED", "PREFLIGHT", "IMPLEMENTING", "IMPLEMENTED_DRAFT_PR", "AUDITING", "CHANGES_REQUESTED", "CORRECTING", "REAUDITING", "PASS", "PASS_WITH_COMMENTS", "BLOCKED", "NOT_AUDITABLE", "FAST_TRACK_ELIGIBLE", "HARD_GATE", "READY", "MERGED", "POST_MERGE_SYNC", "COMPLETED", "ABANDONED"]},
-    "gitIdentity": {"type": "object", "additionalProperties": false, "required": ["ref", "commit"], "properties": {"ref": {"type": "string", "minLength": 1}, "commit": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}}},
+    "repository": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.)[A-Za-z0-9._/-]+$"},
+    "branch": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "commitSha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "prNumber": {"type": "integer", "minimum": 1},
+    "evidenceHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "evidenceReference": {"type": "object", "additionalProperties": false, "required": ["reference", "proves", "observed_at"], "properties": {"reference": {"type": "string", "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.)[A-Za-z0-9._#:/ -]+$"}, "proves": {"type": "string", "minLength": 1}, "observed_at": {"type": "string", "format": "date-time"}}},
-    "transition": {"type": "object", "additionalProperties": false, "required": ["from_state", "to_state", "recorded_at", "actor_role", "reason", "evidence_refs"], "properties": {"from_state": {"$ref": "#/$defs/state"}, "to_state": {"$ref": "#/$defs/state"}, "recorded_at": {"type": "string", "format": "date-time"}, "actor_role": {"enum": ["CONTROLLER", "IMPLEMENTATION", "INDEPENDENT_AUDIT", "CORRECTION", "FRESH_REAUDIT", "HUMAN", "EXTERNAL_SYSTEM"]}, "reason": {"type": "string", "minLength": 1}, "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceReference"}}, "expected_head": {"$ref": "#/$defs/gitIdentity"}, "correction_cycle": {"type": "integer", "minimum": 0, "maximum": 3}}, "allOf": [{"if": {"properties": {"to_state": {"enum": ["AUDITING", "REAUDITING", "FAST_TRACK_ELIGIBLE", "READY", "MERGED", "POST_MERGE_SYNC"]}}, "required": ["to_state"]}, "then": {"required": ["expected_head"]}}, {"if": {"properties": {"to_state": {"const": "CORRECTING"}}, "required": ["to_state"]}, "then": {"required": ["correction_cycle"]}}]}
+    "transition": {
+      "description": "Each transition snapshots the work ID, repository identity, evidence, and next permitted action at the time of the state change.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["work_id", "recorded_at", "actor_role", "repository", "branch", "base_sha", "target_applicable", "pr_applicable", "from_state", "to_state", "reason", "evidence_refs", "evidence_hashes", "next_permitted_action"],
+      "properties": {
+        "work_id": {"$ref": "#/$defs/workId"},
+        "recorded_at": {"type": "string", "format": "date-time"},
+        "actor_role": {"enum": ["CONTROLLER", "IMPLEMENTATION", "INDEPENDENT_AUDIT", "CORRECTION", "FRESH_REAUDIT", "HUMAN", "EXTERNAL_SYSTEM"]},
+        "repository": {"$ref": "#/$defs/repository"},
+        "branch": {"$ref": "#/$defs/branch"},
+        "base_sha": {"$ref": "#/$defs/commitSha"},
+        "target_applicable": {"type": "boolean"},
+        "target_sha": {"$ref": "#/$defs/commitSha"},
+        "pr_applicable": {"type": "boolean"},
+        "pr_number": {"$ref": "#/$defs/prNumber"},
+        "from_state": {"$ref": "#/$defs/state"},
+        "to_state": {"$ref": "#/$defs/state"},
+        "reason": {"type": "string", "minLength": 1},
+        "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceReference"}},
+        "evidence_hashes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceHash"}},
+        "next_permitted_action": {"type": "string", "minLength": 1},
+        "correction_cycle": {"type": "integer", "minimum": 0, "maximum": 3}
+      },
+      "allOf": [
+        {"if": {"properties": {"target_applicable": {"const": true}}, "required": ["target_applicable"]}, "then": {"required": ["target_sha"]}, "else": {"not": {"required": ["target_sha"]}}},
+        {"if": {"properties": {"pr_applicable": {"const": true}}, "required": ["pr_applicable"]}, "then": {"required": ["pr_number"]}, "else": {"not": {"required": ["pr_number"]}}},
+        {"if": {"properties": {"to_state": {"const": "CORRECTING"}}, "required": ["to_state"]}, "then": {"required": ["correction_cycle"]}}
+      ],
+      "oneOf": [
+        {"properties": {"from_state": {"const": "PLANNED"}, "to_state": {"enum": ["PREFLIGHT", "HARD_GATE", "ABANDONED"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "PREFLIGHT"}, "to_state": {"enum": ["IMPLEMENTING", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "IMPLEMENTING"}, "to_state": {"enum": ["IMPLEMENTED_DRAFT_PR", "HARD_GATE", "BLOCKED"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "IMPLEMENTED_DRAFT_PR"}, "to_state": {"enum": ["AUDITING", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "AUDITING"}, "to_state": {"enum": ["PASS", "PASS_WITH_COMMENTS", "CHANGES_REQUESTED", "BLOCKED", "NOT_AUDITABLE"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "CHANGES_REQUESTED"}, "to_state": {"enum": ["CORRECTING", "HARD_GATE", "ABANDONED"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "CORRECTING"}, "to_state": {"enum": ["REAUDITING", "HARD_GATE", "BLOCKED"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "REAUDITING"}, "to_state": {"enum": ["PASS", "PASS_WITH_COMMENTS", "CHANGES_REQUESTED", "BLOCKED", "NOT_AUDITABLE"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "PASS"}, "to_state": {"enum": ["FAST_TRACK_ELIGIBLE", "HARD_GATE", "READY", "ABANDONED"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "PASS_WITH_COMMENTS"}, "to_state": {"enum": ["FAST_TRACK_ELIGIBLE", "HARD_GATE", "READY", "ABANDONED"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "FAST_TRACK_ELIGIBLE"}, "to_state": {"enum": ["READY", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "HARD_GATE"}, "to_state": {"enum": ["PREFLIGHT", "IMPLEMENTING", "AUDITING", "CORRECTING", "READY", "BLOCKED", "ABANDONED"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "READY"}, "to_state": {"enum": ["MERGED", "HARD_GATE", "BLOCKED", "NOT_AUDITABLE"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "MERGED"}, "to_state": {"enum": ["POST_MERGE_SYNC", "BLOCKED"]}}, "required": ["from_state", "to_state"]},
+        {"properties": {"from_state": {"const": "POST_MERGE_SYNC"}, "to_state": {"enum": ["COMPLETED", "BLOCKED"]}}, "required": ["from_state", "to_state"]}
+      ]
+    }
   }
 }
