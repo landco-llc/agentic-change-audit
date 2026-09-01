@@ -96,6 +96,9 @@ RESULT_STATES = {
 NON_BLOCKING_RESULT_STATES = frozenset(
     {"IMPLEMENTED_DRAFT_PR", "REAUDITING", "PASS", "PASS_WITH_COMMENTS"}
 )
+NEXT_WORK_ELIGIBLE_RESULT_STATES = frozenset(
+    {"BLOCKED", "NOT_AUDITABLE", "COMPLETED", "ABANDONED", "HARD_GATE"}
+)
 
 
 @dataclass(frozen=True)
@@ -307,6 +310,10 @@ def result_semantic_issues(
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "PROPOSE_ONE_NEW_WORK requires a new proposed_id."))
         elif action != "PROPOSE_ONE_NEW_WORK" and proposed_id is not None:
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "Only PROPOSE_ONE_NEW_WORK may include proposed_id."))
+        if action == "PROPOSE_ONE_NEW_WORK" and role != "CONTROLLER":
+            issues.append(ValidationIssue("RES-05", "$.next_work.action", "Only a CONTROLLER result may propose a new Work."))
+        elif action == "PROPOSE_ONE_NEW_WORK" and result_state not in NEXT_WORK_ELIGIBLE_RESULT_STATES:
+            issues.append(ValidationIssue("RES-05", "$.next_work.action", "A new Work proposal requires a terminal-eligible result or HARD_GATE."))
     return issues
 
 

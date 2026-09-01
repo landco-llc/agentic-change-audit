@@ -247,6 +247,63 @@ class OrchestrationValidatorTests(unittest.TestCase):
         }
         self.assertIn("RES-05", self.result_codes(document))
 
+    def test_res_05_only_terminal_controller_may_propose_next_work(self):
+        for role in (
+            "IMPLEMENTATION",
+            "INDEPENDENT_AUDIT",
+            "CORRECTION",
+            "FRESH_REAUDIT",
+        ):
+            with self.subTest(role=role):
+                document = copy.deepcopy(self.result)
+                document["role"] = role
+                document["next_work"] = {
+                    "action": "PROPOSE_ONE_NEW_WORK",
+                    "rule": "propose next work",
+                    "proposed_id": "ACA-W005",
+                }
+                issues = validator_module.result_semantic_issues(document, self.transitions)
+                self.assertTrue(
+                    any(
+                        issue.path == "$.next_work.action"
+                        and issue.message == "Only a CONTROLLER result may propose a new Work."
+                        for issue in issues
+                    )
+                )
+
+        controller_progress = validator_module.load_json(
+            FIXTURES / "results/valid/implementation.json"
+        )
+        controller_progress.update(
+            {
+                "role": "CONTROLLER",
+                "result_state": "PREFLIGHT",
+                "next_work": {
+                    "action": "PROPOSE_ONE_NEW_WORK",
+                    "rule": "propose next work",
+                    "proposed_id": "ACA-W005",
+                },
+            }
+        )
+        controller_progress["transition"].update(
+            {
+                "actor_role": "CONTROLLER",
+                "from_state": "PLANNED",
+                "to_state": "PREFLIGHT",
+            }
+        )
+        issues = validator_module.result_semantic_issues(
+            controller_progress, self.transitions
+        )
+        self.assertTrue(
+            any(
+                issue.path == "$.next_work.action"
+                and issue.message
+                == "A new Work proposal requires a terminal-eligible result or HARD_GATE."
+                for issue in issues
+            )
+        )
+
     def test_schema_format_family(self):
         document = copy.deepcopy(self.record)
         document["requirements_basis"]["observed_at"] = "not-a-date"
@@ -326,6 +383,65 @@ class OrchestrationValidatorTests(unittest.TestCase):
                     )
                     self.assertEqual(1, result.returncode, result.stdout + result.stderr)
                     self.assertIn(name, result.stderr)
+
+    def test_cli_enforces_parent_only_terminal_next_work_chaining(self):
+        implementation_proposal = validator_module.load_json(
+            FIXTURES / "results/valid/implementation.json"
+        )
+        implementation_proposal["next_work"] = {
+            "action": "PROPOSE_ONE_NEW_WORK",
+            "rule": "propose one bounded successor",
+            "proposed_id": "ACA-W005",
+        }
+
+        controller_terminal = copy.deepcopy(implementation_proposal)
+        controller_terminal.update(
+            {"role": "CONTROLLER", "result_state": "BLOCKED"}
+        )
+        controller_terminal["transition"].update(
+            {
+                "actor_role": "CONTROLLER",
+                "from_state": "PREFLIGHT",
+                "to_state": "BLOCKED",
+                "next_permitted_action": "propose one bounded successor",
+            }
+        )
+
+        controller_hard_gate = copy.deepcopy(controller_terminal)
+        controller_hard_gate["result_state"] = "HARD_GATE"
+        controller_hard_gate["next_work"]["rule"] = (
+            "Named human prerequisite permits one bounded successor proposal."
+        )
+        controller_hard_gate["transition"].update(
+            {
+                "to_state": "HARD_GATE",
+                "next_permitted_action": "await named human prerequisite",
+            }
+        )
+
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            cases = (
+                ("implementation-next-work.json", implementation_proposal, 1),
+                ("controller-terminal-next-work.json", controller_terminal, 0),
+                ("controller-hard-gate-next-work.json", controller_hard_gate, 0),
+            )
+            for name, document, expected_returncode in cases:
+                with self.subTest(name=name):
+                    path = directory_path / name
+                    path.write_text(json.dumps(document), encoding="utf-8")
+                    result = subprocess.run(
+                        [sys.executable, str(SCRIPT), "--kind", "result", str(path)],
+                        capture_output=True, text=True, check=False, env=env,
+                    )
+                    observed = result.stdout + result.stderr
+                    self.assertEqual(expected_returncode, result.returncode, observed)
+                    if expected_returncode:
+                        self.assertIn("RES-05 $.next_work.action", result.stderr)
+                        self.assertNotIn("Orchestration validation: PASS", observed)
+                    else:
+                        self.assertIn("Orchestration validation: PASS", result.stdout)
 
     def test_cli_rejects_non_string_roles_without_traceback_or_local_paths(self):
         documents = []
