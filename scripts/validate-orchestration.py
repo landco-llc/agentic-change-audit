@@ -112,6 +112,11 @@ class DuplicateKeyError(ValueError):
     """Raised when an input object repeats a JSON key."""
 
 
+def display_path(path: Path) -> str:
+    """Render only the caller-provided filename in public diagnostics."""
+    return path.name or "<input>"
+
+
 def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -125,12 +130,12 @@ def load_json(path: Path) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_keys)
     except FileNotFoundError as exc:
-        raise ValueError(f"File not found: {path}") from exc
+        raise ValueError(f"File not found: {display_path(path)}") from exc
     except DuplicateKeyError as exc:
-        raise ValueError(f"Duplicate JSON key in {path}: {exc}") from exc
+        raise ValueError(f"Duplicate JSON key in {display_path(path)}: {exc}") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(
-            f"Invalid JSON in {path}: line {exc.lineno}, column {exc.colno}: {exc.msg}"
+            f"Invalid JSON in {display_path(path)}: line {exc.lineno}, column {exc.colno}: {exc.msg}"
         ) from exc
 
 
@@ -182,6 +187,13 @@ def allowed_transitions(schema: dict[str, Any]) -> dict[str, set[str]]:
     return normalized
 
 
+def role_transitions(role: Any) -> frozenset[tuple[str, str]]:
+    """Return role transitions without hashing schema-invalid values."""
+    if not isinstance(role, str):
+        return frozenset()
+    return ROLE_TRANSITIONS.get(role, frozenset())
+
+
 def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[str]]) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     history = document.get("state_history")
@@ -217,7 +229,7 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
             issues.append(ValidationIssue("WR-05", f"{prefix}.target_sha", "This target state requires target_applicable=true and a full 40-character target SHA."))
 
         role = transition.get("actor_role")
-        if (from_state, to_state) not in ROLE_TRANSITIONS.get(role, frozenset()):
+        if (from_state, to_state) not in role_transitions(role):
             issues.append(ValidationIssue("WR-07", f"{prefix}.actor_role", "Actor role is not permitted to record this target state."))
 
         cycle = transition.get("correction_cycle")
@@ -264,7 +276,8 @@ def result_semantic_issues(
         issues.append(ValidationIssue("RES-03", "$.pr_number", "Applicable result pr_number must match its transition."))
 
     role, result_state = document.get("role"), document.get("result_state")
-    if role in RESULT_STATES and result_state not in RESULT_STATES[role]:
+    allowed_result_states = RESULT_STATES.get(role, frozenset()) if isinstance(role, str) else frozenset()
+    if result_state not in allowed_result_states:
         issues.append(ValidationIssue("RES-04", "$.result_state", "This role cannot produce the declared result_state."))
 
     if transition.get("actor_role") != role:
@@ -272,7 +285,7 @@ def result_semantic_issues(
     from_state, to_state = transition.get("from_state"), transition.get("to_state")
     if to_state not in transitions.get(from_state, set()):
         issues.append(ValidationIssue("RES-06", "$.transition.to_state", "Transition is not allowed by the immutable schema vocabulary."))
-    if (from_state, to_state) not in ROLE_TRANSITIONS.get(role, frozenset()):
+    if (from_state, to_state) not in role_transitions(role):
         issues.append(ValidationIssue("RES-06", "$.transition.actor_role", "Role is not permitted to record this transition."))
     scope = document.get("scope_observation")
     if isinstance(scope, dict) and scope.get("allowed_scope_only") is not True:
@@ -335,17 +348,17 @@ def main() -> int:
         except ValueError as exc:
             failed = True
             code = "JSON_DUPLICATE_KEY" if "Duplicate JSON key" in str(exc) else "JSON_PARSE"
-            print(f"Orchestration validation: FAIL ({path})", file=sys.stderr)
+            print(f"Orchestration validation: FAIL ({display_path(path)})", file=sys.stderr)
             print(f"ERROR: {code} $: {exc}", file=sys.stderr)
             continue
         issues = validate_document(document, validator, kind=args.kind, transitions=transitions)
         if issues:
             failed = True
-            print(f"Orchestration validation: FAIL ({path})", file=sys.stderr)
+            print(f"Orchestration validation: FAIL ({display_path(path)})", file=sys.stderr)
             for issue in issues:
                 print(f"ERROR: {issue.render()}", file=sys.stderr)
         else:
-            print(f"Orchestration validation: PASS ({path}; {args.kind})")
+            print(f"Orchestration validation: PASS ({display_path(path)}; {args.kind})")
     return 1 if failed else 0
 
 

@@ -143,6 +143,11 @@ class OrchestrationValidatorTests(unittest.TestCase):
         document["state_history"][0]["actor_role"] = "IMPLEMENTATION"
         self.assertIn("WR-07", self.record_codes(document))
 
+    def test_wr_07_non_string_actor_role_is_rejected_without_crashing(self):
+        document = copy.deepcopy(self.auditing_record)
+        document["state_history"][0]["actor_role"] = {"role": "CONTROLLER"}
+        self.assertIn("WR-07", self.record_codes(document))
+
     def test_wr_07_controller_cannot_record_audit_pass(self):
         document = copy.deepcopy(self.auditing_record)
         document["state"] = "PASS"
@@ -214,6 +219,16 @@ class OrchestrationValidatorTests(unittest.TestCase):
         document["role"] = "CONTROLLER"
         document["transition"]["actor_role"] = "CONTROLLER"
         self.assertIn("RES-04", self.result_codes(document))
+
+    def test_res_04_non_string_role_is_rejected_without_crashing(self):
+        document = copy.deepcopy(self.result)
+        document["role"] = {"role": "INDEPENDENT_AUDIT"}
+        self.assertIn("RES-04", self.result_codes(document))
+
+    def test_res_05_non_string_transition_actor_role_is_rejected_without_crashing(self):
+        document = copy.deepcopy(self.result)
+        document["transition"]["actor_role"] = {"role": "INDEPENDENT_AUDIT"}
+        self.assertIn("RES-05", self.result_codes(document))
 
     def test_res_05_progression_scope_checks_next_work_and_actor(self):
         document = copy.deepcopy(self.result)
@@ -311,6 +326,38 @@ class OrchestrationValidatorTests(unittest.TestCase):
                     )
                     self.assertEqual(1, result.returncode, result.stdout + result.stderr)
                     self.assertIn(name, result.stderr)
+
+    def test_cli_rejects_non_string_roles_without_traceback_or_local_paths(self):
+        documents = []
+        record_actor_role = copy.deepcopy(self.auditing_record)
+        record_actor_role["state_history"][0]["actor_role"] = {"role": "CONTROLLER"}
+        documents.append(("record", "object-actor-role.json", record_actor_role))
+
+        result_role = copy.deepcopy(self.result)
+        result_role["role"] = {"role": "INDEPENDENT_AUDIT"}
+        documents.append(("result", "object-result-role.json", result_role))
+
+        result_actor_role = copy.deepcopy(self.result)
+        result_actor_role["transition"]["actor_role"] = {"role": "INDEPENDENT_AUDIT"}
+        documents.append(("result", "object-transition-actor-role.json", result_actor_role))
+
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        with tempfile.TemporaryDirectory(prefix="aca-orchestration-invalid-") as directory:
+            directory_path = Path(directory)
+            for kind, name, document in documents:
+                with self.subTest(name=name):
+                    path = directory_path / name
+                    path.write_text(json.dumps(document), encoding="utf-8")
+                    result = subprocess.run(
+                        [sys.executable, str(SCRIPT), "--kind", kind, str(path)],
+                        capture_output=True, text=True, check=False, env=env,
+                    )
+                    observed = result.stdout + result.stderr
+                    self.assertEqual(1, result.returncode, observed)
+                    self.assertIn(name, observed)
+                    self.assertNotIn("Traceback", observed)
+                    self.assertNotIn(str(directory_path), observed)
+                    self.assertNotIn(str(SCRIPT), observed)
 
 
 if __name__ == "__main__":
