@@ -13,6 +13,9 @@ repository's audit standard, runtime controls, or human release authority.
 - [Work-record schema](work-record.schema.json): planning and execution input.
 - [Work-result schema](work-result.schema.json): bounded result output.
 - [Current control state](current-control-state.md): initial non-mutating control snapshot.
+- [Local model-selection addendum](../model_selection_policy.md): accepted
+  local profile reference; it is not a scheduler, wake, or provider-capability
+  claim.
 
 Use the two JSON schemas as the canonical field contract. A record or result is
 not authority to merge, release, deploy, broaden scope, or accept risk.
@@ -40,4 +43,5 @@ identity, transition vocabulary, required target identity, correction cycles,
 and role separation. For work results it checks transition identity and state,
 applicable target and pull-request identity, permitted role outputs, allowed
 scope, blocking check statuses, bounded next-work fields, and actor-role
-alignment.
+alignment. Optional `policy_version` and `routing` metadata bind a work to a
+local profile when supplied; records that predate this metadata remain valid.

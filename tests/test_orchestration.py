@@ -359,6 +359,51 @@ class OrchestrationValidatorTests(unittest.TestCase):
                     self.assertNotIn(str(directory_path), observed)
                     self.assertNotIn(str(SCRIPT), observed)
 
+    def test_cli_accepts_optional_routing_metadata(self):
+        document = copy.deepcopy(self.record)
+        document["policy_version"] = "aca-local-routing-2026-09"
+        document["routing"] = {
+            "profile": "implementation_standard",
+            "model": "gpt-5.6-luna",
+            "reasoning_effort": "medium",
+            "sandbox_mode": "workspace-write",
+            "selection_reason": "Approved bounded standard implementation.",
+            "escalation_criteria": ["Escalate material semantic ambiguity."],
+        }
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "routed-record.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--kind", "record", str(path)],
+                capture_output=True, text=True, check=False, env=env,
+            )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("routed-record.json", result.stdout)
+
+    def test_cli_rejects_mismatched_routing_metadata(self):
+        document = copy.deepcopy(self.result)
+        document["policy_version"] = "aca-local-routing-2026-09"
+        document["routing"] = {
+            "profile": "audit_standard",
+            "model": "gpt-5.6-luna",
+            "reasoning_effort": "medium",
+            "sandbox_mode": "read-only",
+            "selection_reason": "Invalid profile/model pairing.",
+            "escalation_criteria": ["Escalate."],
+        }
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mismatched-routing-result.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--kind", "result", str(path)],
+                capture_output=True, text=True, check=False, env=env,
+            )
+        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+        self.assertIn("mismatched-routing-result.json", result.stderr)
+        self.assertIn("SCHEMA_ONEOF", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

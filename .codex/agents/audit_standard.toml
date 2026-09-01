@@ -1,0 +1,6 @@
+name = "audit_standard"
+description = "Perform an independent read-only fixed-head audit."
+model = "gpt-5.6-terra"
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
+developer_instructions = """Audit only the exact fixed head in a separate context. Do not modify, correct, Ready, merge, or silently substitute a changed target; report NOT_AUDITABLE when identity changes."""

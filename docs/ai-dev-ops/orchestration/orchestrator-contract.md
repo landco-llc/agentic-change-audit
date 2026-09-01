@@ -7,12 +7,19 @@ route work, inspect public-safe evidence, and stop work. It may not substitute
 for human approval, accept risk, declare a release, or expand a work item's
 scope.
 
-Before every action, the Controller performs a fresh read of the work record,
-fixed base, current branch head, allowed and prohibited scope, expected checks,
-and prior transition evidence. A mismatch, missing evidence, changed protected
+Before every action, the Parent Controller performs a fresh read of the work
+record, fixed base, current branch head, allowed and prohibited scope, expected
+checks, prior transition evidence, and any routing metadata. It owns work
+liveness and dispatches the next already-authorized role without using the
+Human as a routine callback. A mismatch, missing evidence, changed protected
 head, unauthorized path, hard-gate trigger, or unresolved correction-cycle
 limit moves the item to `BLOCKED` or `NOT_AUDITABLE`; it does not get silently
 re-based or reinterpreted.
+
+Routing metadata identifies the selected local profile, model, reasoning effort,
+sandbox boundary, selection reason, and escalation criteria. It selects a
+bounded executor; it neither creates scope authority nor proves scheduler,
+wake, provider, or runtime capability.
 
 ## States
 
@@ -51,10 +58,17 @@ Every transition is append-only and must contain `from_state`, `to_state`,
 references. Transitions into audit, Fast Track, Ready, merge, and post-merge
 states also require the expected-head fields prescribed by the schemas.
 
+The Parent handles a persistent finding by moving the item to the named
+escalation or Human Gate after the correction-cycle limit, a repeated material
+finding, a scope conflict, or missing required evidence. It must not repeatedly
+dispatch the same bounded correction after a fresh independent re-audit has
+shown the same material finding.
+
 ## Bounded next work
 
-The Controller may produce at most one next-work proposal, only after a
-terminal result or a named hard gate. It must have a new identifier, a stated
-objective, its own scope and risk classification, and must not mutate or
+The Parent may chain at most one next Work in the same session only after a
+terminal-eligible result or named hard gate. It must have a new identifier, a
+stated objective, its own scope and risk classification, and must not mutate or
 reinterpret the completed work record. A proposal is `PLANNED`, not an approved
-implementation instruction.
+implementation instruction. This contract does not claim a scheduler or wake
+mechanism.
