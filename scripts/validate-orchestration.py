@@ -36,22 +36,62 @@ TARGET_REQUIRED_STATES = frozenset(
         "POST_MERGE_SYNC",
     }
 )
-IMPLEMENTATION_FORBIDDEN = frozenset(
-    {"AUDITING", "PASS", "PASS_WITH_COMMENTS", "READY", "MERGED", "COMPLETED"}
-)
-AUDIT_FORBIDDEN = frozenset({"IMPLEMENTING", "CORRECTING"})
-CORRECTION_FORBIDDEN = frozenset(
-    {"PASS", "PASS_WITH_COMMENTS", "READY", "MERGED", "COMPLETED"}
-)
-RESULT_STATES = {
-    "IMPLEMENTATION": frozenset({"IMPLEMENTED_DRAFT_PR", "BLOCKED", "HARD_GATE"}),
+ROLE_TRANSITIONS = {
+    "CONTROLLER": frozenset(
+        {
+            ("PLANNED", "PREFLIGHT"), ("PLANNED", "HARD_GATE"), ("PLANNED", "ABANDONED"),
+            ("PREFLIGHT", "IMPLEMENTING"), ("PREFLIGHT", "HARD_GATE"),
+            ("PREFLIGHT", "BLOCKED"), ("PREFLIGHT", "NOT_AUDITABLE"),
+            ("IMPLEMENTED_DRAFT_PR", "AUDITING"), ("IMPLEMENTED_DRAFT_PR", "HARD_GATE"),
+            ("IMPLEMENTED_DRAFT_PR", "BLOCKED"), ("IMPLEMENTED_DRAFT_PR", "NOT_AUDITABLE"),
+            ("PASS", "FAST_TRACK_ELIGIBLE"), ("PASS", "HARD_GATE"), ("PASS", "ABANDONED"),
+            ("PASS_WITH_COMMENTS", "FAST_TRACK_ELIGIBLE"), ("PASS_WITH_COMMENTS", "HARD_GATE"),
+            ("PASS_WITH_COMMENTS", "ABANDONED"),
+            ("FAST_TRACK_ELIGIBLE", "HARD_GATE"), ("FAST_TRACK_ELIGIBLE", "BLOCKED"),
+            ("FAST_TRACK_ELIGIBLE", "NOT_AUDITABLE"),
+            ("HARD_GATE", "PREFLIGHT"), ("HARD_GATE", "IMPLEMENTING"),
+            ("HARD_GATE", "AUDITING"), ("HARD_GATE", "CORRECTING"),
+            ("HARD_GATE", "BLOCKED"), ("HARD_GATE", "ABANDONED"),
+            ("READY", "HARD_GATE"), ("READY", "BLOCKED"), ("READY", "NOT_AUDITABLE"),
+            ("MERGED", "POST_MERGE_SYNC"), ("MERGED", "BLOCKED"),
+            ("POST_MERGE_SYNC", "BLOCKED"),
+        }
+    ),
+    "IMPLEMENTATION": frozenset(
+        {("IMPLEMENTING", "IMPLEMENTED_DRAFT_PR"), ("IMPLEMENTING", "HARD_GATE"), ("IMPLEMENTING", "BLOCKED")}
+    ),
     "INDEPENDENT_AUDIT": frozenset(
-        {"PASS", "PASS_WITH_COMMENTS", "CHANGES_REQUESTED", "BLOCKED", "NOT_AUDITABLE"}
+        {("AUDITING", "PASS"), ("AUDITING", "PASS_WITH_COMMENTS"),
+         ("AUDITING", "CHANGES_REQUESTED"), ("AUDITING", "BLOCKED"),
+         ("AUDITING", "NOT_AUDITABLE")}
+    ),
+    "CORRECTION": frozenset(
+        {("CHANGES_REQUESTED", "CORRECTING"), ("CORRECTING", "REAUDITING"),
+         ("CORRECTING", "HARD_GATE"), ("CORRECTING", "BLOCKED")}
     ),
     "FRESH_REAUDIT": frozenset(
-        {"PASS", "PASS_WITH_COMMENTS", "CHANGES_REQUESTED", "BLOCKED", "NOT_AUDITABLE"}
+        {("REAUDITING", "PASS"), ("REAUDITING", "PASS_WITH_COMMENTS"),
+         ("REAUDITING", "CHANGES_REQUESTED"), ("REAUDITING", "BLOCKED"),
+         ("REAUDITING", "NOT_AUDITABLE")}
     ),
-    "CORRECTION": frozenset({"REAUDITING", "BLOCKED", "HARD_GATE"}),
+    "HUMAN": frozenset(
+        {("PASS", "READY"), ("PASS_WITH_COMMENTS", "READY"), ("FAST_TRACK_ELIGIBLE", "READY"),
+         ("HARD_GATE", "PREFLIGHT"), ("HARD_GATE", "IMPLEMENTING"),
+         ("HARD_GATE", "AUDITING"), ("HARD_GATE", "CORRECTING"), ("HARD_GATE", "READY"),
+         ("HARD_GATE", "BLOCKED"), ("HARD_GATE", "ABANDONED"), ("READY", "MERGED"),
+         ("POST_MERGE_SYNC", "COMPLETED")}
+    ),
+    "EXTERNAL_SYSTEM": frozenset(
+        {("PASS", "READY"), ("PASS_WITH_COMMENTS", "READY"), ("FAST_TRACK_ELIGIBLE", "READY"),
+         ("HARD_GATE", "PREFLIGHT"), ("HARD_GATE", "IMPLEMENTING"),
+         ("HARD_GATE", "AUDITING"), ("HARD_GATE", "CORRECTING"), ("HARD_GATE", "READY"),
+         ("HARD_GATE", "BLOCKED"), ("HARD_GATE", "ABANDONED"), ("READY", "MERGED"),
+         ("POST_MERGE_SYNC", "COMPLETED")}
+    ),
+}
+RESULT_STATES = {
+    role: frozenset(to_state for _, to_state in transitions)
+    for role, transitions in ROLE_TRANSITIONS.items()
 }
 NON_BLOCKING_RESULT_STATES = frozenset(
     {"IMPLEMENTED_DRAFT_PR", "REAUDITING", "PASS", "PASS_WITH_COMMENTS"}
@@ -177,11 +217,7 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
             issues.append(ValidationIssue("WR-05", f"{prefix}.target_sha", "This target state requires target_applicable=true and a full 40-character target SHA."))
 
         role = transition.get("actor_role")
-        if (
-            role == "IMPLEMENTATION" and to_state in IMPLEMENTATION_FORBIDDEN
-        ) or (role in {"INDEPENDENT_AUDIT", "FRESH_REAUDIT"} and to_state in AUDIT_FORBIDDEN) or (
-            role == "CORRECTION" and to_state in CORRECTION_FORBIDDEN
-        ):
+        if (from_state, to_state) not in ROLE_TRANSITIONS.get(role, frozenset()):
             issues.append(ValidationIssue("WR-07", f"{prefix}.actor_role", "Actor role is not permitted to record this target state."))
 
         cycle = transition.get("correction_cycle")
@@ -207,7 +243,9 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
     return issues
 
 
-def result_semantic_issues(document: dict[str, Any]) -> list[ValidationIssue]:
+def result_semantic_issues(
+    document: dict[str, Any], transitions: dict[str, set[str]]
+) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     transition = document.get("transition")
     if not isinstance(transition, dict):
@@ -231,6 +269,11 @@ def result_semantic_issues(document: dict[str, Any]) -> list[ValidationIssue]:
 
     if transition.get("actor_role") != role:
         issues.append(ValidationIssue("RES-05", "$.transition.actor_role", "Transition actor_role must equal the result role."))
+    from_state, to_state = transition.get("from_state"), transition.get("to_state")
+    if to_state not in transitions.get(from_state, set()):
+        issues.append(ValidationIssue("RES-06", "$.transition.to_state", "Transition is not allowed by the immutable schema vocabulary."))
+    if (from_state, to_state) not in ROLE_TRANSITIONS.get(role, frozenset()):
+        issues.append(ValidationIssue("RES-06", "$.transition.actor_role", "Role is not permitted to record this transition."))
     scope = document.get("scope_observation")
     if isinstance(scope, dict) and scope.get("allowed_scope_only") is not True:
         issues.append(ValidationIssue("RES-05", "$.scope_observation.allowed_scope_only", "Result progression requires allowed_scope_only=true."))
@@ -247,6 +290,8 @@ def result_semantic_issues(document: dict[str, Any]) -> list[ValidationIssue]:
         action, proposed_id = next_work.get("action"), next_work.get("proposed_id")
         if action == "PROPOSE_ONE_NEW_WORK" and not isinstance(proposed_id, str):
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "PROPOSE_ONE_NEW_WORK requires exactly one proposed_id."))
+        elif action == "PROPOSE_ONE_NEW_WORK" and proposed_id == document.get("work_id"):
+            issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "PROPOSE_ONE_NEW_WORK requires a new proposed_id."))
         elif action != "PROPOSE_ONE_NEW_WORK" and proposed_id is not None:
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "Only PROPOSE_ONE_NEW_WORK may include proposed_id."))
     return issues
@@ -258,7 +303,7 @@ def validate_document(document: Any, validator: Draft202012Validator, *, kind: s
         if kind == "record":
             issues.extend(record_semantic_issues(document, transitions))
         else:
-            issues.extend(result_semantic_issues(document))
+            issues.extend(result_semantic_issues(document, transitions))
     return list(dict.fromkeys(issues))
 
 
