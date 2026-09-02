@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -163,6 +164,7 @@ README_CLAUSE_SPLIT_PATTERN = re.compile(
 )
 README_MARKDOWN = MarkdownIt("commonmark")
 README_DIAGNOSTIC_EXCERPT_LENGTH = 720
+README_NON_VISIBLE_HTML_ELEMENTS = frozenset({"head", "script", "style", "template"})
 README_GATE_CONTEXT_PATTERN = re.compile(
     r"(?<![A-Za-z0-9])phase\s*c(?![A-Za-z0-9])|desktop\s+gate|"
     r"neutral[- ]marketplace identity|"
@@ -991,6 +993,38 @@ def _project_commonmark_inline(
     )
 
 
+class _ReadmeHtmlVisibleTextParser(HTMLParser):
+    """Project rendered text while ignoring raw HTML implementation detail."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.visible: list[str] = []
+        self._non_visible_depth = 0
+
+    def handle_starttag(
+        self,
+        tag: str,
+        _attrs: list[tuple[str, str | None]],
+    ) -> None:
+        if self._non_visible_depth or tag.lower() in README_NON_VISIBLE_HTML_ELEMENTS:
+            self._non_visible_depth += 1
+
+    def handle_endtag(self, _tag: str) -> None:
+        if self._non_visible_depth:
+            self._non_visible_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self._non_visible_depth:
+            self.visible.append(data)
+
+
+def _project_commonmark_html(content: str) -> str:
+    parser = _ReadmeHtmlVisibleTextParser()
+    parser.feed(content)
+    parser.close()
+    return " ".join("".join(parser.visible).split())
+
+
 def readme_visible_blocks(text: str) -> list[ReadmeBlock]:
     """Project visible prose from the canonical CommonMark token stream."""
     tokens = README_MARKDOWN.parse(text, {})
@@ -1035,6 +1069,26 @@ def readme_visible_blocks(text: str) -> list[ReadmeBlock]:
             elif leaf_kind == "paragraph" and "blockquote" in containers:
                 leaf_kind = "blockquote_paragraph"
             active_leaf = (leaf_kind, _token_source_bounds(token, line_offsets))
+            continue
+
+        if token.type == "html_block":
+            source_start, source_end = _token_source_bounds(token, line_offsets)
+            kind = "html_block"
+            if "list_item" in containers:
+                kind = "list_item"
+            elif "blockquote" in containers:
+                kind = "blockquote_paragraph"
+            blocks.append(
+                ReadmeBlock(
+                    block_id=len(blocks),
+                    kind=kind,
+                    source_start=source_start,
+                    source_end=source_end,
+                    text=_project_commonmark_html(token.content),
+                    spans=(),
+                )
+            )
+            active_leaf = None
             continue
 
         if token.type != "inline" or active_leaf is None:

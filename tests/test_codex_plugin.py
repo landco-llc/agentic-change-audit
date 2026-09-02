@@ -185,6 +185,47 @@ class PluginValidatorTests(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
 
+class PluginValidatorHtmlBlockTests(unittest.TestCase):
+    def test_visible_html_block_phase_claim_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_plugin_repo(temp)
+            readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+            with readme.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    "\n<div><span>The current Phase C Desktop gate "
+                    "passed.</span></div>\n"
+                )
+
+            result = run_validator(root)
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn(
+                "Plugin README Phase C identity contradiction",
+                result.stderr,
+            )
+            self.assertNotIn("Codex Plugin validation: PASS", result.stdout)
+
+    def test_non_visible_html_block_phase_claim_is_accepted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_plugin_repo(temp)
+            readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+            with readme.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    "\n<!-- The current Phase C Desktop gate passed. -->\n"
+                    "<div title=\"The current Phase C Desktop gate passed.\">"
+                    "neutral control"
+                    "<script>The current Phase C Desktop gate passed.</script>"
+                    "<style>.passed::after { content: 'Phase C'; }</style>"
+                    "<template>The current Phase C Desktop gate passed.</template>"
+                    "</div>\n"
+                )
+
+            result = run_validator(root)
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn("Codex Plugin validation: PASS", result.stdout)
+
+
 class SyncScriptMutationTests(unittest.TestCase):
     def test_sync_check_detects_changed_file(self):
         with tempfile.TemporaryDirectory() as temp:
