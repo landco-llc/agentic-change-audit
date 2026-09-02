@@ -34,6 +34,7 @@ TARGET_REQUIRED_STATES = frozenset(
         "READY",
         "MERGED",
         "POST_MERGE_SYNC",
+        "COMPLETED",
     }
 )
 ROLE_TRANSITIONS = {
@@ -271,8 +272,25 @@ def result_semantic_issues(
             issues.append(ValidationIssue("RES-01", f"$.{field}", f"Result {field} must match its transition."))
     if document.get("result_state") != transition.get("to_state"):
         issues.append(ValidationIssue("RES-02", "$.result_state", "result_state must equal transition.to_state."))
-    if transition.get("target_applicable") is True and document.get("target_sha") != transition.get("target_sha"):
+    transition_target_sha = transition.get("target_sha")
+    document_target_sha = document.get("target_sha")
+    if transition.get("target_applicable") is True and document_target_sha != transition_target_sha:
         issues.append(ValidationIssue("RES-03", "$.target_sha", "Applicable result target_sha must match its transition."))
+    if transition.get("to_state") in TARGET_REQUIRED_STATES and (
+        transition.get("target_applicable") is not True
+        or not isinstance(transition_target_sha, str)
+        or not FULL_SHA.fullmatch(transition_target_sha)
+        or not isinstance(document_target_sha, str)
+        or not FULL_SHA.fullmatch(document_target_sha)
+        or document_target_sha != transition_target_sha
+    ):
+        issues.append(
+            ValidationIssue(
+                "RES-03",
+                "$.target_sha",
+                "This target result state requires target_applicable=true and matching full 40-character target SHAs.",
+            )
+        )
     if document.get("pr_applicable") != transition.get("pr_applicable"):
         issues.append(ValidationIssue("RES-03", "$.pr_applicable", "Result pr_applicable must match its transition."))
     if transition.get("pr_applicable") is True and document.get("pr_number") != transition.get("pr_number"):

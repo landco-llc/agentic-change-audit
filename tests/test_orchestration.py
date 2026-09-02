@@ -176,6 +176,12 @@ class OrchestrationValidatorTests(unittest.TestCase):
         document["state_history"][0].pop("target_sha")
         self.assertIn("WR-05", self.record_codes(document))
 
+    def test_wr_05_completed_requires_target_binding(self):
+        document = self.controller_completed_record()
+        document["state_history"][0]["target_applicable"] = False
+        document["state_history"][0].pop("target_sha")
+        self.assertIn("WR-05", self.record_codes(document))
+
     def test_wr_06_correction_cycles(self):
         document = copy.deepcopy(self.correction_record)
         document["state_history"][0]["correction_cycle"] = 0
@@ -250,6 +256,23 @@ class OrchestrationValidatorTests(unittest.TestCase):
         document["target_sha"] = "dddddddddddddddddddddddddddddddddddddddd"
         document["pr_number"] = 21
         self.assertIn("RES-03", self.result_codes(document))
+
+    def test_res_03_completed_requires_exact_target_binding(self):
+        cases = {}
+
+        not_applicable = self.controller_completed_result()
+        not_applicable["transition"]["target_applicable"] = False
+        not_applicable["transition"].pop("target_sha")
+        cases["not_applicable"] = not_applicable
+
+        non_full_sha = self.controller_completed_result()
+        non_full_sha["target_sha"] = "a" * 64
+        non_full_sha["transition"]["target_sha"] = "a" * 64
+        cases["non_full_sha"] = non_full_sha
+
+        for name, document in cases.items():
+            with self.subTest(name=name):
+                self.assertIn("RES-03", self.result_codes(document))
 
     def test_res_04_role_output(self):
         document = copy.deepcopy(self.result)
