@@ -2,8 +2,8 @@
 
 ## Objective
 
-Record the completed, bounded integration work and its independent assurance
-using public-safe durable evidence. This entry records immutable identities,
+Record the completed, bounded integration work using public-safe durable
+evidence. This entry records immutable identities,
 scope, checks, and control boundaries; it does not grant Ready, merge,
 release, deployment, or risk-acceptance authority.
 
@@ -19,14 +19,14 @@ release, deployment, or risk-acceptance authority.
 
 - The accepted change covered 19 paths.
 - Post-merge main Validate and Package checks succeeded.
-- The final independent audit returned critical `PASS`, `VALID`, and
-  `blocking 0` only after durable evidence was available.
+- Any final independent audit outcome is deferred pending an authoritative
+  result and operating evidence accessible for verification.
 - This was the final Human-authorized correction in Cycle 3/3.
 
 ## Control boundaries
 
-- ACA-W004 is `COMPLETED` after merge, successful post-merge checks, and the
-  final independent audit result.
+- ACA-W004 is `COMPLETED` based on merge, successful post-merge checks, and
+  post-merge reconciliation.
 - Legacy pull requests #16 and #17 were not mutated; no authority over those
   pull requests is asserted here.
 - Fast Track and audit outcomes do not grant Ready, release, deployment, or
