@@ -54,7 +54,7 @@ ROLE_TRANSITIONS = {
             ("HARD_GATE", "BLOCKED"), ("HARD_GATE", "ABANDONED"),
             ("READY", "HARD_GATE"), ("READY", "BLOCKED"), ("READY", "NOT_AUDITABLE"),
             ("MERGED", "POST_MERGE_SYNC"), ("MERGED", "BLOCKED"),
-            ("POST_MERGE_SYNC", "BLOCKED"),
+            ("POST_MERGE_SYNC", "COMPLETED"), ("POST_MERGE_SYNC", "BLOCKED"),
         }
     ),
     "IMPLEMENTATION": frozenset(
@@ -94,10 +94,10 @@ RESULT_STATES = {
     for role, transitions in ROLE_TRANSITIONS.items()
 }
 NON_BLOCKING_RESULT_STATES = frozenset(
-    {"IMPLEMENTED_DRAFT_PR", "REAUDITING", "PASS", "PASS_WITH_COMMENTS"}
+    {"IMPLEMENTED_DRAFT_PR", "REAUDITING", "PASS", "PASS_WITH_COMMENTS", "COMPLETED"}
 )
 NEXT_WORK_ELIGIBLE_RESULT_STATES = frozenset(
-    {"BLOCKED", "NOT_AUDITABLE", "COMPLETED", "ABANDONED", "HARD_GATE"}
+    {"COMPLETED"}
 )
 
 
@@ -313,7 +313,12 @@ def result_semantic_issues(
         if action == "PROPOSE_ONE_NEW_WORK" and role != "CONTROLLER":
             issues.append(ValidationIssue("RES-05", "$.next_work.action", "Only a CONTROLLER result may propose a new Work."))
         elif action == "PROPOSE_ONE_NEW_WORK" and result_state not in NEXT_WORK_ELIGIBLE_RESULT_STATES:
-            issues.append(ValidationIssue("RES-05", "$.next_work.action", "A new Work proposal requires a terminal-eligible result or HARD_GATE."))
+            issues.append(ValidationIssue("RES-05", "$.next_work.action", "A new Work proposal requires a completed Controller result."))
+        if result_state == "COMPLETED" and action == "HUMAN_GATE":
+            issues.append(ValidationIssue("RES-05", "$.next_work.action", "A completed result cannot retain a pending Human Gate."))
+    limitations = document.get("limitations")
+    if result_state == "COMPLETED" and isinstance(limitations, list) and limitations:
+        issues.append(ValidationIssue("RES-05", "$.limitations", "A completed result cannot retain pending decisions or obligations."))
     return issues
 
 
