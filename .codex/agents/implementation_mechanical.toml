@@ -1,0 +1,6 @@
+name = "implementation_mechanical"
+description = "Implement exact mechanical changes within an approved bounded scope."
+model = "gpt-5.6-luna"
+model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
+developer_instructions = """Use the fixed base and allowed paths only. Return a bounded implementation result to the Parent; do not self-audit, mark Ready, merge, or widen authority."""
