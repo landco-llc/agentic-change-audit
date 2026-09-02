@@ -898,6 +898,7 @@ def _project_commonmark_inline(
 ) -> tuple[str, tuple[ReadmeVisibleSpan, ...]]:
     output: list[str] = []
     visible_spans: list[ReadmeVisibleSpan] = []
+    html_projection = _ReadmeHtmlVisibleTextParser()
     open_spans: dict[str, list[int]] = {
         "emphasis_visible": [],
         "link_label": [],
@@ -931,6 +932,11 @@ def _project_commonmark_inline(
             )
 
     for child in token.children or ():
+        if child.type == "html_inline":
+            html_projection.feed(child.content)
+            continue
+        if not html_projection.is_visible:
+            continue
         if child.type == "text":
             append_visible(child.content)
         elif child.type in {"softbreak", "hardbreak"}:
@@ -971,8 +977,8 @@ def _project_commonmark_inline(
                         source_end,
                     )
                 )
-        elif child.type == "html_inline":
-            continue
+
+    html_projection.close()
 
     while output and output[-1] == " ":
         output.pop()
@@ -1000,6 +1006,10 @@ class _ReadmeHtmlVisibleTextParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.visible: list[str] = []
         self._non_visible_depth = 0
+
+    @property
+    def is_visible(self) -> bool:
+        return self._non_visible_depth == 0
 
     def handle_starttag(
         self,

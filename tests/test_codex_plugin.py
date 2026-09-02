@@ -226,6 +226,67 @@ class PluginValidatorHtmlBlockTests(unittest.TestCase):
             self.assertIn("Codex Plugin validation: PASS", result.stdout)
 
 
+class PluginValidatorHtmlInlineTests(unittest.TestCase):
+    def test_visible_inline_html_phase_claim_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_plugin_repo(temp)
+            readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+            with readme.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    "\nRendered claim <span>The current Phase C Desktop gate "
+                    "passed.</span>\n"
+                )
+
+            result = run_validator(root)
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn(
+                "Plugin README Phase C identity contradiction",
+                result.stderr,
+            )
+            self.assertNotIn("Codex Plugin validation: PASS", result.stdout)
+
+    def test_non_visible_inline_html_phase_claims_are_accepted(self):
+        controls = (
+            (
+                "script",
+                "Rendered control <span><script>The current Phase C Desktop "
+                "gate passed.</script>neutral</span>",
+            ),
+            (
+                "style",
+                "Rendered control <span><style>The current Phase C Desktop "
+                "gate passed.</style>neutral</span>",
+            ),
+            (
+                "template",
+                "Rendered control <span><template>The current Phase C Desktop "
+                "gate passed.</template>neutral</span>",
+            ),
+            (
+                "comment-and-attribute",
+                "Rendered control <!-- The current Phase C Desktop gate passed. -->"
+                "<span title=\"The current Phase C Desktop gate passed.\">"
+                "neutral</span>",
+            ),
+        )
+        for name, control in controls:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temp:
+                root = build_plugin_repo(temp)
+                readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+                with readme.open("a", encoding="utf-8") as stream:
+                    stream.write(f"\n{control}\n")
+
+                result = run_validator(root)
+
+                self.assertEqual(
+                    0,
+                    result.returncode,
+                    result.stdout + result.stderr,
+                )
+                self.assertIn("Codex Plugin validation: PASS", result.stdout)
+
+
 class SyncScriptMutationTests(unittest.TestCase):
     def test_sync_check_detects_changed_file(self):
         with tempfile.TemporaryDirectory() as temp:
