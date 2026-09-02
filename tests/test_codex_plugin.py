@@ -114,7 +114,7 @@ class PluginManifestTests(unittest.TestCase):
 
     def test_plugin_manifest_contract(self):
         self.assertEqual("agentic-change-audit", self.manifest["name"])
-        self.assertEqual("0.1.0-dev.2", self.manifest["version"])
+        self.assertEqual("0.1.0-dev.3", self.manifest["version"])
         self.assertEqual("Apache-2.0", self.manifest["license"])
         self.assertEqual("./skills/", self.manifest["skills"])
         self.assertEqual(["Read"], self.manifest["interface"]["capabilities"])
@@ -142,9 +142,9 @@ class PluginManifestTests(unittest.TestCase):
 class MarketplaceTests(unittest.TestCase):
     def test_marketplace_contract(self):
         marketplace = load_json(MARKETPLACE_PATH)
-        self.assertEqual("landco-llc-open-source", marketplace["name"])
+        self.assertEqual("agentic-change-audit", marketplace["name"])
         self.assertEqual(
-            "L&Co.LLC Open Source", marketplace["interface"]["displayName"]
+            "Agentic Change Audit", marketplace["interface"]["displayName"]
         )
         self.assertEqual(1, len(marketplace["plugins"]))
 
@@ -183,6 +183,108 @@ class PluginValidatorTests(unittest.TestCase):
     def test_plugin_validator_passes(self):
         result = run_validator(ROOT)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+
+class PluginValidatorHtmlBlockTests(unittest.TestCase):
+    def test_visible_html_block_phase_claim_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_plugin_repo(temp)
+            readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+            with readme.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    "\n<div><span>The current Phase C Desktop gate "
+                    "passed.</span></div>\n"
+                )
+
+            result = run_validator(root)
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn(
+                "Plugin README Phase C identity contradiction",
+                result.stderr,
+            )
+            self.assertNotIn("Codex Plugin validation: PASS", result.stdout)
+
+    def test_non_visible_html_block_phase_claim_is_accepted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_plugin_repo(temp)
+            readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+            with readme.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    "\n<!-- The current Phase C Desktop gate passed. -->\n"
+                    "<div title=\"The current Phase C Desktop gate passed.\">"
+                    "neutral control"
+                    "<script>The current Phase C Desktop gate passed.</script>"
+                    "<style>.passed::after { content: 'Phase C'; }</style>"
+                    "<template>The current Phase C Desktop gate passed.</template>"
+                    "</div>\n"
+                )
+
+            result = run_validator(root)
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn("Codex Plugin validation: PASS", result.stdout)
+
+
+class PluginValidatorHtmlInlineTests(unittest.TestCase):
+    def test_visible_inline_html_phase_claim_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_plugin_repo(temp)
+            readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+            with readme.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    "\nRendered claim <span>The current Phase C Desktop gate "
+                    "passed.</span>\n"
+                )
+
+            result = run_validator(root)
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn(
+                "Plugin README Phase C identity contradiction",
+                result.stderr,
+            )
+            self.assertNotIn("Codex Plugin validation: PASS", result.stdout)
+
+    def test_non_visible_inline_html_phase_claims_are_accepted(self):
+        controls = (
+            (
+                "script",
+                "Rendered control <span><script>The current Phase C Desktop "
+                "gate passed.</script>neutral</span>",
+            ),
+            (
+                "style",
+                "Rendered control <span><style>The current Phase C Desktop "
+                "gate passed.</style>neutral</span>",
+            ),
+            (
+                "template",
+                "Rendered control <span><template>The current Phase C Desktop "
+                "gate passed.</template>neutral</span>",
+            ),
+            (
+                "comment-and-attribute",
+                "Rendered control <!-- The current Phase C Desktop gate passed. -->"
+                "<span title=\"The current Phase C Desktop gate passed.\">"
+                "neutral</span>",
+            ),
+        )
+        for name, control in controls:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temp:
+                root = build_plugin_repo(temp)
+                readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+                with readme.open("a", encoding="utf-8") as stream:
+                    stream.write(f"\n{control}\n")
+
+                result = run_validator(root)
+
+                self.assertEqual(
+                    0,
+                    result.returncode,
+                    result.stdout + result.stderr,
+                )
+                self.assertIn("Codex Plugin validation: PASS", result.stdout)
 
 
 class SyncScriptMutationTests(unittest.TestCase):

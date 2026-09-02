@@ -10,7 +10,7 @@
 
 ## 申請狀態
 
-- **Desktop gate：通過（僅就 development foundation 而言）。** 已在 ChatGPT desktop 應用程式中驗證：可透過 CLI marketplace 註冊，於 **L&Co.LLC Open Source** marketplace 下顯示並安裝，可回應 `$agentic-change-audit` 明確呼叫，且稽核執行後 Git working tree 未變更。此 gate 僅涵蓋此 development foundation。
+- **Desktop gate：中性 marketplace identity 的既有證據已失效。** 先前的 desktop 證據僅涵蓋舊 marketplace identity 與 Plugin version，不能驗證更名後的 **Agentic Change Audit marketplace** 或 Plugin version `0.1.0-dev.3`。marketplace 註冊、探索、安裝、明確呼叫及 Git working tree 未變更檢查，須於 Phase C 重新執行。
 - **尚未完成向 OpenAI 的正式申請。** 本次儲存庫端作業未操作申請入口，也沒有相關操作證據。申請入口的實際狀態仍須由人工確認。
 - **公開政策 URL 已備妥。** [支援](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)與[隱私](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)已由本 repository 公開。publisher identity verification、logo 核准與申請本身，均仍待人工決定。
 - **不主張任何公開 Directory 上架。** 本 Plugin 未在 OpenAI 公開 Plugins Directory 上架、提供或取得核准。請僅由本 repository 的 local marketplace 安裝。
@@ -48,13 +48,13 @@ codex plugin marketplace add .
 codex plugin marketplace list
 ```
 
-`codex plugin marketplace add .` 會將目前 repository 的 `.agents/plugins/marketplace.json` 註冊為名為 `landco-llc-open-source` 的 local marketplace source。這個指令本身不會安裝 Plugin，也不會連線至任何外部 service。
+`codex plugin marketplace add .` 會將目前 repository 的 `.agents/plugins/marketplace.json` 註冊為名為 `agentic-change-audit` 的 local marketplace source。這個指令本身不會安裝 Plugin，也不會連線至任何外部 service。
 
 ## 在 ChatGPT desktop 安裝與測試
 
 1. 新增或更新 marketplace 後，請重新啟動 ChatGPT desktop app，讓它讀取新的 source。
 2. 開啟 **Plugins**。
-3. 選擇 **L&Co.LLC Open Source** marketplace。
+3. 選擇 **Agentic Change Audit marketplace**。
 4. 安裝 **Agentic Change Audit**。
 5. 開啟一個新的 task 並呼叫此 Plugin 進行測試。
 
@@ -105,7 +105,7 @@ $agentic-change-audit
 
 ## 版本
 
-這個 Plugin 使用 development version 識別碼 `0.1.0-dev.2`。這不是公開 release 或穩定版 Plugin，也不對應任何已標記 tag 的 Skill release。
+這個 Plugin 使用 development version 識別碼 `0.1.0-dev.3`。這不是公開 release 或穩定版 Plugin，也不對應任何已標記 tag 的 Skill release。
 
 ## 相關文件
 

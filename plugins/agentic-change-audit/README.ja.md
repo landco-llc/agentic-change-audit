@@ -10,7 +10,7 @@
 
 ## 申請ステータス
 
-- **Desktop gate：合格（development foundationについて）。** ChatGPT desktopアプリで検証済みです。CLI marketplaceから登録でき、**L&Co.LLC Open Source** marketplace配下に表示・installでき、`$agentic-change-audit`の明示呼び出しに応答し、監査実行後もGit working treeが変更されないことを確認しました。このgateが対象とするのはこのdevelopment foundationのみです。
+- **Desktop gate：neutral marketplace identityについて失効。** 以前のdesktop証跡は旧marketplace identityとPlugin versionを対象としており、名称変更後の**Agentic Change Audit marketplace**またはPlugin version `0.1.0-dev.3`を検証するものではありません。marketplace登録、発見、install、明示呼び出し、Git working tree非変更確認はPhase Cで再実施します。
 - **OpenAIへの正式申請は完了していません。** このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません。申請ポータルの状態は人間が確認する必要があります。
 - **公開ポリシーURLは準備済みです。** [サポート](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)と[プライバシー](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)を本repositoryから公開しています。publisher identity verification、logo承認、申請そのものは、いずれも人間の判断待ちです。
 - **公開Directoryでの提供は一切主張しません。** このPluginはOpenAIの公開Plugins Directoryに掲載・提供・承認されていません。installは本repositoryのlocal marketplaceからのみ行ってください。
@@ -48,13 +48,13 @@ codex plugin marketplace add .
 codex plugin marketplace list
 ```
 
-`codex plugin marketplace add .`は、現在のrepositoryの`.agents/plugins/marketplace.json`を、`landco-llc-open-source`という名前のlocal marketplace sourceとして登録します。これだけではPluginはinstallされず、外部serviceへの通信も発生しません。
+`codex plugin marketplace add .`は、現在のrepositoryの`.agents/plugins/marketplace.json`を、`agentic-change-audit`という名前のlocal marketplace sourceとして登録します。これだけではPluginはinstallされず、外部serviceへの通信も発生しません。
 
 ## ChatGPT desktopでのinstallとテスト
 
 1. marketplaceを追加・更新した後は、ChatGPT desktop appを再起動して新しいsourceを反映させます。
 2. **Plugins**を開きます。
-3. **L&Co.LLC Open Source**のmarketplaceを選択します。
+3. **Agentic Change Audit marketplace**を選択します。
 4. **Agentic Change Audit**をinstallします。
 5. 新しいtaskを開始し、Pluginを呼び出してテストします。
 
@@ -105,7 +105,7 @@ Agentic Change Auditを使用して、このAIが構築したapplicationをrelea
 
 ## Version
 
-このPluginはdevelopment version識別子`0.1.0-dev.2`を使用します。公開releaseや安定版Pluginではなく、tag付けされたSkill releaseにも対応していません。
+このPluginはdevelopment version識別子`0.1.0-dev.3`を使用します。公開releaseや安定版Pluginではなく、tag付けされたSkill releaseにも対応していません。
 
 ## 関連文書
 
