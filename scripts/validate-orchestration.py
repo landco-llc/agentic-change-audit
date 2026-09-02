@@ -34,6 +34,7 @@ TARGET_REQUIRED_STATES = frozenset(
         "READY",
         "MERGED",
         "POST_MERGE_SYNC",
+        "COMPLETED",
     }
 )
 ROLE_TRANSITIONS = {
@@ -54,7 +55,7 @@ ROLE_TRANSITIONS = {
             ("HARD_GATE", "BLOCKED"), ("HARD_GATE", "ABANDONED"),
             ("READY", "HARD_GATE"), ("READY", "BLOCKED"), ("READY", "NOT_AUDITABLE"),
             ("MERGED", "POST_MERGE_SYNC"), ("MERGED", "BLOCKED"),
-            ("POST_MERGE_SYNC", "BLOCKED"),
+            ("POST_MERGE_SYNC", "COMPLETED"), ("POST_MERGE_SYNC", "BLOCKED"),
         }
     ),
     "IMPLEMENTATION": frozenset(
@@ -94,7 +95,10 @@ RESULT_STATES = {
     for role, transitions in ROLE_TRANSITIONS.items()
 }
 NON_BLOCKING_RESULT_STATES = frozenset(
-    {"IMPLEMENTED_DRAFT_PR", "REAUDITING", "PASS", "PASS_WITH_COMMENTS"}
+    {"IMPLEMENTED_DRAFT_PR", "REAUDITING", "PASS", "PASS_WITH_COMMENTS", "COMPLETED"}
+)
+NEXT_WORK_ELIGIBLE_RESULT_STATES = frozenset(
+    {"COMPLETED"}
 )
 
 
@@ -268,8 +272,25 @@ def result_semantic_issues(
             issues.append(ValidationIssue("RES-01", f"$.{field}", f"Result {field} must match its transition."))
     if document.get("result_state") != transition.get("to_state"):
         issues.append(ValidationIssue("RES-02", "$.result_state", "result_state must equal transition.to_state."))
-    if transition.get("target_applicable") is True and document.get("target_sha") != transition.get("target_sha"):
+    transition_target_sha = transition.get("target_sha")
+    document_target_sha = document.get("target_sha")
+    if transition.get("target_applicable") is True and document_target_sha != transition_target_sha:
         issues.append(ValidationIssue("RES-03", "$.target_sha", "Applicable result target_sha must match its transition."))
+    if transition.get("to_state") in TARGET_REQUIRED_STATES and (
+        transition.get("target_applicable") is not True
+        or not isinstance(transition_target_sha, str)
+        or not FULL_SHA.fullmatch(transition_target_sha)
+        or not isinstance(document_target_sha, str)
+        or not FULL_SHA.fullmatch(document_target_sha)
+        or document_target_sha != transition_target_sha
+    ):
+        issues.append(
+            ValidationIssue(
+                "RES-03",
+                "$.target_sha",
+                "This target result state requires target_applicable=true and matching full 40-character target SHAs.",
+            )
+        )
     if document.get("pr_applicable") != transition.get("pr_applicable"):
         issues.append(ValidationIssue("RES-03", "$.pr_applicable", "Result pr_applicable must match its transition."))
     if transition.get("pr_applicable") is True and document.get("pr_number") != transition.get("pr_number"):
@@ -307,6 +328,15 @@ def result_semantic_issues(
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "PROPOSE_ONE_NEW_WORK requires a new proposed_id."))
         elif action != "PROPOSE_ONE_NEW_WORK" and proposed_id is not None:
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "Only PROPOSE_ONE_NEW_WORK may include proposed_id."))
+        if action == "PROPOSE_ONE_NEW_WORK" and role != "CONTROLLER":
+            issues.append(ValidationIssue("RES-05", "$.next_work.action", "Only a CONTROLLER result may propose a new Work."))
+        elif action == "PROPOSE_ONE_NEW_WORK" and result_state not in NEXT_WORK_ELIGIBLE_RESULT_STATES:
+            issues.append(ValidationIssue("RES-05", "$.next_work.action", "A new Work proposal requires a completed Controller result."))
+        if result_state == "COMPLETED" and action == "HUMAN_GATE":
+            issues.append(ValidationIssue("RES-05", "$.next_work.action", "A completed result cannot retain a pending Human Gate."))
+    limitations = document.get("limitations")
+    if result_state == "COMPLETED" and isinstance(limitations, list) and limitations:
+        issues.append(ValidationIssue("RES-05", "$.limitations", "A completed result cannot retain pending decisions or obligations."))
     return issues
 
 

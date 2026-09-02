@@ -2,16 +2,18 @@
 
 ## Controller
 
-The Controller performs fresh reads, creates public-safe work records, assigns
-one role at a time, checks state-transition evidence, and stops on hard gates.
+The Parent Controller performs fresh reads, creates public-safe work records,
+selects bounded routing metadata, assigns one role at a time, checks
+state-transition evidence, and continues already-authorized in-session work.
 It does not implement, audit its own implementation, correct its own findings,
-or grant human-only authority.
+or grant human-only authority. Routing configuration is not evidence that a
+scheduler, wake service, provider, or runtime is available.
 
 ## Implementation agent
 
 The implementation agent changes only the approved allowed scope, records the
-resulting head and checks, and returns an implementation result. It must not
-audit its own work, mark it Ready, merge it, publish it, or generate broader
+resulting head and checks, and returns a bounded result to the Parent. It must
+not audit its own work, mark it Ready, merge it, publish it, or generate broader
 work.
 
 ## Independent audit agent
@@ -24,10 +26,10 @@ head differs, it reports `NOT_AUDITABLE`; it does not inspect a substitute head.
 
 The correction agent addresses only recorded findings within the existing
 allowed scope. A correction creates a new head and requires `REAUDITING` by a
-fresh independent audit agent. The Controller records the cycle count. At three
-correction cycles, repeated or material findings, a scope conflict, missing
-evidence, or a human-only decision, the Controller moves the item to
-`HARD_GATE` for escalation.
+fresh independent audit agent. The Parent records the cycle count. At three
+correction cycles, or on a repeated material finding, scope conflict, missing
+evidence, or human-only decision, the Parent stops same-line correction and
+moves the item to the named escalation or `HARD_GATE`.
 
 ## Fresh re-audit agent
 

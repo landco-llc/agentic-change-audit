@@ -28,12 +28,15 @@
     "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceReference"}},
     "completion_criteria": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
     "next_work_rule": {"type": "string", "minLength": 1},
+    "policy_version": {"type": "string", "minLength": 1},
+    "routing": {"$ref": "#/$defs/routing"},
     "state": {"$ref": "#/$defs/state"},
     "state_history": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/transition"}}
   },
   "allOf": [
     {"if": {"properties": {"target_applicable": {"const": true}}, "required": ["target_applicable"]}, "then": {"required": ["target_sha"]}, "else": {"not": {"required": ["target_sha"]}}},
-    {"if": {"properties": {"pr_applicable": {"const": true}}, "required": ["pr_applicable"]}, "then": {"required": ["pr_number"]}, "else": {"not": {"required": ["pr_number"]}}}
+    {"if": {"properties": {"pr_applicable": {"const": true}}, "required": ["pr_applicable"]}, "then": {"required": ["pr_number"]}, "else": {"not": {"required": ["pr_number"]}}},
+    {"if": {"required": ["policy_version"]}, "then": {"required": ["routing"]}, "else": {"not": {"required": ["routing"]}}}
   ],
   "$defs": {
     "workId": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"},
@@ -45,6 +48,7 @@
     "prNumber": {"type": "integer", "minimum": 1},
     "evidenceHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "evidenceReference": {"type": "object", "additionalProperties": false, "required": ["reference", "proves", "observed_at"], "properties": {"reference": {"type": "string", "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.)[A-Za-z0-9._#:/ -]+$"}, "proves": {"type": "string", "minLength": 1}, "observed_at": {"type": "string", "format": "date-time"}}},
+    "routing": {"type": "object", "additionalProperties": false, "required": ["profile", "model", "reasoning_effort", "sandbox_mode", "selection_reason", "escalation_criteria"], "properties": {"profile": {"enum": ["reconciliation", "implementation_mechanical", "implementation_standard", "implementation_backend", "architecture", "audit_standard", "implementation_critical", "audit_critical"]}, "model": {"enum": ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]}, "reasoning_effort": {"enum": ["low", "medium", "high"]}, "sandbox_mode": {"enum": ["workspace-write", "read-only"]}, "selection_reason": {"type": "string", "minLength": 1}, "escalation_criteria": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}, "oneOf": [{"properties": {"profile": {"const": "reconciliation"}, "model": {"const": "gpt-5.6-luna"}, "reasoning_effort": {"const": "low"}, "sandbox_mode": {"const": "workspace-write"}}}, {"properties": {"profile": {"const": "implementation_mechanical"}, "model": {"const": "gpt-5.6-luna"}, "reasoning_effort": {"const": "medium"}, "sandbox_mode": {"const": "workspace-write"}}}, {"properties": {"profile": {"const": "implementation_standard"}, "model": {"const": "gpt-5.6-luna"}, "reasoning_effort": {"const": "medium"}, "sandbox_mode": {"const": "workspace-write"}}}, {"properties": {"profile": {"const": "implementation_backend"}, "model": {"const": "gpt-5.6-terra"}, "reasoning_effort": {"const": "medium"}, "sandbox_mode": {"const": "workspace-write"}}}, {"properties": {"profile": {"const": "architecture"}, "model": {"const": "gpt-5.6-terra"}, "reasoning_effort": {"const": "high"}, "sandbox_mode": {"const": "read-only"}}}, {"properties": {"profile": {"const": "audit_standard"}, "model": {"const": "gpt-5.6-terra"}, "reasoning_effort": {"const": "medium"}, "sandbox_mode": {"const": "read-only"}}}, {"properties": {"profile": {"const": "implementation_critical"}, "model": {"const": "gpt-5.6-sol"}, "reasoning_effort": {"const": "high"}, "sandbox_mode": {"const": "workspace-write"}}}, {"properties": {"profile": {"const": "audit_critical"}, "model": {"const": "gpt-5.6-sol"}, "reasoning_effort": {"const": "high"}, "sandbox_mode": {"const": "read-only"}}}]},
     "transition": {
       "description": "Each transition snapshots the work ID, repository identity, evidence, and next permitted action at the time of the state change.",
       "type": "object",
