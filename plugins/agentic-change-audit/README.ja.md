@@ -6,16 +6,20 @@
 
 **Development preview。** これはAgentic Change Auditの最初のinstallable Codex Plugin基盤です。**skills-only Plugin**であり、既存のAgentic Change Audit Skillを同梱し、direct Skill folderだけでなく、repository限定のlocal marketplaceからもinstallできるようにします。
 
-このdevelopment PluginはOpenAIの公開Plugins Directoryへ申請・登録・公開されていません。
+この development preview は、neutral な **Agentic Change Audit marketplace** identity と Plugin version `0.1.0-dev.3` を使用します。
 
-## 申請ステータス
+## Development ステータス
 
-- **Desktop gate：neutral marketplace identityについて失効。** 以前のdesktop証跡は旧marketplace identityとPlugin versionを対象としており、名称変更後の**Agentic Change Audit marketplace**またはPlugin version `0.1.0-dev.3`を検証するものではありません。marketplace登録、発見、install、明示呼び出し、Git working tree非変更確認はPhase Cで再実施します。
-- **OpenAIへの正式申請は完了していません。** このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません。申請ポータルの状態は人間が確認する必要があります。
-- **公開ポリシーURLは準備済みです。** [サポート](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)と[プライバシー](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)を本repositoryから公開しています。publisher identity verification、logo承認、申請そのものは、いずれも人間の判断待ちです。
-- **公開Directoryでの提供は一切主張しません。** このPluginはOpenAIの公開Plugins Directoryに掲載・提供・承認されていません。installは本repositoryのlocal marketplaceからのみ行ってください。
+- **Phase C の desktop 証跡は保留中です。** 以前の desktop 証跡は履歴上のものであり、旧 marketplace identity と Plugin version を対象にしたため、neutral な **Agentic Change Audit marketplace** と Plugin version `0.1.0-dev.3` へ移転できません。この repository には Phase C の desktop 確認は記録されていません。保留中の証跡には marketplace 登録、発見、install、明示呼び出し、Git working tree 非変更確認が含まれます。
+- このPluginは、OpenAIの公開Plugins Directoryへ申請されておらず、同Directoryに掲載もされておらず、承認もされていないため、同Directoryからは利用できません。
+- **Human prerequisite は保留中です。** repository の資料は identity verification、logo 承認、その他の人間による判断を満たすことはできません。
+- **Repository 側のテストには local marketplace を使用します。**
+  [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md) と
+  [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md) は
+  repository の境界を記載しています。
 
-repository側の準備資料は[申請パッケージ](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin)にあります。これは準備資料であり、申請ではありません。
+repository 側の準備資料は
+[package directory](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin) にあります。
 
 ## このPluginが提供するもの
 
@@ -60,9 +64,9 @@ codex plugin marketplace list
 
 これらの手順をChatGPT desktop UIで実際に再現することは**PENDING HUMAN CHECK**です。このrepository自体が自動的に実行・保証できるものではありません。
 
-## このbranchがmerge後にGitHubから直接登録する
+## Phase A 後に GitHub から直接登録する
 
-このPlugin基盤が`main`へmergeされた後は、local cloneなしでGitHubから直接marketplaceを追加することもできます。
+Phase A は merge 済みです。local clone なしで GitHub から marketplace を追加できます。
 
 ```bash
 codex plugin marketplace add \
@@ -70,7 +74,7 @@ codex plugin marketplace add \
   --ref main
 ```
 
-それまでは、このbranchのcheckoutに対して上記のlocal `codex plugin marketplace add .`コマンドを使用してください。
+Phase C の desktop 証跡はまだ保留中です。このcommand は別途行う確認の手順であり、確認済みであることを示すものではありません。
 
 ## 呼び出し例
 

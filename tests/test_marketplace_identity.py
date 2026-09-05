@@ -1692,12 +1692,12 @@ install_invalid_regression_cases(
             replace_bytes(
                 PLUGIN_READMES[0],
                 (
-                    "It does not verify the renamed **Agentic Change Audit "
-                    "marketplace** or Plugin version `0.1.0-dev.3`;"
+                    "No Phase C desktop checks are recorded here."
                 ).encode(),
                 (
-                    "It verifies the renamed **Agentic Change Audit marketplace** "
-                    "and Plugin version `0.1.0-dev.3`; ACA-FRESH-RDM-039"
+                    "Phase C desktop checks are verified for the **Agentic Change "
+                    "Audit marketplace** and Plugin version `0.1.0-dev.3`. "
+                    "ACA-FRESH-RDM-039"
                 ).encode(),
             ),
             "Plugin README Phase C identity contradiction",
@@ -1710,12 +1710,12 @@ install_invalid_regression_cases(
             replace_bytes(
                 PLUGIN_READMES[1],
                 (
-                    "名称変更後の**Agentic Change Audit marketplace**またはPlugin "
-                    "version `0.1.0-dev.3`を検証するものではありません。"
+                    "この repository には Phase C の desktop 確認は記録されていません。"
                 ).encode(),
                 (
-                    "名称変更後の**Agentic Change Audit marketplace**とPlugin "
-                    "version `0.1.0-dev.3`は検証済みです。 ACA-FRESH-RDM-040"
+                    "**Agentic Change Audit marketplace**とPlugin version "
+                    "`0.1.0-dev.3`の Phase C desktop 確認は検証済みです。 "
+                    "ACA-FRESH-RDM-040"
                 ).encode(),
             ),
             "Plugin README Phase C identity contradiction",

@@ -149,9 +149,13 @@ VALID_TEST_TYPES = ("positive", "negative")
 VALID_MODES = ("FULL", "FOCUSED_REAUDIT", "RELEASE", "DOCS_ONLY")
 
 EXPECTED_MANIFEST_VERSION = "0.1.0-dev.3"
-# Phase A changes runtime marketplace identity only. Submission release notes
-# stay fixed until the separately authorized Phase B synchronization lane.
-EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION = "0.1.0-dev.2"
+EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION = EXPECTED_MANIFEST_VERSION
+EXPECTED_MARKETPLACE_DISPLAY_NAME = "Agentic Change Audit marketplace"
+NEUTRAL_MARKETPLACE_TEST_CASE_ID = "positive-explicit-invocation-docs-only"
+STALE_MARKETPLACE_IDENTITIES = (
+    "L&Co.LLC Open Source",
+    "landco-llc-open-source",
+)
 EXPECTED_MANIFEST_CAPABILITIES = ["Read"]
 FORBIDDEN_MANIFEST_KEYS = ("mcpServers", "apps", "hooks")
 
@@ -389,75 +393,250 @@ PLUGIN_README_REQUIRED_BOUNDARIES = {
     PLUGIN_README_RELATIVE: (
         ("development preview", ("development preview",)),
         (
-            "not submitted to, listed in, or available from the public Plugins Directory",
-            ("not submitted to, listed in, or available from",),
+            "neutral Agentic Change Audit marketplace identity",
+            (EXPECTED_MARKETPLACE_DISPLAY_NAME,),
         ),
         (
-            "official OpenAI submission is not complete",
-            ("Official OpenAI submission is not complete",),
+            "Phase C desktop evidence is pending",
+            ("Phase C desktop evidence is pending",),
         ),
         (
-            "repository lane neither performs nor evidences portal action",
-            ("No portal action is performed or evidenced by this repository lane",),
+            "earlier desktop evidence is historical and superseded",
+            ("Earlier desktop evidence is historical and superseded",),
         ),
         (
-            "portal state remains a human verification gate",
-            ("Portal state remains a human verification gate",),
+            "earlier desktop evidence is non-transferable",
+            ("cannot be transferred",),
         ),
         (
-            "no public Directory availability is claimed",
-            ("No public Directory availability is claimed",),
+            "human prerequisites remain pending",
+            ("Human prerequisites remain pending",),
         ),
         (
-            "identity verification, logo approval, and submission remain pending",
-            ("remain pending human decisions",),
+            "repository-side testing uses the local marketplace",
+            ("local marketplace for repository-side testing",),
         ),
     ),
     PLUGIN_README_JA_RELATIVE: (
         ("development preview", ("development preview",)),
         (
-            "公開Plugins Directoryへ申請・登録・公開されていない",
-            ("公開Plugins Directoryへ申請・登録・公開されていません",),
-        ),
-        ("正式申請は完了していない", ("正式申請は完了していません",)),
-        (
-            "リポジトリ側で申請ポータルを操作せず証跡もない",
-            (
-                "このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません",
-            ),
+            "neutral Agentic Change Audit marketplace identity",
+            (EXPECTED_MARKETPLACE_DISPLAY_NAME,),
         ),
         (
-            "申請ポータルの状態は人間が確認する",
-            ("申請ポータルの状態は人間が確認する必要があります",),
+            "Phase C desktop evidence is pending",
+            ("Phase C の desktop 証跡は保留中です",),
         ),
-        ("公開Directoryでの提供を主張しない", ("公開Directoryでの提供は一切主張しません",)),
         (
-            "identity verification、logo承認、申請が人間判断待ち",
-            ("人間の判断待ちです",),
+            "earlier desktop evidence is historical",
+            ("以前の desktop 証跡は履歴上のもの",),
+        ),
+        (
+            "earlier desktop evidence is non-transferable",
+            ("移転できません",),
+        ),
+        (
+            "human prerequisites remain pending",
+            ("Human prerequisite は保留中です",),
+        ),
+        (
+            "repository-side testing uses the local marketplace",
+            ("Repository 側のテストには local marketplace を使用します",),
         ),
     ),
     PLUGIN_README_ZH_HANT_RELATIVE: (
         ("development preview", ("development preview",)),
         (
-            "尚未提交、列入或公開於公開Plugins Directory",
-            ("尚未提交、列入或公開於",),
-        ),
-        ("尚未完成正式申請", ("尚未完成向 OpenAI 的正式申請",)),
-        (
-            "儲存庫端未操作申請入口且沒有操作證據",
-            ("本次儲存庫端作業未操作申請入口，也沒有相關操作證據",),
+            "neutral Agentic Change Audit marketplace identity",
+            (EXPECTED_MARKETPLACE_DISPLAY_NAME,),
         ),
         (
-            "申請入口狀態仍須人工確認",
-            ("申請入口的實際狀態仍須由人工確認",),
+            "Phase C desktop evidence is pending",
+            ("Phase C 的 desktop 證據仍待完成",),
         ),
-        ("不主張任何公開Directory上架", ("不主張任何公開 Directory 上架",)),
         (
-            "identity verification、logo核准與申請仍待人工決定",
-            ("均仍待人工決定",),
+            "earlier desktop evidence is historical and superseded",
+            ("先前的 desktop 證據屬於歷史資料", "已被取代"),
+        ),
+        (
+            "earlier desktop evidence is non-transferable",
+            ("不能移轉",),
+        ),
+        (
+            "human prerequisites remain pending",
+            ("Human prerequisite 仍待完成",),
+        ),
+        (
+            "repository-side testing uses the local marketplace",
+            ("Repository 端測試請使用 local marketplace",),
         ),
     ),
 }
+
+# Each localized README must state the complete public Directory boundary in
+# its own language. All semantic components must occur in one visible status
+# block so scattered or shared English wording cannot satisfy a translation.
+PLUGIN_README_DIRECTORY_BOUNDARIES = {
+    PLUGIN_README_RELATIVE: (
+        "English",
+        (
+            re.compile(r"OpenAI(?:'s|’s)\s+public\s+Plugins\s+Directory", re.IGNORECASE),
+            re.compile(r"\b(?:has\s+not\s+been|is\s+not)\s+submitted\b", re.IGNORECASE),
+            re.compile(r"\b(?:has\s+not\s+been|is\s+not)\s+listed\b", re.IGNORECASE),
+            re.compile(
+                r"\b(?:has\s+not\s+been|is\s+not|or)\s+approved\b",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\b(?:has\s+not\s+been|is\s+not)\s+available\b", re.IGNORECASE),
+        ),
+    ),
+    PLUGIN_README_JA_RELATIVE: (
+        "Japanese",
+        (
+            re.compile(r"OpenAI\s*の\s*公開\s*Plugins\s*Directory", re.IGNORECASE),
+            re.compile(r"申請(?:も)?されて(?:おらず|いない|いません)"),
+            re.compile(r"掲載(?:も)?されて(?:おらず|いない|いません)"),
+            re.compile(r"承認(?:も)?されて(?:おらず|いない|いません)"),
+            re.compile(r"(?:利用でき(?:ない|ません)|提供されていません)"),
+        ),
+    ),
+    PLUGIN_README_ZH_HANT_RELATIVE: (
+        "Taiwan Traditional Chinese",
+        (
+            re.compile(r"OpenAI\s*的?\s*公開\s*Plugins\s*Directory", re.IGNORECASE),
+            re.compile(r"(?:尚未|未)提交"),
+            re.compile(r"(?:尚未|未)列入"),
+            re.compile(r"(?:尚未|未)(?:獲|經)?[^，。！？\n]{0,16}核准"),
+            re.compile(r"無法[^。！？\n]{0,24}(?:取得|使用)"),
+        ),
+    ),
+}
+
+# Phase A is already merged. These patterns recognize obsolete branch-premerge
+# instructions semantically. Checks run on visible Markdown text, so examples,
+# comments, and destinations do not become status assertions.
+STALE_PHASE_A_PREMERGE_PATTERNS = {
+    PLUGIN_README_RELATIVE: (
+        re.compile(
+            r"\b(?:once|after|when)\b[^\n.!?]{0,160}"
+            r"\b(?:this\s+branch|plugin\s+foundation)\b[^\n.!?]{0,120}"
+            r"\b(?:is\s+|has\s+been\s+)?merged\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\buntil\s+then\b[^\n.!?]{0,180}\b(?:branch|checkout)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\bphase\s+a\b[^\n.!?]{0,120}\b(?:is|remains)\s+"
+            r"(?:not\s+merged|pending|open)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    PLUGIN_README_JA_RELATIVE: (
+        re.compile(
+            r"(?:この\s*)?(?:branch|Plugin\s*基盤)[^。！？\n]{0,160}"
+            r"(?:merge|マージ)[^。！？\n]{0,80}(?:後|されたら|されれば)",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"それまでは[^。！？\n]{0,180}(?:branch|checkout)",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"Phase\s*A[^。！？\n]{0,120}(?:未\s*(?:merge|マージ)|"
+            r"(?:merge|マージ)待ち|保留中|未完了)",
+            re.IGNORECASE,
+        ),
+    ),
+    PLUGIN_README_ZH_HANT_RELATIVE: (
+        re.compile(
+            r"(?:這個|此)?[^。！？\n]{0,80}(?:branch|Plugin\s*基礎版本)"
+            r"[^。！？\n]{0,120}(?:merge|合併)[^。！？\n]{0,60}(?:之後|以後|後)",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"在此之前[^。！？\n]{0,180}(?:分支|branch|checkout)",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"Phase\s*A[^。！？\n]{0,120}(?:尚未|仍待)[^。！？\n]{0,60}"
+            r"(?:merge|合併|完成)",
+            re.IGNORECASE,
+        ),
+    ),
+}
+
+HISTORICAL_STATUS_CUE_PATTERN = re.compile(
+    r"\b(?:earlier|previous|prior|old|historical|legacy)\b|"
+    r"以前|過去|旧|履歴|先前|舊|歷史",
+    re.IGNORECASE,
+)
+LEGACY_DESKTOP_SUCCESS_PATTERN = re.compile(
+    r"(?=[^\n]*(?:\bdesktop\b|デスクトップ|desktop\s*証跡|桌面))"
+    r"(?=[^\n]*(?:\bevidence\b|\bgate\b|証跡|證據))"
+    r"[^\n]*(?:\b(?:passed|verified|completed|approved|successful|valid)\b|"
+    r"合格(?:済み)?|検証済み|確認済み|承認済み|有効|"
+    r"(?:已|曾)?(?:通過|驗證完成|完成|核准|成功|有效))",
+    re.IGNORECASE,
+)
+
+# A current Phase C evidence/gate assertion is prohibited independently of
+# any legacy-history wording elsewhere in the paragraph.
+CURRENT_PHASE_C_SUCCESS_PATTERNS = (
+    re.compile(
+        r"\bphase\s+c\b(?=[^.!?\n]{0,100}\b(?:desktop|evidence|gate|checks?)\b)"
+        r"[^.!?\n]{0,160}\b(?:is|are|remains?|has|have)\s+(?:been\s+)?"
+        r"(?:valid|passed|verified|completed|approved|successful)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"Phase\s*C(?=[^。！？\n]{0,100}(?:desktop|証跡|証拠|gate|確認|検査))"
+        r"[^。！？\n]{0,160}(?:有効|合格(?:済み)?|検証済み|確認済み|承認済み|"
+        r"完了(?:済み|しています|した))"
+    ),
+    re.compile(
+        r"Phase\s*C(?=[^。！？\n]{0,100}(?:desktop|證據|證明|gate|檢查))"
+        r"[^。！？\n]{0,160}(?:有效|(?:已|曾)(?:通過|驗證完成|完成|核准|成功)|通過)"
+    ),
+)
+
+# Legacy success is allowed only when the invalidation predicate is attached
+# to the legacy evidence itself (or an unambiguous evidence pronoun). An
+# unrelated statement such as "this documentation is invalid" is not enough.
+LEGACY_DESKTOP_INVALIDATION_PATTERNS = (
+    re.compile(
+        r"\b(?:earlier|previous|prior|old|historical|legacy)\b"
+        r"[^.!?\n]{0,80}\b(?:desktop\s+)?evidence\b[^.!?\n]{0,180}"
+        r"(?:\b(?:is|was|has\s+been)\s+(?:historical[,\s]+)?"
+        r"(?:superseded|invalid|expired|obsolete|non-transferable)\b|"
+        r"\bcannot\s+be\s+transferred\b|\bdoes\s+not\s+verify\b)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:it|that\s+evidence|this\s+evidence|such\s+evidence|the\s+evidence)\b"
+        r"[^.!?\n]{0,100}(?:\b(?:is|was|has\s+been)\s+(?:historical[,\s]+)?"
+        r"(?:superseded|invalid|expired|obsolete|non-transferable)\b|"
+        r"\bcannot\s+be\s+transferred\b|\bdoes\s+not\s+verify\b)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:以前|過去|旧|履歴)[^。！？\n]{0,80}(?:証跡|証拠)"
+        r"[^。！？\n]{0,180}(?:失効|無効|移転でき|検証するものでは)"
+    ),
+    re.compile(
+        r"(?:その|この|当該)[^。！？\n]{0,24}(?:証跡|証拠)"
+        r"[^。！？\n]{0,120}(?:失効|無効|移転でき|検証するものでは)"
+    ),
+    re.compile(
+        r"(?:先前|舊|歷史)[^。！？\n]{0,80}(?:證據|記錄)"
+        r"[^。！？\n]{0,180}(?:取代|失效|無效|不可移轉|不能移轉|不能驗證)"
+    ),
+    re.compile(
+        r"(?:該|此|這些)[^。！？\n]{0,24}(?:證據|記錄)"
+        r"[^。！？\n]{0,120}(?:取代|失效|無效|不可移轉|不能移轉|不能驗證)"
+    ),
+)
 
 # External portal state is not observable from this repository lane. Classify
 # normalized visible prose by semantic components instead of accumulating
@@ -1577,6 +1756,7 @@ def validate_test_cases(root: Path, errors: list[str]) -> None:
     seen: set[str] = set()
     positive = 0
     negative = 0
+    neutral_marketplace_case: dict[str, Any] | None = None
 
     for index, case in enumerate(cases):
         label = f"test-cases.json[{index}]"
@@ -1596,6 +1776,8 @@ def validate_test_cases(root: Path, errors: list[str]) -> None:
             if case_id in seen:
                 errors.append(f"test-cases.json has a duplicate id: {case_id}")
             seen.add(case_id)
+            if case_id == NEUTRAL_MARKETPLACE_TEST_CASE_ID:
+                neutral_marketplace_case = case
 
         case_type = case.get("type")
         if case_type == "positive":
@@ -1620,6 +1802,31 @@ def validate_test_cases(root: Path, errors: list[str]) -> None:
 
     for location in find_empty_strings(document, ""):
         errors.append(f"test-cases.json contains an empty string at: {location}")
+
+    serialized = json.dumps(document, ensure_ascii=False)
+    for stale_identity in STALE_MARKETPLACE_IDENTITIES:
+        if stale_identity.casefold() in serialized.casefold():
+            errors.append(
+                "test-cases.json must use the neutral marketplace identity; "
+                f"found stale identity {stale_identity!r}."
+            )
+
+    if neutral_marketplace_case is None:
+        errors.append(
+            "test-cases.json must contain the neutral marketplace case "
+            f"{NEUTRAL_MARKETPLACE_TEST_CASE_ID!r}."
+        )
+    else:
+        preconditions = neutral_marketplace_case.get("preconditions")
+        if not isinstance(preconditions, str) or (
+            EXPECTED_MARKETPLACE_DISPLAY_NAME.casefold()
+            not in preconditions.casefold()
+        ):
+            errors.append(
+                f"test-cases.json case {NEUTRAL_MARKETPLACE_TEST_CASE_ID!r} "
+                "must bind installation to the neutral marketplace identity "
+                f"{EXPECTED_MARKETPLACE_DISPLAY_NAME!r}."
+            )
 
 
 def validate_availability(root: Path, errors: list[str]) -> None:
@@ -1764,12 +1971,59 @@ def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
         if path.stat().st_size == 0:
             errors.append(f"Required Plugin README is empty: {relative}")
             continue
+        visible = markdown_visible_text(path.read_text(encoding="utf-8"))
         check_boundaries(
             errors,
             relative,
-            path.read_text(encoding="utf-8"),
+            visible,
             PLUGIN_README_REQUIRED_BOUNDARIES[relative],
         )
+
+        language, directory_patterns = PLUGIN_README_DIRECTORY_BOUNDARIES[relative]
+        if not any(
+            all(pattern.search(block) for pattern in directory_patterns)
+            for block in visible.splitlines()
+        ):
+            errors.append(
+                f"{relative} must state the localized public Directory boundary in "
+                f"{language}: not submitted, not listed, not approved, and not available."
+            )
+
+        for block in visible.splitlines():
+            if any(pattern.search(block) for pattern in CURRENT_PHASE_C_SUCCESS_PATTERNS):
+                errors.append(
+                    f"{relative} Plugin README Phase C identity contradiction: "
+                    f"current desktop evidence remains pending, but {block!r} asserts success."
+                )
+
+            if (
+                HISTORICAL_STATUS_CUE_PATTERN.search(block)
+                and LEGACY_DESKTOP_SUCCESS_PATTERN.search(block)
+                and not any(
+                    pattern.search(block)
+                    for pattern in LEGACY_DESKTOP_INVALIDATION_PATTERNS
+                )
+            ):
+                errors.append(
+                    f"{relative} may mention successful legacy desktop evidence "
+                    "only when the same status block clearly invalidates it: "
+                    f"{block!r}"
+                )
+
+            for pattern in STALE_PHASE_A_PREMERGE_PATTERNS[relative]:
+                match = pattern.search(block)
+                if match is None:
+                    continue
+                correctly_invalidated_history = bool(
+                    HISTORICAL_STATUS_CUE_PATTERN.search(block)
+                    and HISTORICAL_INVALIDATION_CUE_PATTERN.search(block)
+                )
+                if not correctly_invalidated_history:
+                    errors.append(
+                        f"{relative} must not present stale Phase A pre-merge "
+                        f"guidance as current: {match.group(0)!r}"
+                    )
+                break
 
 
 def japanese_ga_is_concessive(visible: str, start: int) -> bool:
@@ -2540,10 +2794,14 @@ def validate_release_notes(root: Path, errors: list[str]) -> None:
         return
     text = path.read_text(encoding="utf-8")
 
-    if EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION not in text:
+    version_lines = re.findall(
+        r"(?im)^Version:\s*`([^`]+)`\s*\(development package\)\s*$",
+        text,
+    )
+    if version_lines != [EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION]:
         errors.append(
-            f"release-notes.md must retain the Phase B input Plugin version "
-            f"{EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION!r}."
+            "release-notes.md must declare exactly one current Plugin version "
+            f"{EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION!r}; found {version_lines!r}."
         )
 
 
