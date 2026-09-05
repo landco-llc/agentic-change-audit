@@ -1,16 +1,19 @@
 # Release notes — Codex Plugin submission package
 
 Plugin: `agentic-change-audit`
-Version: `0.1.0-dev.2` (development package)
-Package status: draft materials only
+Version: `0.1.0-dev.3` (development package)
+Identity: `Agentic Change Audit marketplace`
 
 ## Summary
 
-This is the first submission package for the skills-only Agentic Change Audit Codex Plugin. It prepares the repository-side materials that the OpenAI submission form asks for. It changes nothing about the Plugin runtime.
+This records repository-side preparation material for the skills-only Agentic
+Change Audit Codex Plugin. It changes nothing about the Plugin runtime.
 
 ## What this package contains
 
-- The first skills-only Plugin submission package: listing details, starter prompts, positive and negative test cases, an availability recommendation, and these notes.
+- Skills-only Plugin preparation material: listing details, starter prompts,
+  positive and negative test cases, an availability recommendation, and these
+  notes.
 - The bundled canonical Agentic Change Audit Skill, unchanged: the Plugin ships the same evidence-first, agent-neutral audit workflow as the repository-root Skill sources.
 - English, Japanese, and Traditional Chinese guidance for installation and use.
 - Public support and privacy policies for the Plugin.
@@ -24,25 +27,22 @@ This is the first submission package for the skills-only Agentic Change Audit Co
 - No authentication flow.
 - No telemetry and no analytics.
 
-## Verified for the development foundation
+## Desktop evidence boundary
 
-- CLI marketplace registration: verified. `codex plugin marketplace add .` registers the repository's local marketplace source `landco-llc-open-source`.
-- ChatGPT desktop visibility: verified. The Plugin appears under the **L&Co.LLC Open Source** marketplace and installs from it.
-- Explicit invocation: verified. `$agentic-change-audit` selects the bundled Skill and runs the audit workflow.
-- Unchanged Git state: verified. The audit run left the working tree unchanged.
-
-This evidence comes from the desktop gate recorded in Issue #8.
+- Phase A is merged; pull request #15 is complete for that phase.
+- Phase C desktop evidence remains pending for the neutral marketplace
+  identity and `0.1.0-dev.3`.
+- Earlier desktop evidence is historical, superseded, and non-transferable
+  because it concerned a previous marketplace identity and Plugin version.
+- Phase C must newly check marketplace registration, discovery, installation,
+  explicit `$agentic-change-audit` invocation, and an unchanged Git working
+  tree.
 
 ## Status
 
-- The Plugin version is `0.1.0-dev.2`. It is not a stable version and not a public release.
-- This package has not been released, and it has not been submitted to OpenAI.
-- No approval has been granted, and no listing has been published in any public directory.
-- The existing Skill release `v0.1.0-rc.1` and its assets are not modified by this package.
-- Business identity verification, logo approval, availability selection, and the final submit decision all remain pending human decisions.
+- The Plugin version is `0.1.0-dev.3`, a development identifier.
+- Every human-prerequisite row remains `PENDING HUMAN CHECK`.
 
 ## Not included
 
-- No release candidate tag.
-- No published ZIP bundle.
-- No public Plugins Directory availability claim.
+- No Phase C desktop evidence is recorded by these notes.

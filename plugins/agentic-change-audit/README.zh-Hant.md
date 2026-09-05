@@ -6,16 +6,19 @@
 
 **Development preview。** 這是 Agentic Change Audit 第一個可安裝的 Codex Plugin 基礎版本。它是一個 **skills-only Plugin**：內含既有的 Agentic Change Audit Skill，讓使用者除了 direct Skill folder 之外，也能透過 repository 範圍的 local marketplace 進行安裝。
 
-這個 development Plugin 尚未提交、列入或公開於 OpenAI 的公開 Plugins Directory。
+這個 development preview 使用中性的 **Agentic Change Audit marketplace** identity 與 Plugin version `0.1.0-dev.3`。
 
-## 申請狀態
+## Development 狀態
 
-- **Desktop gate：中性 marketplace identity 的既有證據已失效。** 先前的 desktop 證據僅涵蓋舊 marketplace identity 與 Plugin version，不能驗證更名後的 **Agentic Change Audit marketplace** 或 Plugin version `0.1.0-dev.3`。marketplace 註冊、探索、安裝、明確呼叫及 Git working tree 未變更檢查，須於 Phase C 重新執行。
-- **尚未完成向 OpenAI 的正式申請。** 本次儲存庫端作業未操作申請入口，也沒有相關操作證據。申請入口的實際狀態仍須由人工確認。
-- **公開政策 URL 已備妥。** [支援](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)與[隱私](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)已由本 repository 公開。publisher identity verification、logo 核准與申請本身，均仍待人工決定。
-- **不主張任何公開 Directory 上架。** 本 Plugin 未在 OpenAI 公開 Plugins Directory 上架、提供或取得核准。請僅由本 repository 的 local marketplace 安裝。
+- **Phase C 的 desktop 證據仍待完成。** 先前的 desktop 證據屬於歷史資料，且已被取代：它僅涵蓋舊 marketplace identity 與 Plugin version，因此不能移轉至中性的 **Agentic Change Audit marketplace** 或 Plugin version `0.1.0-dev.3`。本 repository 尚未記錄任何 Phase C 的 desktop 檢查。待補的證據包括 marketplace 註冊、探索、安裝、明確呼叫及 Git working tree 未變更。
+- **Human prerequisite 仍待完成。** repository 資料不能滿足 identity verification、logo 核准或其他人工決定。
+- **Repository 端測試請使用 local marketplace。**
+  [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md) 與
+  [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)
+  說明 repository 的邊界。
 
-repository 端的準備資料位於[申請套件](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin)。這是準備資料，並非申請。
+repository 端的準備資料位於
+[package directory](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin)。
 
 ## 這個 Plugin 提供什麼
 
@@ -60,9 +63,9 @@ codex plugin marketplace list
 
 以上步驟在 ChatGPT desktop UI 中的實際操作屬於 **PENDING HUMAN CHECK**，本 repository 無法自動執行或保證其結果。
 
-## 此分支 merge 後直接從 GitHub 註冊
+## Phase A 後直接從 GitHub 註冊
 
-這個 Plugin 基礎版本 merge 進 `main` 之後，也可以不透過 local clone，直接從 GitHub 新增 marketplace：
+Phase A 已合併；不需要 local clone，也可以直接從 GitHub 新增 marketplace：
 
 ```bash
 codex plugin marketplace add \
@@ -70,7 +73,7 @@ codex plugin marketplace add \
   --ref main
 ```
 
-在此之前，請針對此分支的 checkout 使用上方的 local `codex plugin marketplace add .` 指令。
+Phase C 的 desktop 證據仍待完成。這個指令是獨立檢查的操作說明，不代表該檢查已經完成。
 
 ## 呼叫範例
 

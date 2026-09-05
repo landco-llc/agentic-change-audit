@@ -216,6 +216,105 @@ class SubmissionPackageTests(RepoInvariantTestCase):
         ids = [case["id"] for case in cases]
         self.assertEqual(len(ids), len(set(ids)), f"duplicate test case id in {ids}")
 
+    def test_release_notes_declares_exact_current_plugin_version(self):
+        text = (ROOT / submission_module.RELEASE_NOTES_RELATIVE).read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            f"Version: `{submission_module.EXPECTED_MANIFEST_VERSION}` "
+            "(development package)",
+            text,
+        )
+
+    def test_stale_release_notes_current_version_fails_even_with_dev3_text(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            path = root / submission_module.RELEASE_NOTES_RELATIVE
+            text = path.read_text(encoding="utf-8").replace(
+                "Version: `0.1.0-dev.3` (development package)",
+                "Version: `0.1.0-dev.2` (development package)",
+            )
+            path.write_text(
+                text + "\nCurrent package text also mentions `0.1.0-dev.3`.\n",
+                encoding="utf-8",
+            )
+
+            self.assert_rejected(
+                run_validator(root),
+                "must declare exactly one current Plugin version '0.1.0-dev.3'",
+            )
+
+    def test_duplicate_release_notes_version_field_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(
+                root,
+                submission_module.RELEASE_NOTES_RELATIVE,
+                "\nVersion: `0.1.0-dev.3` (development package)\n",
+            )
+
+            self.assert_rejected(
+                run_validator(root),
+                "must declare exactly one current Plugin version",
+            )
+
+    def test_neutral_marketplace_test_case_wording_is_bound(self):
+        document = load_json(ROOT / submission_module.TEST_CASES_RELATIVE)
+        case = next(
+            case
+            for case in document["testCases"]
+            if case["id"] == submission_module.NEUTRAL_MARKETPLACE_TEST_CASE_ID
+        )
+        self.assertIn(
+            submission_module.EXPECTED_MARKETPLACE_DISPLAY_NAME,
+            case["preconditions"],
+        )
+
+    def test_stale_test_case_marketplace_fails_even_with_neutral_wording(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            path = root / submission_module.TEST_CASES_RELATIVE
+            document = load_json(path)
+            case = next(
+                case
+                for case in document["testCases"]
+                if case["id"] == submission_module.NEUTRAL_MARKETPLACE_TEST_CASE_ID
+            )
+            case["preconditions"] += (
+                " Legacy wording also calls it the L&Co.LLC Open Source marketplace."
+            )
+            path.write_text(
+                json.dumps(document, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+
+            self.assert_rejected(
+                run_validator(root), "must use the neutral marketplace identity"
+            )
+
+    def test_neutral_marketplace_test_case_identity_is_required(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            path = root / submission_module.TEST_CASES_RELATIVE
+            document = load_json(path)
+            case = next(
+                case
+                for case in document["testCases"]
+                if case["id"] == submission_module.NEUTRAL_MARKETPLACE_TEST_CASE_ID
+            )
+            case["preconditions"] = case["preconditions"].replace(
+                submission_module.EXPECTED_MARKETPLACE_DISPLAY_NAME,
+                "the repository marketplace",
+            )
+            path.write_text(
+                json.dumps(document, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+
+            self.assert_rejected(
+                run_validator(root), "must bind installation to the neutral marketplace"
+            )
+
     def test_missing_required_file_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             root = build_repo(temp)
@@ -420,6 +519,107 @@ class SubmissionPackageTests(RepoInvariantTestCase):
             self.assertIn("plugin.json interface.capabilities", result.stderr)
 
 
+class PhaseStatusSynchronizationTests(RepoInvariantTestCase):
+    """Phase A/Phase C status cases execute only through the real validator."""
+
+    STALE_PREMERGE_CASES = (
+        (
+            submission_module.PLUGIN_README_RELATIVE,
+            "Once this Plugin foundation is merged, use a checkout of this branch.",
+        ),
+        (
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "このPlugin基盤がmainへmergeされた後は、このbranchのcheckoutを使用してください。",
+        ),
+        (
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "這個 Plugin 基礎版本 merge 進 main 之後，請使用此 branch 的 checkout。",
+        ),
+    )
+    INVALID_CURRENT_PHASE_C_CASES = (
+        (
+            submission_module.PLUGIN_README_RELATIVE,
+            "The current Phase C desktop gate has passed.",
+        ),
+        (
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "現在の Phase C desktop gate は検証済みです。",
+        ),
+        (
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "目前 Phase C 的 desktop gate 已驗證完成。",
+        ),
+    )
+    VALID_INVALIDATED_LEGACY_CASES = (
+        (
+            submission_module.PLUGIN_README_RELATIVE,
+            "Earlier desktop evidence passed for the previous marketplace, but it "
+            "is historical, superseded, and does not verify Phase C.",
+        ),
+        (
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "以前の desktop 証跡は旧 marketplace で合格しましたが、その証跡は"
+            "履歴上のもので失効しており、Phase C を検証するものではありません。",
+        ),
+        (
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "先前的 desktop 證據曾在舊 marketplace 通過，但該歷史證據已被取代，"
+            "不能驗證 Phase C。",
+        ),
+    )
+    INVALID_UNQUALIFIED_LEGACY_CASES = (
+        (
+            submission_module.PLUGIN_README_RELATIVE,
+            "Earlier desktop evidence passed for the previous marketplace.",
+        ),
+        (
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "以前の desktop 証跡は旧 marketplace で合格しました。",
+        ),
+        (
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "先前的 desktop 證據曾在舊 marketplace 通過。",
+        ),
+    )
+
+    def run_appended_case(
+        self, relative: str, statement: str
+    ) -> subprocess.CompletedProcess:
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            append_text(root, relative, f"\n{statement}\n")
+            return run_validator(root)
+
+    def test_stale_phase_a_premerge_claims_fail_in_all_languages(self):
+        for relative, statement in self.STALE_PREMERGE_CASES:
+            with self.subTest(relative=relative):
+                self.assert_rejected(
+                    self.run_appended_case(relative, statement),
+                    "must not present stale Phase A pre-merge guidance as current",
+                )
+
+    def test_current_phase_c_success_claims_fail_in_all_languages(self):
+        for relative, statement in self.INVALID_CURRENT_PHASE_C_CASES:
+            with self.subTest(relative=relative):
+                self.assert_rejected(
+                    self.run_appended_case(relative, statement),
+                    "Plugin README Phase C identity contradiction",
+                )
+
+    def test_correctly_invalidated_legacy_evidence_passes_in_all_languages(self):
+        for relative, statement in self.VALID_INVALIDATED_LEGACY_CASES:
+            with self.subTest(relative=relative):
+                self.assert_accepted(self.run_appended_case(relative, statement))
+
+    def test_unqualified_legacy_success_claims_fail_in_all_languages(self):
+        for relative, statement in self.INVALID_UNQUALIFIED_LEGACY_CASES:
+            with self.subTest(relative=relative):
+                self.assert_rejected(
+                    self.run_appended_case(relative, statement),
+                    "only when the same status block clearly invalidates it",
+                )
+
+
 class HardenedValidationTests(RepoInvariantTestCase):
     """Regression tests for the five mutations the first independent audit
     found the validator false-PASSing.
@@ -495,7 +695,7 @@ class HardenedValidationTests(RepoInvariantTestCase):
             remove_text(
                 root,
                 submission_module.PLUGIN_README_RELATIVE,
-                "No public Directory availability is claimed.",
+                "Phase C desktop evidence is pending.",
             )
 
             self.assert_rejected(run_validator(root), "must state the boundary")
@@ -620,16 +820,16 @@ class PortalStateWordingTests(RepoInvariantTestCase):
 
     SAFE_BOUNDARIES = {
         submission_module.PLUGIN_README_RELATIVE: (
-            "No portal action is performed or evidenced by this repository lane.",
-            "Portal state remains a human verification gate.",
+            "Phase C desktop evidence is pending.",
+            "Human prerequisites remain pending.",
         ),
         submission_module.PLUGIN_README_JA_RELATIVE: (
-            "このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません。",
-            "申請ポータルの状態は人間が確認する必要があります。",
+            "Phase C の desktop 証跡は保留中です。",
+            "Human prerequisite は保留中です。",
         ),
         submission_module.PLUGIN_README_ZH_HANT_RELATIVE: (
-            "本次儲存庫端作業未操作申請入口，也沒有相關操作證據。",
-            "申請入口的實際狀態仍須由人工確認。",
+            "Phase C 的 desktop 證據仍待完成。",
+            "Human prerequisite 仍待完成。",
         ),
     }
 
@@ -795,10 +995,10 @@ class PortalStateWordingTests(RepoInvariantTestCase):
                 encoding="utf-8"
             )
             self.assertIn(
-                "No portal action is performed or evidenced by this repository lane.",
+                "Phase C desktop evidence remains pending.",
                 text,
             )
-            self.assertIn("Portal state remains a human verification gate.", text)
+            self.assertIn("PENDING HUMAN CHECK", text)
             self.assert_accepted(run_validator(root))
 
     # --- Eleventh-remediation exact audit regressions -----------------------

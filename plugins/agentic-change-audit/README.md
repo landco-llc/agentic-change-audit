@@ -6,16 +6,21 @@
 
 **Development preview.** This is the first installable Codex Plugin foundation for Agentic Change Audit. It is a **skills-only Plugin**: it bundles the existing Agentic Change Audit Skill so it can be installed through a repository-scoped local marketplace instead of only a direct Skill folder.
 
-This development Plugin is not submitted to, listed in, or available from OpenAI's public Plugins Directory.
+This development preview uses the neutral **Agentic Change Audit marketplace**
+identity and Plugin version `0.1.0-dev.3`.
 
-## Submission status
+## Development status
 
-- **Desktop gate: superseded for the neutral marketplace identity.** Earlier desktop evidence covered the previous marketplace identity and Plugin version. It does not verify the renamed **Agentic Change Audit marketplace** or Plugin version `0.1.0-dev.3`; repeat marketplace registration, discovery, installation, explicit invocation, and Git working-tree non-mutation checks in Phase C.
-- **Official OpenAI submission is not complete.** No portal action is performed or evidenced by this repository lane. Portal state remains a human verification gate.
-- **Public policy URLs are prepared.** [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md) and [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md) are published from this repository. Publisher identity verification, logo approval, and the submission itself all remain pending human decisions.
-- **No public Directory availability is claimed.** This Plugin is not listed in, available from, or approved for OpenAI's public Plugins Directory. Install it from this repository's local marketplace only.
+- **Phase C desktop evidence is pending.** Earlier desktop evidence is historical and superseded: it covered a previous marketplace identity and Plugin version, so it cannot be transferred to the neutral **Agentic Change Audit marketplace** or Plugin version `0.1.0-dev.3`. No Phase C desktop checks are recorded here. The pending evidence set covers marketplace registration, discovery, installation, explicit invocation, and Git working-tree non-mutation.
+- **Human prerequisites remain pending.** Repository materials cannot satisfy
+  identity verification, logo approval, or other human decisions.
+- **Use the repository's local marketplace for repository-side testing.**
+  [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)
+  and [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)
+  document the repository boundaries.
 
-The repository-side preparation material is in the [submission package](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin). It is preparation material, not a submission.
+Repository-side preparation material is in the
+[package directory](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin).
 
 ## What this Plugin is
 
@@ -60,9 +65,10 @@ The `codex plugin marketplace add .` command registers the current repository's 
 
 A full ChatGPT desktop UI installation walkthrough is a **PENDING HUMAN CHECK** for anyone reproducing these steps; it is not something this repository can execute or attest to automatically.
 
-## Registering from GitHub after this branch is merged
+## Registering from GitHub after Phase A
 
-Once this Plugin foundation is merged into `main`, the marketplace can also be added directly from GitHub without a local clone:
+Phase A is merged. You can add the marketplace directly from GitHub without a
+local clone:
 
 ```bash
 codex plugin marketplace add \
@@ -70,7 +76,8 @@ codex plugin marketplace add \
   --ref main
 ```
 
-Until then, use the local `codex plugin marketplace add .` command above against a checkout of this branch.
+Phase C desktop evidence is still pending; this command is an instruction for
+that separate check, not evidence that the check has occurred.
 
 ## Invocation examples
 

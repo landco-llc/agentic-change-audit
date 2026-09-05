@@ -13,7 +13,7 @@ deployment status.
 | ACA-W002 orchestration validator | `COMPLETED` | Pull request #20 was merged at `ad8faeb84dcd600ea6f19d3f963aa38cfb2bcf74`; accepted implementation head was `3a1737d8e0102896e9ae092e017e2de63e070a86`, and post-merge main Validate and Package checks succeeded. |
 | ACA-W003 history reconciliation | `COMPLETED` | Pull request #21 was merged at `e1ccb2ffa7ae9da3e61d25bf8d289905cab18035`; accepted implementation head was `c2799ebec1cfe3d152e824264f6db7085f6df4ee`. |
 | ACA-W004 continuous orchestration integration | `COMPLETED` | Pull request #22 merged at `8f330fe0cd256e4d48d010400bd7ac1e76b84375`; accepted implementation head was `d3809e752b40bd684813fffc973f8b8e4952515d`; 19 paths, post-merge Validate and Package success, and completion based on merge/post-merge reconciliation. Any final independent audit outcome is deferred pending an authoritative result and operating evidence accessible for verification. |
-| Legacy pull request #16 | `BLOCKED` | Non-mutated legacy condition; details are intentionally not reproduced here. |
+| ACA-W006 neutral marketplace identity | `PHASE_A_COMPLETED` | Phase A pull request #15 is complete. The merged repository change uses neutral identity and Plugin version `0.1.0-dev.3`; Phase C desktop evidence remains pending and earlier desktop evidence is historical, superseded, and non-transferable. |
 | Legacy pull request #17 | `BLOCKED` | Non-mutated legacy condition; details are intentionally not reproduced here. |
 
 ## Control reminders

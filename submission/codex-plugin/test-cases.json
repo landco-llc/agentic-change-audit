@@ -5,7 +5,7 @@
       "type": "positive",
       "title": "Explicit $agentic-change-audit invocation on a documentation-only change",
       "input": "$agentic-change-audit\n\nAudit this documentation-only change in acme/docs-site between base 1111111111111111111111111111111111111111 and target HEAD 2222222222222222222222222222222222222222. Do not modify files. Return Markdown.",
-      "preconditions": "The Plugin is installed from the L&Co.LLC Open Source marketplace. The repository is checked out at the stated target HEAD with a clean working tree. The change touches Markdown files only.",
+      "preconditions": "The Plugin is installed from the Agentic Change Audit marketplace. The repository is checked out at the stated target HEAD with a clean working tree. The change touches Markdown files only.",
       "expectedSelection": "The agentic-change-audit Skill is selected because it was invoked explicitly by name.",
       "expectedBehavior": "The Skill runs in DOCS_ONLY mode. It records the fixed target identity (repository, base, target HEAD), checks scope against the complete diff, internal consistency, link resolution, translation parity where applicable, and whitespace. It records checks it did not perform, such as application builds, with the reason. It returns findings, required human checks, exactly one Verdict, the next permitted action, and an invalidation notice.",
       "forbiddenBehavior": "Modifying, committing, pushing, approving, or merging anything. Requiring unrelated application builds or deployments. Returning more than one Verdict. Omitting the fixed target identity. Claiming approval, security certification, legal compliance, or production safety.",
