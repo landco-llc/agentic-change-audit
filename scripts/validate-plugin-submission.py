@@ -473,6 +473,45 @@ PLUGIN_README_REQUIRED_BOUNDARIES = {
     ),
 }
 
+# Each localized README must state the complete public Directory boundary in
+# its own language. All semantic components must occur in one visible status
+# block so scattered or shared English wording cannot satisfy a translation.
+PLUGIN_README_DIRECTORY_BOUNDARIES = {
+    PLUGIN_README_RELATIVE: (
+        "English",
+        (
+            re.compile(r"OpenAI(?:'s|’s)\s+public\s+Plugins\s+Directory", re.IGNORECASE),
+            re.compile(r"\b(?:has\s+not\s+been|is\s+not)\s+submitted\b", re.IGNORECASE),
+            re.compile(r"\b(?:has\s+not\s+been|is\s+not)\s+listed\b", re.IGNORECASE),
+            re.compile(
+                r"\b(?:has\s+not\s+been|is\s+not|or)\s+approved\b",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\b(?:has\s+not\s+been|is\s+not)\s+available\b", re.IGNORECASE),
+        ),
+    ),
+    PLUGIN_README_JA_RELATIVE: (
+        "Japanese",
+        (
+            re.compile(r"OpenAI\s*の\s*公開\s*Plugins\s*Directory", re.IGNORECASE),
+            re.compile(r"申請(?:も)?されて(?:おらず|いない|いません)"),
+            re.compile(r"掲載(?:も)?されて(?:おらず|いない|いません)"),
+            re.compile(r"承認(?:も)?されて(?:おらず|いない|いません)"),
+            re.compile(r"(?:利用でき(?:ない|ません)|提供されていません)"),
+        ),
+    ),
+    PLUGIN_README_ZH_HANT_RELATIVE: (
+        "Taiwan Traditional Chinese",
+        (
+            re.compile(r"OpenAI\s*的?\s*公開\s*Plugins\s*Directory", re.IGNORECASE),
+            re.compile(r"(?:尚未|未)提交"),
+            re.compile(r"(?:尚未|未)列入"),
+            re.compile(r"(?:尚未|未)(?:獲|經)?[^，。！？\n]{0,16}核准"),
+            re.compile(r"無法[^。！？\n]{0,24}(?:取得|使用)"),
+        ),
+    ),
+}
+
 # Phase A is already merged. These patterns recognize obsolete branch-premerge
 # instructions semantically. Checks run on visible Markdown text, so examples,
 # comments, and destinations do not become status assertions.
@@ -533,20 +572,70 @@ HISTORICAL_STATUS_CUE_PATTERN = re.compile(
     r"以前|過去|旧|履歴|先前|舊|歷史",
     re.IGNORECASE,
 )
-HISTORICAL_INVALIDATION_CUE_PATTERN = re.compile(
-    r"\b(?:superseded|invalid|expired|obsolete|non-transferable|"
-    r"cannot\s+be\s+transferred|does\s+not\s+verify)\b|"
-    r"失効|無効|移転でき|検証するものでは|取代|失效|不可移轉|"
-    r"不能移轉|不能驗證",
-    re.IGNORECASE,
-)
 LEGACY_DESKTOP_SUCCESS_PATTERN = re.compile(
     r"(?=[^\n]*(?:\bdesktop\b|デスクトップ|desktop\s*証跡|桌面))"
     r"(?=[^\n]*(?:\bevidence\b|\bgate\b|証跡|證據))"
-    r"[^\n]*(?:\b(?:passed|verified|completed|approved|successful)\b|"
-    r"合格(?:済み)?|検証済み|確認済み|承認済み|"
-    r"(?:已|曾)?(?:通過|驗證完成|完成|核准|成功))",
+    r"[^\n]*(?:\b(?:passed|verified|completed|approved|successful|valid)\b|"
+    r"合格(?:済み)?|検証済み|確認済み|承認済み|有効|"
+    r"(?:已|曾)?(?:通過|驗證完成|完成|核准|成功|有效))",
     re.IGNORECASE,
+)
+
+# A current Phase C evidence/gate assertion is prohibited independently of
+# any legacy-history wording elsewhere in the paragraph.
+CURRENT_PHASE_C_SUCCESS_PATTERNS = (
+    re.compile(
+        r"\bphase\s+c\b(?=[^.!?\n]{0,100}\b(?:desktop|evidence|gate|checks?)\b)"
+        r"[^.!?\n]{0,160}\b(?:is|are|remains?|has|have)\s+(?:been\s+)?"
+        r"(?:valid|passed|verified|completed|approved|successful)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"Phase\s*C(?=[^。！？\n]{0,100}(?:desktop|証跡|証拠|gate|確認|検査))"
+        r"[^。！？\n]{0,160}(?:有効|合格(?:済み)?|検証済み|確認済み|承認済み|"
+        r"完了(?:済み|しています|した))"
+    ),
+    re.compile(
+        r"Phase\s*C(?=[^。！？\n]{0,100}(?:desktop|證據|證明|gate|檢查))"
+        r"[^。！？\n]{0,160}(?:有效|(?:已|曾)(?:通過|驗證完成|完成|核准|成功)|通過)"
+    ),
+)
+
+# Legacy success is allowed only when the invalidation predicate is attached
+# to the legacy evidence itself (or an unambiguous evidence pronoun). An
+# unrelated statement such as "this documentation is invalid" is not enough.
+LEGACY_DESKTOP_INVALIDATION_PATTERNS = (
+    re.compile(
+        r"\b(?:earlier|previous|prior|old|historical|legacy)\b"
+        r"[^.!?\n]{0,80}\b(?:desktop\s+)?evidence\b[^.!?\n]{0,180}"
+        r"(?:\b(?:is|was|has\s+been)\s+(?:historical[,\s]+)?"
+        r"(?:superseded|invalid|expired|obsolete|non-transferable)\b|"
+        r"\bcannot\s+be\s+transferred\b|\bdoes\s+not\s+verify\b)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:it|that\s+evidence|this\s+evidence|such\s+evidence|the\s+evidence)\b"
+        r"[^.!?\n]{0,100}(?:\b(?:is|was|has\s+been)\s+(?:historical[,\s]+)?"
+        r"(?:superseded|invalid|expired|obsolete|non-transferable)\b|"
+        r"\bcannot\s+be\s+transferred\b|\bdoes\s+not\s+verify\b)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:以前|過去|旧|履歴)[^。！？\n]{0,80}(?:証跡|証拠)"
+        r"[^。！？\n]{0,180}(?:失効|無効|移転でき|検証するものでは)"
+    ),
+    re.compile(
+        r"(?:その|この|当該)[^。！？\n]{0,24}(?:証跡|証拠)"
+        r"[^。！？\n]{0,120}(?:失効|無効|移転でき|検証するものでは)"
+    ),
+    re.compile(
+        r"(?:先前|舊|歷史)[^。！？\n]{0,80}(?:證據|記錄)"
+        r"[^。！？\n]{0,180}(?:取代|失效|無效|不可移轉|不能移轉|不能驗證)"
+    ),
+    re.compile(
+        r"(?:該|此|這些)[^。！？\n]{0,24}(?:證據|記錄)"
+        r"[^。！？\n]{0,120}(?:取代|失效|無效|不可移轉|不能移轉|不能驗證)"
+    ),
 )
 
 # External portal state is not observable from this repository lane. Classify
@@ -1890,11 +1979,30 @@ def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
             PLUGIN_README_REQUIRED_BOUNDARIES[relative],
         )
 
+        language, directory_patterns = PLUGIN_README_DIRECTORY_BOUNDARIES[relative]
+        if not any(
+            all(pattern.search(block) for pattern in directory_patterns)
+            for block in visible.splitlines()
+        ):
+            errors.append(
+                f"{relative} must state the localized public Directory boundary in "
+                f"{language}: not submitted, not listed, not approved, and not available."
+            )
+
         for block in visible.splitlines():
+            if any(pattern.search(block) for pattern in CURRENT_PHASE_C_SUCCESS_PATTERNS):
+                errors.append(
+                    f"{relative} Plugin README Phase C identity contradiction: "
+                    f"current desktop evidence remains pending, but {block!r} asserts success."
+                )
+
             if (
                 HISTORICAL_STATUS_CUE_PATTERN.search(block)
                 and LEGACY_DESKTOP_SUCCESS_PATTERN.search(block)
-                and not HISTORICAL_INVALIDATION_CUE_PATTERN.search(block)
+                and not any(
+                    pattern.search(block)
+                    for pattern in LEGACY_DESKTOP_INVALIDATION_PATTERNS
+                )
             ):
                 errors.append(
                     f"{relative} may mention successful legacy desktop evidence "

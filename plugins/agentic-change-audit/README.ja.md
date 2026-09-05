@@ -11,6 +11,7 @@
 ## Development ステータス
 
 - **Phase C の desktop 証跡は保留中です。** 以前の desktop 証跡は履歴上のものであり、旧 marketplace identity と Plugin version を対象にしたため、neutral な **Agentic Change Audit marketplace** と Plugin version `0.1.0-dev.3` へ移転できません。この repository には Phase C の desktop 確認は記録されていません。保留中の証跡には marketplace 登録、発見、install、明示呼び出し、Git working tree 非変更確認が含まれます。
+- このPluginは、OpenAIの公開Plugins Directoryへ申請されておらず、同Directoryに掲載もされておらず、承認もされていないため、同Directoryからは利用できません。
 - **Human prerequisite は保留中です。** repository の資料は identity verification、logo 承認、その他の人間による判断を満たすことはできません。
 - **Repository 側のテストには local marketplace を使用します。**
   [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md) と

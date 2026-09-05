@@ -550,6 +550,20 @@ class PhaseStatusSynchronizationTests(RepoInvariantTestCase):
             "目前 Phase C 的 desktop gate 已驗證完成。",
         ),
     )
+    INVALID_CURRENT_PHASE_C_VALID_CASES = (
+        (
+            submission_module.PLUGIN_README_RELATIVE,
+            "The current Phase C desktop evidence is valid.",
+        ),
+        (
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "現在の Phase C desktop 証跡は有効です。",
+        ),
+        (
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "目前 Phase C 的 desktop 證據有效。",
+        ),
+    )
     VALID_INVALIDATED_LEGACY_CASES = (
         (
             submission_module.PLUGIN_README_RELATIVE,
@@ -581,6 +595,22 @@ class PhaseStatusSynchronizationTests(RepoInvariantTestCase):
             "先前的 desktop 證據曾在舊 marketplace 通過。",
         ),
     )
+    INVALID_UNRELATED_INVALIDATION_CASES = (
+        (
+            submission_module.PLUGIN_README_RELATIVE,
+            "Earlier desktop evidence passed for the previous marketplace. "
+            "This documentation is invalid.",
+        ),
+        (
+            submission_module.PLUGIN_README_JA_RELATIVE,
+            "以前の desktop 証跡は旧 marketplace で合格しました。"
+            "この文書は無効です。",
+        ),
+        (
+            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+            "先前的 desktop 證據曾在舊 marketplace 通過。這份文件已失效。",
+        ),
+    )
 
     def run_appended_case(
         self, relative: str, statement: str
@@ -606,6 +636,14 @@ class PhaseStatusSynchronizationTests(RepoInvariantTestCase):
                     "Plugin README Phase C identity contradiction",
                 )
 
+    def test_current_phase_c_valid_claims_fail_in_all_languages(self):
+        for relative, statement in self.INVALID_CURRENT_PHASE_C_VALID_CASES:
+            with self.subTest(relative=relative):
+                self.assert_rejected(
+                    self.run_appended_case(relative, statement),
+                    "Plugin README Phase C identity contradiction",
+                )
+
     def test_correctly_invalidated_legacy_evidence_passes_in_all_languages(self):
         for relative, statement in self.VALID_INVALIDATED_LEGACY_CASES:
             with self.subTest(relative=relative):
@@ -618,6 +656,77 @@ class PhaseStatusSynchronizationTests(RepoInvariantTestCase):
                     self.run_appended_case(relative, statement),
                     "only when the same status block clearly invalidates it",
                 )
+
+    def test_unrelated_invalidation_does_not_license_legacy_success(self):
+        for relative, statement in self.INVALID_UNRELATED_INVALIDATION_CASES:
+            with self.subTest(relative=relative):
+                self.assert_rejected(
+                    self.run_appended_case(relative, statement),
+                    "only when the same status block clearly invalidates it",
+                )
+
+    def test_each_readme_requires_its_localized_public_directory_boundary(self):
+        boundary_lines = (
+            (
+                submission_module.PLUGIN_README_RELATIVE,
+                "This Plugin has not been submitted to or approved for OpenAI's public "
+                "Plugins Directory, is not listed in that Directory, and is not available "
+                "from it.",
+            ),
+            (
+                submission_module.PLUGIN_README_JA_RELATIVE,
+                "このPluginは、OpenAIの公開Plugins Directoryへ申請されておらず、"
+                "同Directoryに掲載もされておらず、承認もされていないため、"
+                "同Directoryからは利用できません。",
+            ),
+            (
+                submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+                "本 Plugin 尚未提交至 OpenAI 的公開 Plugins Directory，也未列入該目錄、"
+                "未獲該目錄核准，且無法從該目錄公開取得或使用。",
+            ),
+        )
+        for relative, boundary in boundary_lines:
+            with self.subTest(relative=relative):
+                with tempfile.TemporaryDirectory() as temp:
+                    root = build_repo(temp)
+                    remove_text(root, relative, boundary)
+                    self.assert_rejected(
+                        run_validator(root),
+                        "must state the localized public Directory boundary",
+                    )
+
+    def test_localized_readmes_cannot_share_the_english_directory_boundary(self):
+        english = (
+            "This Plugin has not been submitted to or approved for OpenAI's public "
+            "Plugins Directory, is not listed in that Directory, and is not available "
+            "from it."
+        )
+        replacements = (
+            (
+                submission_module.PLUGIN_README_JA_RELATIVE,
+                "このPluginは、OpenAIの公開Plugins Directoryへ申請されておらず、"
+                "同Directoryに掲載もされておらず、承認もされていないため、"
+                "同Directoryからは利用できません。",
+            ),
+            (
+                submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+                "本 Plugin 尚未提交至 OpenAI 的公開 Plugins Directory，也未列入該目錄、"
+                "未獲該目錄核准，且無法從該目錄公開取得或使用。",
+            ),
+        )
+        for relative, localized in replacements:
+            with self.subTest(relative=relative):
+                with tempfile.TemporaryDirectory() as temp:
+                    root = build_repo(temp)
+                    path = root / relative
+                    path.write_text(
+                        path.read_text(encoding="utf-8").replace(localized, english),
+                        encoding="utf-8",
+                    )
+                    self.assert_rejected(
+                        run_validator(root),
+                        "must state the localized public Directory boundary",
+                    )
 
 
 class HardenedValidationTests(RepoInvariantTestCase):

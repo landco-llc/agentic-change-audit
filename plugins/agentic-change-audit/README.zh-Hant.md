@@ -11,6 +11,7 @@
 ## Development 狀態
 
 - **Phase C 的 desktop 證據仍待完成。** 先前的 desktop 證據屬於歷史資料，且已被取代：它僅涵蓋舊 marketplace identity 與 Plugin version，因此不能移轉至中性的 **Agentic Change Audit marketplace** 或 Plugin version `0.1.0-dev.3`。本 repository 尚未記錄任何 Phase C 的 desktop 檢查。待補的證據包括 marketplace 註冊、探索、安裝、明確呼叫及 Git working tree 未變更。
+- 本 Plugin 尚未提交至 OpenAI 的公開 Plugins Directory，也未列入該目錄、未獲該目錄核准，且無法從該目錄公開取得或使用。
 - **Human prerequisite 仍待完成。** repository 資料不能滿足 identity verification、logo 核准或其他人工決定。
 - **Repository 端測試請使用 local marketplace。**
   [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md) 與

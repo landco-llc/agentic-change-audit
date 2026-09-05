@@ -29,7 +29,9 @@ Change Audit Codex Plugin. It changes nothing about the Plugin runtime.
 
 ## Desktop evidence boundary
 
-- Phase A is merged; pull request #15 is complete for that phase.
+- Phase A pull request #16 accepted implementation head
+  `581beae7e1c0dc0157ef32959e5d83925aa2ee27` and merged as
+  `20f53ecfcd5ebc13b6a4b2ddea41f292f54778e0`.
 - Phase C desktop evidence remains pending for the neutral marketplace
   identity and `0.1.0-dev.3`.
 - Earlier desktop evidence is historical, superseded, and non-transferable

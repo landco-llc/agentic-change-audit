@@ -10,7 +10,9 @@ release, or external-service status.
 ## Immutable merge facts
 
 - Work item: `ACA-W006`.
-- Phase A pull request: [#15](https://github.com/landco-llc/agentic-change-audit/pull/15), completed as the Phase A merge record.
+- Phase A pull request: [#16](https://github.com/landco-llc/agentic-change-audit/pull/16).
+- Accepted implementation head:
+  `581beae7e1c0dc0157ef32959e5d83925aa2ee27`.
 - Repository merge commit observed in this history context:
   `20f53ecfcd5ebc13b6a4b2ddea41f292f54778e0`.
 - Plugin development version: `0.1.0-dev.3`.
@@ -18,7 +20,8 @@ release, or external-service status.
 
 ## Scope and control boundaries
 
-- Phase A is complete for the merged repository change.
+- Phase A is complete for the merged repository change. This fact does not
+  establish an independent audit outcome or completion of Phase C.
 - Earlier desktop evidence is historical and superseded: it applied to the
   previous identity and Plugin version and cannot be transferred to the
   neutral identity or `0.1.0-dev.3`.

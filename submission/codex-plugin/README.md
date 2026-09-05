@@ -11,7 +11,9 @@ It does not change the Plugin runtime or satisfy any human prerequisite.
 
 - The Plugin version is `0.1.0-dev.3`, a development identifier, and its
   marketplace identity is the neutral **Agentic Change Audit marketplace**.
-- Phase A is merged; pull request #15 is complete for that phase.
+- Phase A pull request #16 accepted implementation head
+  `581beae7e1c0dc0157ef32959e5d83925aa2ee27` and merged as
+  `20f53ecfcd5ebc13b6a4b2ddea41f292f54778e0`.
 - Phase C desktop evidence remains pending. Earlier desktop evidence is
   historical, superseded, and non-transferable because it covered a previous
   marketplace identity and Plugin version.

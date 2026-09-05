@@ -12,6 +12,7 @@ identity and Plugin version `0.1.0-dev.3`.
 ## Development status
 
 - **Phase C desktop evidence is pending.** Earlier desktop evidence is historical and superseded: it covered a previous marketplace identity and Plugin version, so it cannot be transferred to the neutral **Agentic Change Audit marketplace** or Plugin version `0.1.0-dev.3`. No Phase C desktop checks are recorded here. The pending evidence set covers marketplace registration, discovery, installation, explicit invocation, and Git working-tree non-mutation.
+- This Plugin has not been submitted to or approved for OpenAI's public Plugins Directory, is not listed in that Directory, and is not available from it.
 - **Human prerequisites remain pending.** Repository materials cannot satisfy
   identity verification, logo approval, or other human decisions.
 - **Use the repository's local marketplace for repository-side testing.**
