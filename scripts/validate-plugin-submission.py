@@ -231,19 +231,33 @@ PRIVACY_REQUIRED_BOUNDARIES = (
 )
 
 PRIVACY_COLLECTION_TERMS = (
-    re.compile(r"\bcollect\b", re.IGNORECASE),
-    re.compile(r"\btransmit\b", re.IGNORECASE),
-    re.compile(r"\bsell\b", re.IGNORECASE),
-    re.compile(r"\bshare\b", re.IGNORECASE),
+    re.compile(r"\bcollect(?:s|ed|ing)?\b", re.IGNORECASE),
+    re.compile(r"\btransmit(?:s|ted|ting)?\b", re.IGNORECASE),
+    re.compile(r"\bsell(?:s|ing)?\b|\bsold\b", re.IGNORECASE),
+    re.compile(r"\bshar(?:e|es|ed|ing)\b", re.IGNORECASE),
     re.compile(r"\buser\s+data\b", re.IGNORECASE),
 )
 PRIVACY_PLUGIN_COLLECTION_SUBJECT_PATTERN = re.compile(
     r"\b(?:the|this)\s+Plugin(?:\s+itself)?\s+does\s+not\b",
     re.IGNORECASE,
 )
+META_FALSE_OPERATOR_PATTERN = r"(?:false|untrue|not\s+true)"
 PRIVACY_META_FALSE_PATTERN = re.compile(
     r"\b(?:it|this|that)\s+(?:is|remains)\s*"
-    r"(?:,\s*)?(?:[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}false\s+that\b",
+    r"(?:,\s*)?(?:(?!not\b)[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}"
+    rf"{META_FALSE_OPERATOR_PATTERN}\s+that\b",
+    re.IGNORECASE,
+)
+PRIVACY_PLUGIN_POSITIVE_COLLECTION_PATTERN = re.compile(
+    r"\b(?:the|this|that)\s+Plugin(?:\s+itself)?\b"
+    r"[^.!?;:\n]{0,64}?\b(?:collects?|transmits?|sells?|shares?)\b"
+    r"[^.!?;:\n]{0,48}?\buser\s+data\b",
+    re.IGNORECASE,
+)
+PRIVACY_ANAPHORIC_POSITIVE_COLLECTION_PATTERN = re.compile(
+    r"^(?:but\s+)?it\b"
+    r"[^.!?;:\n]{0,32}?\b(?:collects?|transmits?|sells?|shares?)\b"
+    r"[^.!?;:\n]{0,48}?\buser\s+data\b",
     re.IGNORECASE,
 )
 PRIVACY_CAPABILITY_TERMS = (
@@ -350,7 +364,13 @@ SUPPORT_DOC_QUALIFIER_PATTERN = re.compile(
 SUPPORT_PROVIDER_ACTIVE_PATTERN = re.compile(
     r"^(?P<actor>[^.!?;:\n]{1,80}?)\s+"
     r"(?:now\s+|currently\s+|directly\s+|also\s+){0,3}"
-    r"provides?\b[^.!?;:\n]{0,80}\bofficial\s+(?:customer\s+)?support\b",
+    r"(?:provides?|supplies)\b[^.!?;:\n]{0,80}\bofficial\s+(?:customer\s+)?support\b",
+    re.IGNORECASE,
+)
+SUPPORT_PROVIDER_STATUS_PATTERN = re.compile(
+    r"^(?P<actor>[^.!?;:\n]{1,80}?)\s+"
+    r"(?:is|was|remains?)\s+(?:now\s+|currently\s+)?"
+    r"(?:not\s+|never\s+)?(?:the\s+)?official\s+(?:customer\s+)?support\s+provider\b",
     re.IGNORECASE,
 )
 SUPPORT_PROVIDER_PASSIVE_PATTERN = re.compile(
@@ -361,15 +381,18 @@ SUPPORT_PROVIDER_PASSIVE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 SUPPORT_PROVIDER_NEGATION_PATTERN = re.compile(
-    r"\b(?:does|do|did)\s+not\s+(?:currently\s+|now\s+)?provide\b|"
-    r"\bnever\s+provides?\b|"
+    r"\b(?:does|do|did)\s+not\s+(?:currently\s+|now\s+)?(?:provide|supply)\b|"
+    r"\bnever\s+(?:provides?|supplies)\b|"
+    r"\b(?:is|was|remains?)\s+(?:currently\s+|now\s+)?"
+    r"(?:not|never)\s+(?:the\s+)?official\s+(?:customer\s+)?support\s+provider\b|"
     r"\bofficial\s+(?:customer\s+)?support\b[^.!?;:\n]{0,48}"
     r"\b(?:is|was)\s+(?:currently\s+|now\s+)?not\s+provided\b",
     re.IGNORECASE,
 )
 SUPPORT_META_FALSE_PATTERN = re.compile(
     r"\b(?:it|this|that)\s+(?:is|remains)\s*"
-    r"(?:,\s*)?(?:[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}false\s+that\b",
+    r"(?:,\s*)?(?:(?!not\b)[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}"
+    rf"{META_FALSE_OPERATOR_PATTERN}\s+that\b",
     re.IGNORECASE,
 )
 SUPPORT_DIRECT_CONTACT_ANAPHOR_PATTERN = re.compile(
@@ -1264,6 +1287,18 @@ _NEG_STATUS_COORD = (
 )
 
 NEGATED_STATUS_PATTERNS = (
+    # A meta-false operator over a positive Plugin status claim is itself a
+    # negative status assertion: "It is not true that this Plugin is published."
+    re.compile(
+        r"\b(?:it|this|that)\s+(?:is|remains)\s*"
+        r"(?:,\s*)?(?:(?!not\b)[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}"
+        rf"{META_FALSE_OPERATOR_PATTERN}\s+that\s+"
+        r"(?:this|the|that)\s+Plugin(?:\s+itself)?\b"
+        r"[^.!?;:\n]{0,80}?\b(?:is|was|has|have)\b"
+        r"[^.!?;:\n]{0,32}?"
+        r"(?:published|approved|submitted|released|listed|available|stable)\b",
+        re.IGNORECASE,
+    ),
     # English: "is not published", "has not been submitted to, listed in, or
     # approved for", "not a public release".
     re.compile(
@@ -1355,7 +1390,8 @@ POSITIVE_STATUS_PATTERNS = (
 # polarity, referent, and discourse scope are checked separately below.
 STATUS_META_FALSE_PATTERN = re.compile(
     r"\b(?:it|this|that)\s+(?:is|remains)\s*"
-    r"(?:,\s*)?(?:[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}false\s+that\b",
+    r"(?:,\s*)?(?:(?!not\b)[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}"
+    rf"{META_FALSE_OPERATOR_PATTERN}\s+that\b",
     re.IGNORECASE,
 )
 STATUS_NEGATED_PLUGIN_PREDICATE_PATTERN = re.compile(
@@ -1375,6 +1411,16 @@ STATUS_PUBLIC_DISTRIBUTION_PATTERN = re.compile(
 STATUS_OPENAI_PATTERN = re.compile(r"\bOpenAI\b", re.IGNORECASE)
 STATUS_EXPLICIT_PLUGIN_PATTERN = re.compile(
     r"\b(?:this|the|that)\s+Plugin(?:\s+itself)?\b", re.IGNORECASE
+)
+STATUS_DIRECT_SUBJECT_ANAPHOR_PATTERN = re.compile(
+    r"^(?:it|this|that)\b", re.IGNORECASE
+)
+STATUS_NEGATED_ANAPHOR_PREDICATE_PATTERN = re.compile(
+    r"\b(?:it|this|that)\s+(?:is|was|has|have)\b"
+    r"[^.!?;:\n]{0,32}?\b(?:not|never)\b"
+    r"(?:\s+[A-Za-z-]+){0,3}\s+"
+    r"(?:published|approved|submitted|released|listed|available|stable)\b",
+    re.IGNORECASE,
 )
 STATUS_PUBLIC_DIRECTORY_PATTERN = re.compile(
     r"\bpublic\s+Plugins\s+Directory\b", re.IGNORECASE
@@ -2036,10 +2082,10 @@ def check_boundaries(
             errors.append(f"{label} must state the boundary: {name}")
 
 
-def structured_sentence_units(visible: str) -> list[str]:
-    """Rejoin coordinated graph spans that belong to one source sentence."""
+def structured_sentence_records(visible: str) -> list[tuple[str, int, int]]:
+    """Rejoin graph spans by source sentence while retaining locality."""
     graph = build_structured_span_graph(visible)
-    units: list[str] = []
+    records: list[tuple[str, int, int]] = []
     current_key: tuple[int, int] | None = None
     current_start = 0
     current_end = 0
@@ -2049,13 +2095,17 @@ def structured_sentence_units(visible: str) -> list[str]:
             current_key = key
             current_start = span.start
         elif key != current_key:
-            units.append(visible[current_start:current_end].strip())
+            text = visible[current_start:current_end].strip()
+            if text:
+                records.append((text, current_key[0], current_key[1]))
             current_key = key
             current_start = span.start
         current_end = span.end
     if current_key is not None:
-        units.append(visible[current_start:current_end].strip())
-    return [unit for unit in units if unit]
+        text = visible[current_start:current_end].strip()
+        if text:
+            records.append((text, current_key[0], current_key[1]))
+    return records
 
 
 def privacy_capability_list_is_complete(text: str) -> bool:
@@ -2075,8 +2125,9 @@ def privacy_capability_list_is_negated(text: str) -> bool:
 def classify_privacy_assertion(
     text: str,
     previous: BoundSemanticAssertion | None,
+    direct_antecedent: bool,
 ) -> BoundSemanticAssertion:
-    """Bind the two normative English Privacy assertions and one direct use."""
+    """Bind normative Privacy assertions and direct one-hop uses."""
     scope = classify_predicate_scope(text)
     if all(pattern.search(text) for pattern in PRIVACY_COLLECTION_TERMS):
         subject = (
@@ -2095,6 +2146,30 @@ def classify_privacy_assertion(
             BoundPredicate.DATA_COLLECTION,
             polarity,
             BoundReferent.EXPLICIT,
+            scope,
+        )
+
+    if PRIVACY_PLUGIN_POSITIVE_COLLECTION_PATTERN.search(text):
+        return BoundSemanticAssertion(
+            BoundSubject.PLUGIN,
+            BoundPredicate.DATA_COLLECTION,
+            BoundPolarity.POSITIVE,
+            BoundReferent.EXPLICIT,
+            scope,
+        )
+
+    if (
+        PRIVACY_ANAPHORIC_POSITIVE_COLLECTION_PATTERN.search(text)
+        and direct_antecedent
+        and previous is not None
+        and previous.subject is BoundSubject.PLUGIN
+        and previous.referent is BoundReferent.EXPLICIT
+    ):
+        return BoundSemanticAssertion(
+            BoundSubject.PLUGIN,
+            BoundPredicate.DATA_COLLECTION,
+            BoundPolarity.POSITIVE,
+            BoundReferent.DIRECT_ANAPHORA,
             scope,
         )
 
@@ -2119,6 +2194,7 @@ def classify_privacy_assertion(
 
     if (
         PRIVACY_PLUGIN_INCLUDES_ANAPHOR_PATTERN.search(text)
+        and direct_antecedent
         and previous is not None
         and previous.predicate is BoundPredicate.CAPABILITY_ABSENCE
         and previous.referent is BoundReferent.EXPLICIT
@@ -2144,10 +2220,20 @@ def validate_privacy_semantics(text: str, errors: list[str]) -> None:
     visible = markdown_visible_text(text)
     roles: list[BoundSemanticAssertion] = []
     previous: BoundSemanticAssertion | None = None
-    for unit in structured_sentence_units(visible):
-        current = classify_privacy_assertion(unit, previous)
+    previous_paragraph: int | None = None
+    previous_sentence: int | None = None
+    for unit, paragraph_id, sentence_id in structured_sentence_records(visible):
+        direct_antecedent = bool(
+            previous is not None
+            and previous_paragraph == paragraph_id
+            and previous_sentence is not None
+            and sentence_id in {previous_sentence, previous_sentence + 1}
+        )
+        current = classify_privacy_assertion(unit, previous, direct_antecedent)
         roles.append(current)
         previous = current
+        previous_paragraph = paragraph_id
+        previous_sentence = sentence_id
 
     assertive_scope = DiscourseMode.CURRENT_ASSERTION
     collection_is_bound = any(
@@ -2162,6 +2248,21 @@ def validate_privacy_semantics(text: str, errors: list[str]) -> None:
         errors.append(
             "PRIVACY.md must state the boundary: the Plugin itself does not "
             "collect, transmit, sell, or share user data."
+        )
+    collection_is_contradicted = any(
+        role.subject is BoundSubject.PLUGIN
+        and role.predicate is BoundPredicate.DATA_COLLECTION
+        and role.polarity
+        in {BoundPolarity.POSITIVE, BoundPolarity.META_REVERSED_POSITIVE}
+        and role.referent
+        in {BoundReferent.EXPLICIT, BoundReferent.DIRECT_ANAPHORA}
+        and role.scope is assertive_scope
+        for role in roles
+    )
+    if collection_is_contradicted:
+        errors.append(
+            "PRIVACY.md must not contradict the boundary that the Plugin itself "
+            "does not collect, transmit, sell, or share user data."
         )
 
     capability_absence_is_bound = any(
@@ -2229,16 +2330,20 @@ def classify_support_assertion(visible: str) -> BoundSemanticAssertion:
         else DiscourseMode.CURRENT_ASSERTION
     )
 
-    provider_match = SUPPORT_PROVIDER_ACTIVE_PATTERN.search(
-        visible
-    ) or SUPPORT_PROVIDER_PASSIVE_PATTERN.search(visible)
+    provider_match = (
+        SUPPORT_PROVIDER_ACTIVE_PATTERN.search(visible)
+        or SUPPORT_PROVIDER_STATUS_PATTERN.search(visible)
+        or SUPPORT_PROVIDER_PASSIVE_PATTERN.search(visible)
+    )
     if provider_match:
-        polarity = (
-            BoundPolarity.NEGATIVE
-            if SUPPORT_PROVIDER_NEGATION_PATTERN.search(visible)
-            or SUPPORT_META_FALSE_PATTERN.search(visible)
-            else BoundPolarity.POSITIVE
-        )
+        provider_is_negated = bool(SUPPORT_PROVIDER_NEGATION_PATTERN.search(visible))
+        provider_is_meta_reversed = bool(SUPPORT_META_FALSE_PATTERN.search(visible))
+        if provider_is_negated and provider_is_meta_reversed:
+            polarity = BoundPolarity.POSITIVE
+        elif provider_is_negated or provider_is_meta_reversed:
+            polarity = BoundPolarity.NEGATIVE
+        else:
+            polarity = BoundPolarity.POSITIVE
         return BoundSemanticAssertion(
             BoundSubject.SUPPORT_PROVIDER,
             BoundPredicate.SUPPORT_ROLE,
@@ -2298,7 +2403,12 @@ def validate_support(root: Path, errors: list[str]) -> None:
     previous_semantics: BoundSemanticAssertion | None = None
     for line in text.splitlines():
         stripped_line = line.strip()
-        if not stripped_line or MD_FENCE_MARKER_PATTERN.match(line):
+        if not stripped_line:
+            # A blank line ends a Markdown paragraph. Anaphora is deliberately
+            # limited to one direct antecedent in the same paragraph.
+            previous_semantics = None
+            continue
+        if MD_FENCE_MARKER_PATTERN.match(line):
             continue
         if MD_DEFINITION_LINE_PATTERN.match(line):
             # Definitions are inert; findings attach to the lines that
@@ -2574,21 +2684,42 @@ def structural_atomic_segments(visible: str) -> list[str]:
 def classify_status_assertion(
     span: StructuredSpan,
     previous: BoundSemanticAssertion | None,
+    previous_span: StructuredSpan | None,
 ) -> BoundSemanticAssertion:
     """Bind one status span without allowing transitive pronoun inheritance."""
     text = span.text
     scope = classify_predicate_scope(text)
     explicit_plugin = bool(STATUS_EXPLICIT_PLUGIN_PATTERN.search(text))
+    direct_plugin_antecedent = bool(
+        STATUS_DIRECT_SUBJECT_ANAPHOR_PATTERN.search(text)
+        and previous is not None
+        and previous.subject is BoundSubject.PLUGIN
+        and previous.referent is BoundReferent.EXPLICIT
+        and previous_span is not None
+        and previous_span.paragraph_id == span.paragraph_id
+        and span.sentence_id
+        in {previous_span.sentence_id, previous_span.sentence_id + 1}
+    )
 
     if (
         STATUS_META_FALSE_PATTERN.search(text)
-        and STATUS_NEGATED_PLUGIN_PREDICATE_PATTERN.search(text)
+        and (
+            STATUS_NEGATED_PLUGIN_PREDICATE_PATTERN.search(text)
+            or (
+                STATUS_NEGATED_ANAPHOR_PREDICATE_PATTERN.search(text)
+                and direct_plugin_antecedent
+            )
+        )
     ):
         return BoundSemanticAssertion(
             BoundSubject.PLUGIN,
             BoundPredicate.PRODUCT_STATUS,
             BoundPolarity.META_REVERSED_POSITIVE,
-            BoundReferent.EXPLICIT,
+            (
+                BoundReferent.EXPLICIT
+                if explicit_plugin
+                else BoundReferent.DIRECT_ANAPHORA
+            ),
             scope,
         )
 
@@ -2596,7 +2727,7 @@ def classify_status_assertion(
         STATUS_OPENAI_PATTERN.search(text)
         and STATUS_PUBLIC_DISTRIBUTION_ACCEPT_PATTERN.search(text)
         and STATUS_PUBLIC_DISTRIBUTION_PATTERN.search(text)
-        and explicit_plugin
+        and (explicit_plugin or direct_plugin_antecedent)
     ):
         polarity = (
             BoundPolarity.NEGATIVE
@@ -2607,7 +2738,11 @@ def classify_status_assertion(
             BoundSubject.PLUGIN,
             BoundPredicate.PUBLIC_DISTRIBUTION,
             polarity,
-            BoundReferent.EXPLICIT,
+            (
+                BoundReferent.EXPLICIT
+                if explicit_plugin
+                else BoundReferent.DIRECT_ANAPHORA
+            ),
             scope,
         )
 
@@ -2657,8 +2792,9 @@ def semantic_status_claim_spans(visible: str) -> list[str]:
     """Return unsafe bounded semantic status assertions in source order."""
     unsafe: list[str] = []
     previous: BoundSemanticAssertion | None = None
+    previous_span: StructuredSpan | None = None
     for span in build_structured_span_graph(visible).spans:
-        roles = classify_status_assertion(span, previous)
+        roles = classify_status_assertion(span, previous, previous_span)
         is_assertive_scope = roles.scope not in {
             DiscourseMode.QUESTION_OR_VERIFICATION,
             DiscourseMode.FUTURE_OR_HYPOTHETICAL,
@@ -2690,6 +2826,7 @@ def semantic_status_claim_spans(visible: str) -> list[str]:
         ):
             unsafe.append(" ".join(span.text.split()))
         previous = roles
+        previous_span = span
     return unsafe
 
 

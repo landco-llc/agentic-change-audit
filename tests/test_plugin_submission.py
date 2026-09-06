@@ -2184,6 +2184,18 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
             "It is false that this Plugin is not published.",
         )
 
+    def test_untrue_meta_negated_not_published_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "It is untrue that this Plugin is not published.",
+        )
+
+    def test_not_true_meta_negated_not_published_claim_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "It is not true that this Plugin is not published.",
+        )
+
     def test_meta_negated_not_currently_published_with_modifiers_fails(self):
         self.reject_claim(
             submission_module.RELEASE_NOTES_RELATIVE,
@@ -2207,6 +2219,19 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
         self.reject_claim(
             submission_module.RELEASE_NOTES_RELATIVE,
             "For immediate public distribution, this Plugin was accepted by OpenAI.",
+        )
+
+    def test_plugin_antecedent_passive_public_acceptance_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "OpenAI evaluated this Plugin. It was accepted by OpenAI for public "
+            "distribution.",
+        )
+
+    def test_plugin_antecedent_pronoun_meta_negation_fails(self):
+        self.reject_claim(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "OpenAI evaluated this Plugin. It is not true that it is not published.",
         )
 
     def test_directory_carries_direct_plugin_anaphor_fails(self):
@@ -2313,6 +2338,12 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
             "It is false that this policy is not published.",
         )
 
+    def test_not_true_negative_status_statement_passes(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "It is not true that this Plugin is published.",
+        )
+
     def test_possible_public_distribution_review_passes(self):
         self.accept_statement(
             submission_module.RELEASE_NOTES_RELATIVE,
@@ -2330,6 +2361,20 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
             submission_module.RELEASE_NOTES_RELATIVE,
             "OpenAI evaluated this Plugin. The policy describes listing rules. "
             "The public Plugins Directory now carries it.",
+        )
+
+    def test_public_acceptance_anaphor_does_not_cross_intervening_assertion(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "OpenAI evaluated this Plugin. The policy describes review rules. "
+            "It was accepted by OpenAI for public distribution.",
+        )
+
+    def test_public_acceptance_anaphor_does_not_cross_paragraphs(self):
+        self.accept_statement(
+            submission_module.RELEASE_NOTES_RELATIVE,
+            "OpenAI evaluated this Plugin.\n\n"
+            "It was accepted by OpenAI for public distribution.",
         )
 
     def test_valid_ja_policy_urls_prepared_statement_passes(self):
@@ -2637,14 +2682,10 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
             )
         )
 
-    def test_support_provider_then_adjacent_paragraph_contact_anaphor_fails(self):
-        self.reject_support(
-            lambda root: append_text(
-                root,
-                submission_module.SUPPORT_RELATIVE,
-                "\nExample Corp provides official support.\n\n"
-                "Contact them [here](https://example.com/help).\n",
-            )
+    def test_support_provider_anaphor_does_not_cross_paragraphs(self):
+        self.accept_support(
+            "Example Corp provides official support.\n\n"
+            "Contact them [here](https://example.com/help)."
         )
 
     def test_passive_support_provider_then_contact_destination_fails(self):
@@ -2677,6 +2718,36 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
             )
         )
 
+    def test_support_provider_status_then_contact_destination_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nExample Corp is the official support provider.\n"
+                "The contact destination is https://example.com/help.\n",
+            )
+        )
+
+    def test_support_supplier_then_direct_contact_anaphor_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nExample Corp supplies official support.\n"
+                "Contact them [here](https://example.com/help).\n",
+            )
+        )
+
+    def test_meta_reversed_negated_provider_then_contact_fails(self):
+        self.reject_support(
+            lambda root: append_text(
+                root,
+                submission_module.SUPPORT_RELATIVE,
+                "\nIt is untrue that Example Corp does not provide official support.\n"
+                "Contact them [here](https://example.com/help).\n",
+            )
+        )
+
     # --- Valid: reference and documentation links must stay allowed ---------
 
     def test_support_glossary_reference_url_passes(self):
@@ -2700,6 +2771,31 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
     def test_support_zh_glossary_reference_passes(self):
         self.accept_support(
             "支援術語的背景資料請參閱 https://example.com/docs/support-glossary。"
+        )
+
+    def test_negated_support_provider_does_not_bind_contact(self):
+        self.accept_support(
+            "Example Corp does not provide official support.\n"
+            "Contact them [here](https://example.com/help)."
+        )
+
+    def test_meta_reversed_positive_provider_does_not_bind_contact(self):
+        self.accept_support(
+            "It is untrue that Example Corp provides official support.\n"
+            "Contact them [here](https://example.com/help)."
+        )
+
+    def test_documented_support_provider_does_not_bind_contact(self):
+        self.accept_support(
+            "The documentation says Example Corp is the official support provider.\n"
+            "The contact destination is https://example.com/help."
+        )
+
+    def test_support_provider_does_not_relay_across_intervening_assertion(self):
+        self.accept_support(
+            "Example Corp supplies official support.\n"
+            "The policy describes contact terminology.\n"
+            "Contact them [here](https://example.com/help)."
         )
 
     # --- F-04: reference-style links resolve to their destinations ----------
@@ -3031,6 +3127,39 @@ class PrivacySemanticBindingTests(RepoInvariantTestCase):
             self.PRIVACY_ERROR,
         )
 
+    def test_untrue_meta_negated_collection_boundary_fails(self):
+        canonical = (
+            "The Plugin itself does not collect, transmit, sell, or share user data."
+        )
+        replacement = (
+            "It is untrue that the Plugin itself does not collect, transmit, sell, "
+            "or share user data."
+        )
+        self.assert_rejected(
+            self.mutate_privacy(canonical, replacement),
+            self.PRIVACY_ERROR,
+        )
+
+    def test_positive_collection_contradiction_fails(self):
+        canonical = (
+            "The Plugin itself does not collect, transmit, sell, or share user data."
+        )
+        replacement = canonical + " But the Plugin itself collects user data."
+        self.assert_rejected(
+            self.mutate_privacy(canonical, replacement),
+            "must not contradict",
+        )
+
+    def test_anaphoric_positive_collection_contradiction_fails(self):
+        canonical = (
+            "The Plugin itself does not collect, transmit, sell, or share user data."
+        )
+        replacement = canonical + " But it collects user data."
+        self.assert_rejected(
+            self.mutate_privacy(canonical, replacement),
+            "must not contradict",
+        )
+
     def test_wrong_subject_capability_list_then_plugin_includes_them_fails(self):
         canonical = (
             "It includes **no MCP server**, no ChatGPT app, no connector, no external "
@@ -3051,6 +3180,42 @@ class PrivacySemanticBindingTests(RepoInvariantTestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = build_repo(temp)
             self.assert_accepted(run_validator(root))
+
+    def test_true_meta_negative_collection_boundary_passes(self):
+        canonical = (
+            "The Plugin itself does not collect, transmit, sell, or share user data."
+        )
+        result = self.mutate_privacy(canonical, "It is true that " + canonical)
+        self.assert_accepted(result)
+
+    def test_wrong_subject_positive_collection_claim_passes(self):
+        canonical = (
+            "The Plugin itself does not collect, transmit, sell, or share user data."
+        )
+        result = self.mutate_privacy(
+            canonical, canonical + " But this policy collects user data."
+        )
+        self.assert_accepted(result)
+
+    def test_documented_positive_collection_example_passes(self):
+        canonical = (
+            "The Plugin itself does not collect, transmit, sell, or share user data."
+        )
+        result = self.mutate_privacy(
+            canonical, canonical + " Example: the Plugin itself collects user data."
+        )
+        self.assert_accepted(result)
+
+    def test_collection_anaphor_does_not_relay_across_intervening_assertion(self):
+        canonical = (
+            "The Plugin itself does not collect, transmit, sell, or share user data."
+        )
+        result = self.mutate_privacy(
+            canonical,
+            canonical
+            + " The policy describes collection terminology. But it collects user data.",
+        )
+        self.assert_accepted(result)
 
 
 def _make_privacy_removal_test(snippet: str):
