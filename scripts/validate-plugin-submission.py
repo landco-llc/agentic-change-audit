@@ -230,6 +230,44 @@ PRIVACY_REQUIRED_BOUNDARIES = (
     ),
 )
 
+PRIVACY_COLLECTION_TERMS = (
+    re.compile(r"\bcollect\b", re.IGNORECASE),
+    re.compile(r"\btransmit\b", re.IGNORECASE),
+    re.compile(r"\bsell\b", re.IGNORECASE),
+    re.compile(r"\bshare\b", re.IGNORECASE),
+    re.compile(r"\buser\s+data\b", re.IGNORECASE),
+)
+PRIVACY_PLUGIN_COLLECTION_SUBJECT_PATTERN = re.compile(
+    r"\b(?:the|this)\s+Plugin(?:\s+itself)?\s+does\s+not\b",
+    re.IGNORECASE,
+)
+PRIVACY_META_FALSE_PATTERN = re.compile(
+    r"\b(?:it|this|that)\s+(?:is|remains)\s*"
+    r"(?:,\s*)?(?:[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}false\s+that\b",
+    re.IGNORECASE,
+)
+PRIVACY_CAPABILITY_TERMS = (
+    "MCP server",
+    "ChatGPT app",
+    "connector",
+    "external service",
+    "telemetry",
+    "analytics",
+    "authentication flow",
+    "network client",
+)
+PRIVACY_PLUGIN_CAPABILITY_SUBJECT_PATTERN = re.compile(
+    r"^(?:It|(?:The|This)\s+Plugin(?:\s+itself)?)\s+"
+    r"(?:currently\s+|expressly\s+)?includes?\b",
+    re.IGNORECASE,
+)
+PRIVACY_PLUGIN_INCLUDES_ANAPHOR_PATTERN = re.compile(
+    r"\b(?:the|this)\s+Plugin(?:\s+itself)?\s+"
+    r"(?:now\s+|currently\s+|expressly\s+)?includes?\s+"
+    r"(?:all\s+of\s+)?(?:them|these|those)\b",
+    re.IGNORECASE,
+)
+
 SUPPORT_REQUIRED_BOUNDARIES = (
     ("the only support channel is GitHub Issues", ("only support channel", "GitHub Issues")),
     (
@@ -306,6 +344,40 @@ SUPPORT_DOC_QUALIFIER_PATTERN = re.compile(
     r"|implementation\s+notes|explains|discusses|compares)\b"
     r"|説明|用語|背景資料|参照|参考資料|ドキュメント|実装ノート|解説"
     r"|說明|術語|背景資料|參閱|參考資料|文件|詞彙|解說",
+    re.IGNORECASE,
+)
+
+SUPPORT_PROVIDER_ACTIVE_PATTERN = re.compile(
+    r"^(?P<actor>[^.!?;:\n]{1,80}?)\s+"
+    r"(?:now\s+|currently\s+|directly\s+|also\s+){0,3}"
+    r"provides?\b[^.!?;:\n]{0,80}\bofficial\s+(?:customer\s+)?support\b",
+    re.IGNORECASE,
+)
+SUPPORT_PROVIDER_PASSIVE_PATTERN = re.compile(
+    r"\bofficial\s+(?:customer\s+)?support\b[^.!?;:\n]{0,64}?"
+    r"\b(?:is|was|remains?)\s+(?:now\s+|currently\s+)?"
+    r"(?:not\s+|never\s+)?provided\s+by\s+"
+    r"(?P<actor>[^.!?;:\n]{1,80})\s*[.!?]?$",
+    re.IGNORECASE,
+)
+SUPPORT_PROVIDER_NEGATION_PATTERN = re.compile(
+    r"\b(?:does|do|did)\s+not\s+(?:currently\s+|now\s+)?provide\b|"
+    r"\bnever\s+provides?\b|"
+    r"\bofficial\s+(?:customer\s+)?support\b[^.!?;:\n]{0,48}"
+    r"\b(?:is|was)\s+(?:currently\s+|now\s+)?not\s+provided\b",
+    re.IGNORECASE,
+)
+SUPPORT_META_FALSE_PATTERN = re.compile(
+    r"\b(?:it|this|that)\s+(?:is|remains)\s*"
+    r"(?:,\s*)?(?:[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}false\s+that\b",
+    re.IGNORECASE,
+)
+SUPPORT_DIRECT_CONTACT_ANAPHOR_PATTERN = re.compile(
+    r"\b(?:please\s+)?contact\s+(?:them|it|this|that)\b", re.IGNORECASE
+)
+SUPPORT_CONTACT_DESTINATION_PATTERN = re.compile(
+    r"\b(?:the\s+)?contact\s+(?:destination|address|URL|link)"
+    r"(?:\s+(?:is|remains)\b|\s*:)",
     re.IGNORECASE,
 )
 
@@ -997,6 +1069,56 @@ class StructuredSpanGraph:
     continuation_antecedents: dict[int, int]
 
 
+class BoundSubject(Enum):
+    NONE = auto()
+    PLUGIN = auto()
+    PUBLIC_DIRECTORY = auto()
+    SUPPORT_PROVIDER = auto()
+    POLICY_OR_DOCUMENT = auto()
+
+
+class BoundPredicate(Enum):
+    NONE = auto()
+    PRODUCT_STATUS = auto()
+    PUBLIC_DISTRIBUTION = auto()
+    DIRECTORY_CARRIES = auto()
+    SUPPORT_ROLE = auto()
+    CONTACT_DESTINATION = auto()
+    DATA_COLLECTION = auto()
+    CAPABILITY_ABSENCE = auto()
+    CAPABILITY_PRESENCE = auto()
+
+
+class BoundPolarity(Enum):
+    UNSPECIFIED = auto()
+    POSITIVE = auto()
+    NEGATIVE = auto()
+    META_REVERSED_POSITIVE = auto()
+
+
+class BoundReferent(Enum):
+    NONE = auto()
+    EXPLICIT = auto()
+    DIRECT_ANAPHORA = auto()
+
+
+@dataclass(frozen=True)
+class BoundSemanticAssertion:
+    """Inspectable semantic roles for the bounded policy checks below.
+
+    The validator deliberately does not implement unrestricted coreference.
+    A pronoun can inherit only from the immediately preceding assertion that
+    names its referent; that inherited assertion can never relay the referent
+    again. ``scope`` always belongs to the current predicate.
+    """
+
+    subject: BoundSubject
+    predicate: BoundPredicate
+    polarity: BoundPolarity
+    referent: BoundReferent
+    scope: DiscourseMode
+
+
 PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS = (
     re.compile(
         r"\bno\s+portal\s+action\s+is\s+performed\s+or\s+evidenced\s+by\s+this\s+repository\s+lane\b",
@@ -1226,6 +1348,50 @@ POSITIVE_STATUS_PATTERNS = (
     re.compile(r"已提交"),
     re.compile(r"已核准"),
     re.compile(r"正式發布"),
+)
+
+# Residual English status forms are classified by semantic roles rather than
+# by a wider bag of status words. The patterns identify the predicate; subject,
+# polarity, referent, and discourse scope are checked separately below.
+STATUS_META_FALSE_PATTERN = re.compile(
+    r"\b(?:it|this|that)\s+(?:is|remains)\s*"
+    r"(?:,\s*)?(?:[A-Za-z][A-Za-z-]*(?:\s*,)?\s+){0,3}false\s+that\b",
+    re.IGNORECASE,
+)
+STATUS_NEGATED_PLUGIN_PREDICATE_PATTERN = re.compile(
+    r"\b(?:this|the|that)\s+Plugin(?:\s+itself)?\b"
+    r"[^.!?;:\n]{0,80}?\b(?:is|was|has|have)\b"
+    r"[^.!?;:\n]{0,32}?\b(?:not|never)\b"
+    r"(?:\s+[A-Za-z-]+){0,3}\s+"
+    r"(?:published|approved|submitted|released|listed|available|stable)\b",
+    re.IGNORECASE,
+)
+STATUS_PUBLIC_DISTRIBUTION_ACCEPT_PATTERN = re.compile(
+    r"\baccept(?:s|ed|ing)?\b", re.IGNORECASE
+)
+STATUS_PUBLIC_DISTRIBUTION_PATTERN = re.compile(
+    r"\bpublic\s+distribution\b", re.IGNORECASE
+)
+STATUS_OPENAI_PATTERN = re.compile(r"\bOpenAI\b", re.IGNORECASE)
+STATUS_EXPLICIT_PLUGIN_PATTERN = re.compile(
+    r"\b(?:this|the|that)\s+Plugin(?:\s+itself)?\b", re.IGNORECASE
+)
+STATUS_PUBLIC_DIRECTORY_PATTERN = re.compile(
+    r"\bpublic\s+Plugins\s+Directory\b", re.IGNORECASE
+)
+STATUS_DIRECTORY_CARRIES_PATTERN = re.compile(
+    r"\b(?:carr(?:y|ies|ied)|stocks?|offers?|distributes?)\b", re.IGNORECASE
+)
+STATUS_DIRECT_OBJECT_ANAPHOR_PATTERN = re.compile(
+    r"\b(?:now\s+|currently\s+|already\s+)?"
+    r"(?:carr(?:y|ies|ied)|stocks?|offers?|distributes?)\s+"
+    r"(?:now\s+|currently\s+|already\s+)?(?:it|this|that)\b",
+    re.IGNORECASE,
+)
+STATUS_NEGATED_ACCEPTANCE_PATTERN = re.compile(
+    r"\b(?:not|never)\b[^.!?;:\n]{0,24}\baccept(?:s|ed|ing)?\b|"
+    r"\baccept(?:s|ed|ing)?\b[^.!?;:\n]{0,16}\bnot\b",
+    re.IGNORECASE,
 )
 
 # Structural separators are shared by portal-state and product-status scans.
@@ -1870,13 +2036,165 @@ def check_boundaries(
             errors.append(f"{label} must state the boundary: {name}")
 
 
+def structured_sentence_units(visible: str) -> list[str]:
+    """Rejoin coordinated graph spans that belong to one source sentence."""
+    graph = build_structured_span_graph(visible)
+    units: list[str] = []
+    current_key: tuple[int, int] | None = None
+    current_start = 0
+    current_end = 0
+    for span in graph.spans:
+        key = (span.paragraph_id, span.sentence_id)
+        if current_key is None:
+            current_key = key
+            current_start = span.start
+        elif key != current_key:
+            units.append(visible[current_start:current_end].strip())
+            current_key = key
+            current_start = span.start
+        current_end = span.end
+    if current_key is not None:
+        units.append(visible[current_start:current_end].strip())
+    return [unit for unit in units if unit]
+
+
+def privacy_capability_list_is_complete(text: str) -> bool:
+    return all(
+        re.search(rf"\b{re.escape(term)}\b", text, re.IGNORECASE)
+        for term in PRIVACY_CAPABILITY_TERMS
+    )
+
+
+def privacy_capability_list_is_negated(text: str) -> bool:
+    return all(
+        re.search(rf"\bno\s+{re.escape(term)}\b", text, re.IGNORECASE)
+        for term in PRIVACY_CAPABILITY_TERMS
+    )
+
+
+def classify_privacy_assertion(
+    text: str,
+    previous: BoundSemanticAssertion | None,
+) -> BoundSemanticAssertion:
+    """Bind the two normative English Privacy assertions and one direct use."""
+    scope = classify_predicate_scope(text)
+    if all(pattern.search(text) for pattern in PRIVACY_COLLECTION_TERMS):
+        subject = (
+            BoundSubject.PLUGIN
+            if PRIVACY_PLUGIN_COLLECTION_SUBJECT_PATTERN.search(text)
+            else BoundSubject.POLICY_OR_DOCUMENT
+        )
+        if PRIVACY_META_FALSE_PATTERN.search(text):
+            polarity = BoundPolarity.META_REVERSED_POSITIVE
+        elif subject is BoundSubject.PLUGIN:
+            polarity = BoundPolarity.NEGATIVE
+        else:
+            polarity = BoundPolarity.UNSPECIFIED
+        return BoundSemanticAssertion(
+            subject,
+            BoundPredicate.DATA_COLLECTION,
+            polarity,
+            BoundReferent.EXPLICIT,
+            scope,
+        )
+
+    if privacy_capability_list_is_complete(text):
+        subject = (
+            BoundSubject.PLUGIN
+            if PRIVACY_PLUGIN_CAPABILITY_SUBJECT_PATTERN.search(text)
+            else BoundSubject.POLICY_OR_DOCUMENT
+        )
+        polarity = (
+            BoundPolarity.NEGATIVE
+            if privacy_capability_list_is_negated(text)
+            else BoundPolarity.POSITIVE
+        )
+        return BoundSemanticAssertion(
+            subject,
+            BoundPredicate.CAPABILITY_ABSENCE,
+            polarity,
+            BoundReferent.EXPLICIT,
+            scope,
+        )
+
+    if (
+        PRIVACY_PLUGIN_INCLUDES_ANAPHOR_PATTERN.search(text)
+        and previous is not None
+        and previous.predicate is BoundPredicate.CAPABILITY_ABSENCE
+        and previous.referent is BoundReferent.EXPLICIT
+    ):
+        return BoundSemanticAssertion(
+            BoundSubject.PLUGIN,
+            BoundPredicate.CAPABILITY_PRESENCE,
+            BoundPolarity.POSITIVE,
+            BoundReferent.DIRECT_ANAPHORA,
+            scope,
+        )
+
+    return BoundSemanticAssertion(
+        BoundSubject.NONE,
+        BoundPredicate.NONE,
+        BoundPolarity.UNSPECIFIED,
+        BoundReferent.NONE,
+        scope,
+    )
+
+
+def validate_privacy_semantics(text: str, errors: list[str]) -> None:
+    visible = markdown_visible_text(text)
+    roles: list[BoundSemanticAssertion] = []
+    previous: BoundSemanticAssertion | None = None
+    for unit in structured_sentence_units(visible):
+        current = classify_privacy_assertion(unit, previous)
+        roles.append(current)
+        previous = current
+
+    assertive_scope = DiscourseMode.CURRENT_ASSERTION
+    collection_is_bound = any(
+        role.subject is BoundSubject.PLUGIN
+        and role.predicate is BoundPredicate.DATA_COLLECTION
+        and role.polarity is BoundPolarity.NEGATIVE
+        and role.referent is BoundReferent.EXPLICIT
+        and role.scope is assertive_scope
+        for role in roles
+    )
+    if not collection_is_bound:
+        errors.append(
+            "PRIVACY.md must state the boundary: the Plugin itself does not "
+            "collect, transmit, sell, or share user data."
+        )
+
+    capability_absence_is_bound = any(
+        role.subject is BoundSubject.PLUGIN
+        and role.predicate is BoundPredicate.CAPABILITY_ABSENCE
+        and role.polarity is BoundPolarity.NEGATIVE
+        and role.referent is BoundReferent.EXPLICIT
+        and role.scope is assertive_scope
+        for role in roles
+    )
+    capability_presence_is_bound = any(
+        role.subject is BoundSubject.PLUGIN
+        and role.predicate is BoundPredicate.CAPABILITY_PRESENCE
+        and role.polarity is BoundPolarity.POSITIVE
+        and role.referent is BoundReferent.DIRECT_ANAPHORA
+        and role.scope is assertive_scope
+        for role in roles
+    )
+    if not capability_absence_is_bound or capability_presence_is_bound:
+        errors.append(
+            "PRIVACY.md must state the boundary: the Plugin includes no MCP server, "
+            "ChatGPT app, connector, external service, telemetry, analytics, "
+            "authentication flow, or network client."
+        )
+
+
 def validate_privacy(root: Path, errors: list[str]) -> None:
     path = root / PRIVACY_RELATIVE
     if not path.is_file():
         return
-    check_boundaries(
-        errors, "PRIVACY.md", path.read_text(encoding="utf-8"), PRIVACY_REQUIRED_BOUNDARIES
-    )
+    text = path.read_text(encoding="utf-8")
+    check_boundaries(errors, "PRIVACY.md", text, PRIVACY_REQUIRED_BOUNDARIES)
+    validate_privacy_semantics(text, errors)
 
 
 def section_text(text: str, heading: str) -> str:
@@ -1900,6 +2218,62 @@ def section_text(text: str, heading: str) -> str:
     return "\n".join(collected)
 
 
+def classify_support_assertion(visible: str) -> BoundSemanticAssertion:
+    """Classify one visible support unit with locally bound semantic roles."""
+    # Portal-state discourse vocabulary cannot classify this domain: an
+    # organization literally named "Example Corp" is still a real support
+    # subject. Support's own documentation qualifier is the bounded scope.
+    scope = (
+        DiscourseMode.DOCUMENTATION_OR_EXAMPLE
+        if SUPPORT_DOC_QUALIFIER_PATTERN.search(visible)
+        else DiscourseMode.CURRENT_ASSERTION
+    )
+
+    provider_match = SUPPORT_PROVIDER_ACTIVE_PATTERN.search(
+        visible
+    ) or SUPPORT_PROVIDER_PASSIVE_PATTERN.search(visible)
+    if provider_match:
+        polarity = (
+            BoundPolarity.NEGATIVE
+            if SUPPORT_PROVIDER_NEGATION_PATTERN.search(visible)
+            or SUPPORT_META_FALSE_PATTERN.search(visible)
+            else BoundPolarity.POSITIVE
+        )
+        return BoundSemanticAssertion(
+            BoundSubject.SUPPORT_PROVIDER,
+            BoundPredicate.SUPPORT_ROLE,
+            polarity,
+            BoundReferent.EXPLICIT,
+            scope,
+        )
+
+    if SUPPORT_DIRECT_CONTACT_ANAPHOR_PATTERN.search(visible):
+        return BoundSemanticAssertion(
+            BoundSubject.SUPPORT_PROVIDER,
+            BoundPredicate.CONTACT_DESTINATION,
+            BoundPolarity.POSITIVE,
+            BoundReferent.DIRECT_ANAPHORA,
+            scope,
+        )
+
+    if SUPPORT_CONTACT_DESTINATION_PATTERN.search(visible):
+        return BoundSemanticAssertion(
+            BoundSubject.SUPPORT_PROVIDER,
+            BoundPredicate.CONTACT_DESTINATION,
+            BoundPolarity.POSITIVE,
+            BoundReferent.DIRECT_ANAPHORA,
+            scope,
+        )
+
+    return BoundSemanticAssertion(
+        BoundSubject.NONE,
+        BoundPredicate.NONE,
+        BoundPolarity.UNSPECIFIED,
+        BoundReferent.NONE,
+        scope,
+    )
+
+
 def validate_support(root: Path, errors: list[str]) -> None:
     path = root / SUPPORT_RELATIVE
     if not path.is_file():
@@ -1921,6 +2295,7 @@ def validate_support(root: Path, errors: list[str]) -> None:
     # never a finding.
     definitions = parse_reference_definitions(text)
     pending_assertion = ""
+    previous_semantics: BoundSemanticAssertion | None = None
     for line in text.splitlines():
         stripped_line = line.strip()
         if not stripped_line or MD_FENCE_MARKER_PATTERN.match(line):
@@ -1932,6 +2307,7 @@ def validate_support(root: Path, errors: list[str]) -> None:
             continue
 
         visible, targets = support_line_targets(line, definitions)
+        semantics = classify_support_assertion(visible)
         line_asserts = any(
             pattern.search(visible) for pattern in SUPPORT_ASSERTION_PATTERNS
         ) and not SUPPORT_DOC_QUALIFIER_PATTERN.search(visible)
@@ -1942,7 +2318,19 @@ def validate_support(root: Path, errors: list[str]) -> None:
             url = raw_url.rstrip(".,;)。、，：:")
             if url == CANONICAL_SUPPORT_URL:
                 continue
-            if line_asserts or (url_only and pending_assertion):
+            direct_support_destination = bool(
+                semantics.predicate is BoundPredicate.CONTACT_DESTINATION
+                and semantics.polarity is BoundPolarity.POSITIVE
+                and semantics.referent is BoundReferent.DIRECT_ANAPHORA
+                and semantics.scope is DiscourseMode.CURRENT_ASSERTION
+                and previous_semantics is not None
+                and previous_semantics.subject is BoundSubject.SUPPORT_PROVIDER
+                and previous_semantics.predicate is BoundPredicate.SUPPORT_ROLE
+                and previous_semantics.polarity is BoundPolarity.POSITIVE
+                and previous_semantics.referent is BoundReferent.EXPLICIT
+                and previous_semantics.scope is DiscourseMode.CURRENT_ASSERTION
+            )
+            if line_asserts or (url_only and pending_assertion) or direct_support_destination:
                 errors.append(
                     "SUPPORT.md declares GitHub Issues as the only support channel, so "
                     f"it must not present another support channel: {stripped_line!r}"
@@ -1960,6 +2348,11 @@ def validate_support(root: Path, errors: list[str]) -> None:
         else:
             # Unrelated prose, headings, and list items end the context.
             pending_assertion = ""
+
+        # Only the immediately preceding visible unit can be an antecedent.
+        # Blank lines and inert reference definitions do not create a relay;
+        # any intervening substantive unit replaces this value.
+        previous_semantics = semantics
 
 
 def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
@@ -2176,6 +2569,128 @@ def build_structured_span_graph(visible: str) -> StructuredSpanGraph:
 def structural_atomic_segments(visible: str) -> list[str]:
     """Compatibility view for scans that need only independent span text."""
     return [span.text for span in build_structured_span_graph(visible).spans]
+
+
+def classify_status_assertion(
+    span: StructuredSpan,
+    previous: BoundSemanticAssertion | None,
+) -> BoundSemanticAssertion:
+    """Bind one status span without allowing transitive pronoun inheritance."""
+    text = span.text
+    scope = classify_predicate_scope(text)
+    explicit_plugin = bool(STATUS_EXPLICIT_PLUGIN_PATTERN.search(text))
+
+    if (
+        STATUS_META_FALSE_PATTERN.search(text)
+        and STATUS_NEGATED_PLUGIN_PREDICATE_PATTERN.search(text)
+    ):
+        return BoundSemanticAssertion(
+            BoundSubject.PLUGIN,
+            BoundPredicate.PRODUCT_STATUS,
+            BoundPolarity.META_REVERSED_POSITIVE,
+            BoundReferent.EXPLICIT,
+            scope,
+        )
+
+    if (
+        STATUS_OPENAI_PATTERN.search(text)
+        and STATUS_PUBLIC_DISTRIBUTION_ACCEPT_PATTERN.search(text)
+        and STATUS_PUBLIC_DISTRIBUTION_PATTERN.search(text)
+        and explicit_plugin
+    ):
+        polarity = (
+            BoundPolarity.NEGATIVE
+            if STATUS_NEGATED_ACCEPTANCE_PATTERN.search(text)
+            else BoundPolarity.POSITIVE
+        )
+        return BoundSemanticAssertion(
+            BoundSubject.PLUGIN,
+            BoundPredicate.PUBLIC_DISTRIBUTION,
+            polarity,
+            BoundReferent.EXPLICIT,
+            scope,
+        )
+
+    if (
+        STATUS_PUBLIC_DIRECTORY_PATTERN.search(text)
+        and STATUS_DIRECTORY_CARRIES_PATTERN.search(text)
+    ):
+        referent = BoundReferent.NONE
+        if explicit_plugin:
+            referent = BoundReferent.EXPLICIT
+        elif (
+            STATUS_DIRECT_OBJECT_ANAPHOR_PATTERN.search(text)
+            and previous is not None
+            and previous.subject is BoundSubject.PLUGIN
+            and previous.referent is BoundReferent.EXPLICIT
+        ):
+            # Direct edge only: a DIRECT_ANAPHORA result is never accepted as
+            # the antecedent for a later span.
+            referent = BoundReferent.DIRECT_ANAPHORA
+        return BoundSemanticAssertion(
+            BoundSubject.PUBLIC_DIRECTORY,
+            BoundPredicate.DIRECTORY_CARRIES,
+            BoundPolarity.POSITIVE,
+            referent,
+            scope,
+        )
+
+    if explicit_plugin:
+        return BoundSemanticAssertion(
+            BoundSubject.PLUGIN,
+            BoundPredicate.NONE,
+            BoundPolarity.UNSPECIFIED,
+            BoundReferent.EXPLICIT,
+            scope,
+        )
+
+    return BoundSemanticAssertion(
+        BoundSubject.NONE,
+        BoundPredicate.NONE,
+        BoundPolarity.UNSPECIFIED,
+        BoundReferent.NONE,
+        scope,
+    )
+
+
+def semantic_status_claim_spans(visible: str) -> list[str]:
+    """Return unsafe bounded semantic status assertions in source order."""
+    unsafe: list[str] = []
+    previous: BoundSemanticAssertion | None = None
+    for span in build_structured_span_graph(visible).spans:
+        roles = classify_status_assertion(span, previous)
+        is_assertive_scope = roles.scope not in {
+            DiscourseMode.QUESTION_OR_VERIFICATION,
+            DiscourseMode.FUTURE_OR_HYPOTHETICAL,
+            DiscourseMode.DOCUMENTATION_OR_EXAMPLE,
+            DiscourseMode.REPOSITORY_EVIDENCE_BOUNDARY,
+            DiscourseMode.HUMAN_GATE,
+        }
+        if is_assertive_scope and (
+            (
+                roles.predicate
+                in {
+                    BoundPredicate.PRODUCT_STATUS,
+                    BoundPredicate.PUBLIC_DISTRIBUTION,
+                }
+                and roles.subject is BoundSubject.PLUGIN
+                and roles.polarity
+                in {
+                    BoundPolarity.POSITIVE,
+                    BoundPolarity.META_REVERSED_POSITIVE,
+                }
+            )
+            or (
+                roles.predicate is BoundPredicate.DIRECTORY_CARRIES
+                and roles.subject is BoundSubject.PUBLIC_DIRECTORY
+                and roles.polarity is BoundPolarity.POSITIVE
+                and roles.referent
+                in {BoundReferent.EXPLICIT, BoundReferent.DIRECT_ANAPHORA}
+            )
+        ):
+            unsafe.append(" ".join(span.text.split()))
+        previous = roles
+    return unsafe
 
 
 def portal_patterns_match(
@@ -2821,6 +3336,12 @@ def validate_status_claims(root: Path, errors: list[str]) -> None:
         if not path.is_file():
             continue
         visible = markdown_visible_text(path.read_text(encoding="utf-8"))
+        for unsafe_span in semantic_status_claim_spans(visible):
+            errors.append(
+                f"{relative} must not claim public Directory availability, or "
+                "submitted, published, approved, released, or stable status: "
+                f"{unsafe_span!r} is a current positive Plugin status assertion."
+            )
         masked = mask_negated_status_spans(visible)
         for segment in structural_atomic_segments(masked):
             for span in extract_assertion_spans(segment, "product-status"):
