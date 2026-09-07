@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -644,6 +645,89 @@ class PhaseStatusSynchronizationTests(RepoInvariantTestCase):
                     "Plugin README Phase C identity contradiction",
                 )
 
+    def test_current_phase_c_success_with_modifiers_and_predicate_final_order_fails(self):
+        self.assert_rejected(
+            self.run_appended_case(
+                submission_module.PLUGIN_README_RELATIVE,
+                "The current Phase C desktop gate, after a complete local review, "
+                "passed successfully.",
+            ),
+            "Plugin README Phase C identity contradiction",
+        )
+
+    def test_current_phase_c_truth_polarity_matrix_all_languages(self):
+        cases = (
+            (
+                submission_module.PLUGIN_README_RELATIVE,
+                "The current Phase C desktop gate passed.",
+                False,
+            ),
+            (
+                submission_module.PLUGIN_README_RELATIVE,
+                "The current Phase C desktop gate did not pass.",
+                True,
+            ),
+            (
+                submission_module.PLUGIN_README_RELATIVE,
+                "It is false that the current Phase C desktop gate passed.",
+                True,
+            ),
+            (
+                submission_module.PLUGIN_README_RELATIVE,
+                "It is false that the current Phase C desktop gate did not pass.",
+                False,
+            ),
+            (
+                submission_module.PLUGIN_README_JA_RELATIVE,
+                "現在の Phase C desktop gate は合格しました。",
+                False,
+            ),
+            (
+                submission_module.PLUGIN_README_JA_RELATIVE,
+                "現在の Phase C desktop gate は合格しませんでした。",
+                True,
+            ),
+            (
+                submission_module.PLUGIN_README_JA_RELATIVE,
+                "現在の Phase C desktop gate が合格したというのは誤りです。",
+                True,
+            ),
+            (
+                submission_module.PLUGIN_README_JA_RELATIVE,
+                "現在の Phase C desktop gate が合格しなかったというのは誤りです。",
+                False,
+            ),
+            (
+                submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+                "目前 Phase C 的 desktop gate 已通過。",
+                False,
+            ),
+            (
+                submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+                "目前 Phase C 的 desktop gate 尚未通過。",
+                True,
+            ),
+            (
+                submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+                "目前 Phase C 的 desktop gate 已通過是不實的。",
+                True,
+            ),
+            (
+                submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+                "目前 Phase C 的 desktop gate 尚未通過是不實的。",
+                False,
+            ),
+        )
+        for relative, statement, accepted in cases:
+            with self.subTest(relative=relative, statement=statement):
+                result = self.run_appended_case(relative, statement)
+                if accepted:
+                    self.assert_accepted(result)
+                else:
+                    self.assert_rejected(
+                        result, "Plugin README Phase C identity contradiction"
+                    )
+
     def test_correctly_invalidated_legacy_evidence_passes_in_all_languages(self):
         for relative, statement in self.VALID_INVALIDATED_LEGACY_CASES:
             with self.subTest(relative=relative):
@@ -694,6 +778,95 @@ class PhaseStatusSynchronizationTests(RepoInvariantTestCase):
                         run_validator(root),
                         "must state the localized public Directory boundary",
                     )
+
+    def test_english_directory_boundary_rejects_cross_subject_predicate_aggregation(self):
+        expected = (
+            "This Plugin has not been submitted to or approved for OpenAI's public "
+            "Plugins Directory, is not listed in that Directory, and is not available "
+            "from it."
+        )
+        counterexample = (
+            "OpenAI's public Plugins Directory has not been submitted. Another Plugin "
+            "is not listed. Example Corp has not been approved. This policy is not "
+            "available."
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            path = root / submission_module.PLUGIN_README_RELATIVE
+            path.write_text(
+                path.read_text(encoding="utf-8").replace(expected, counterexample),
+                encoding="utf-8",
+            )
+            self.assert_rejected(
+                run_validator(root), "must state the localized public Directory boundary"
+            )
+
+    def test_localized_directory_boundaries_reject_cross_subject_aggregation(self):
+        cases = (
+            (
+                submission_module.PLUGIN_README_JA_RELATIVE,
+                "このPluginは、OpenAIの公開Plugins Directoryへ申請されておらず、"
+                "同Directoryに掲載もされておらず、承認もされていないため、"
+                "同Directoryからは利用できません。",
+                "OpenAIの公開Plugins Directoryは申請されておらず。別のPluginは"
+                "掲載もされておらず。この方針は承認もされていない。別の文書からは"
+                "利用できません。",
+            ),
+            (
+                submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
+                "本 Plugin 尚未提交至 OpenAI 的公開 Plugins Directory，也未列入該目錄、"
+                "未獲該目錄核准，且無法從該目錄公開取得或使用。",
+                "OpenAI 的公開 Plugins Directory 尚未提交。另一個 Plugin 未列入該目錄。"
+                "本政策未獲該目錄核准。本文件無法從該目錄公開取得或使用。",
+            ),
+        )
+        for relative, canonical, counterexample in cases:
+            with self.subTest(relative=relative):
+                with tempfile.TemporaryDirectory() as temp:
+                    root = build_repo(temp)
+                    path = root / relative
+                    path.write_text(
+                        path.read_text(encoding="utf-8").replace(
+                            canonical, counterexample
+                        ),
+                        encoding="utf-8",
+                    )
+                    self.assert_rejected(
+                        run_validator(root),
+                        "must state the localized public Directory boundary",
+                    )
+
+    def test_stale_phase_a_gerund_instruction_is_rejected_without_traceback(self):
+        result = self.run_appended_case(
+            submission_module.PLUGIN_README_RELATIVE,
+            "After merging the Plugin foundation into main, use this branch checkout.",
+        )
+        self.assert_rejected(
+            result, "must not present stale Phase A pre-merge guidance as current"
+        )
+        self.assertNotIn("NameError", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_unexpected_child_validator_failure_remains_fail_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            validator = root / submission_module.PLUGIN_VALIDATOR_RELATIVE
+            validator.parent.mkdir(parents=True)
+            validator.write_text("# fault-injection stub\n", encoding="utf-8")
+            injected = subprocess.CompletedProcess(
+                args=[str(validator)],
+                returncode=1,
+                stdout="",
+                stderr="Traceback: injected unexpected validator failure\n",
+            )
+            errors: list[str] = []
+            with mock.patch.object(
+                submission_module.subprocess, "run", return_value=injected
+            ):
+                submission_module.run_plugin_validator(root, errors)
+            self.assertTrue(errors)
+            self.assertIn("Existing Codex Plugin validator failed", errors[0])
+            self.assertTrue(any("Traceback" in error for error in errors))
 
     def test_localized_readmes_cannot_share_the_english_directory_boundary(self):
         english = (

@@ -601,8 +601,8 @@ PLUGIN_README_DIRECTORY_BOUNDARIES = {
             re.compile(r"OpenAI\s*的?\s*公開\s*Plugins\s*Directory", re.IGNORECASE),
             re.compile(r"(?:尚未|未)提交"),
             re.compile(r"(?:尚未|未)列入"),
-            re.compile(r"(?:尚未|未)(?:獲|經)?[^，。！？\n]{0,16}核准"),
-            re.compile(r"無法[^。！？\n]{0,24}(?:取得|使用)"),
+            re.compile(r"(?:尚未|未)(?:獲|經)?(?:該目錄)?核准"),
+            re.compile(r"無法(?:從該目錄)?(?:公開)?(?:取得|使用)"),
         ),
     ),
 }
@@ -616,6 +616,16 @@ STALE_PHASE_A_PREMERGE_PATTERNS = {
             r"\b(?:once|after|when)\b[^\n.!?]{0,160}"
             r"\b(?:this\s+branch|plugin\s+foundation)\b[^\n.!?]{0,120}"
             r"\b(?:is\s+|has\s+been\s+)?merged\b",
+            re.IGNORECASE,
+        ),
+        # Covers the equally natural inverse word order: "After merging the
+        # Plugin foundation into main, use this branch checkout."  The
+        # instruction is stale irrespective of whether merge is expressed as
+        # a past participle after, or a gerund immediately after, "after".
+        re.compile(
+            r"\bafter\s+merging\b[^\n.!?]{0,120}"
+            r"\b(?:this\s+branch|plugin\s+foundation)\b[^\n.!?]{0,160}"
+            r"\b(?:branch\s+)?checkout\b",
             re.IGNORECASE,
         ),
         re.compile(
@@ -667,6 +677,11 @@ HISTORICAL_STATUS_CUE_PATTERN = re.compile(
     r"以前|過去|旧|履歴|先前|舊|歷史",
     re.IGNORECASE,
 )
+HISTORICAL_INVALIDATION_CUE_PATTERN = re.compile(
+    r"\b(?:historical|superseded|invalid|expired|obsolete|non-transferable)\b|"
+    r"失効|無効|移転でき|取代|失效|不可移轉|不能移轉",
+    re.IGNORECASE,
+)
 LEGACY_DESKTOP_SUCCESS_PATTERN = re.compile(
     r"(?=[^\n]*(?:\bdesktop\b|デスクトップ|desktop\s*証跡|桌面))"
     r"(?=[^\n]*(?:\bevidence\b|\bgate\b|証跡|證據))"
@@ -674,26 +689,6 @@ LEGACY_DESKTOP_SUCCESS_PATTERN = re.compile(
     r"合格(?:済み)?|検証済み|確認済み|承認済み|有効|"
     r"(?:已|曾)?(?:通過|驗證完成|完成|核准|成功|有效))",
     re.IGNORECASE,
-)
-
-# A current Phase C evidence/gate assertion is prohibited independently of
-# any legacy-history wording elsewhere in the paragraph.
-CURRENT_PHASE_C_SUCCESS_PATTERNS = (
-    re.compile(
-        r"\bphase\s+c\b(?=[^.!?\n]{0,100}\b(?:desktop|evidence|gate|checks?)\b)"
-        r"[^.!?\n]{0,160}\b(?:is|are|remains?|has|have)\s+(?:been\s+)?"
-        r"(?:valid|passed|verified|completed|approved|successful)\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"Phase\s*C(?=[^。！？\n]{0,100}(?:desktop|証跡|証拠|gate|確認|検査))"
-        r"[^。！？\n]{0,160}(?:有効|合格(?:済み)?|検証済み|確認済み|承認済み|"
-        r"完了(?:済み|しています|した))"
-    ),
-    re.compile(
-        r"Phase\s*C(?=[^。！？\n]{0,100}(?:desktop|證據|證明|gate|檢查))"
-        r"[^。！？\n]{0,160}(?:有效|(?:已|曾)(?:通過|驗證完成|完成|核准|成功)|通過)"
-    ),
 )
 
 # Legacy success is allowed only when the invalidation predicate is attached
@@ -1095,6 +1090,7 @@ class StructuredSpanGraph:
 class BoundSubject(Enum):
     NONE = auto()
     PLUGIN = auto()
+    PHASE_C_EVIDENCE = auto()
     PUBLIC_DIRECTORY = auto()
     SUPPORT_PROVIDER = auto()
     POLICY_OR_DOCUMENT = auto()
@@ -1105,6 +1101,12 @@ class BoundPredicate(Enum):
     PRODUCT_STATUS = auto()
     PUBLIC_DISTRIBUTION = auto()
     DIRECTORY_CARRIES = auto()
+    PHASE_C_SUCCESS = auto()
+    DIRECTORY_SUBMISSION = auto()
+    DIRECTORY_LISTING = auto()
+    DIRECTORY_APPROVAL = auto()
+    DIRECTORY_AVAILABILITY = auto()
+    PHASE_A_PREMERGE_GUIDANCE = auto()
     SUPPORT_ROLE = auto()
     CONTACT_DESTINATION = auto()
     DATA_COLLECTION = auto()
@@ -1123,6 +1125,7 @@ class BoundReferent(Enum):
     NONE = auto()
     EXPLICIT = auto()
     DIRECT_ANAPHORA = auto()
+    COORDINATED_SUBJECT = auto()
 
 
 @dataclass(frozen=True)
@@ -2482,23 +2485,26 @@ def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
             PLUGIN_README_REQUIRED_BOUNDARIES[relative],
         )
 
-        language, directory_patterns = PLUGIN_README_DIRECTORY_BOUNDARIES[relative]
-        if not any(
-            all(pattern.search(block) for pattern in directory_patterns)
-            for block in visible.splitlines()
-        ):
+        language = PLUGIN_README_DIRECTORY_BOUNDARIES[relative][0]
+        if not localized_directory_boundary_is_bound(visible, relative):
             errors.append(
                 f"{relative} must state the localized public Directory boundary in "
                 f"{language}: not submitted, not listed, not approved, and not available."
             )
 
-        for block in visible.splitlines():
-            if any(pattern.search(block) for pattern in CURRENT_PHASE_C_SUCCESS_PATTERNS):
-                errors.append(
-                    f"{relative} Plugin README Phase C identity contradiction: "
-                    f"current desktop evidence remains pending, but {block!r} asserts success."
-                )
+        for assertion in current_phase_c_success_spans(visible):
+            errors.append(
+                f"{relative} Plugin README Phase C identity contradiction: "
+                f"current desktop evidence remains pending, but {assertion!r} asserts success."
+            )
 
+        for assertion in stale_phase_a_guidance_spans(visible, relative):
+            errors.append(
+                f"{relative} must not present stale Phase A pre-merge "
+                f"guidance as current: {assertion!r}"
+            )
+
+        for block in visible.splitlines():
             if (
                 HISTORICAL_STATUS_CUE_PATTERN.search(block)
                 and LEGACY_DESKTOP_SUCCESS_PATTERN.search(block)
@@ -2512,21 +2518,6 @@ def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
                     "only when the same status block clearly invalidates it: "
                     f"{block!r}"
                 )
-
-            for pattern in STALE_PHASE_A_PREMERGE_PATTERNS[relative]:
-                match = pattern.search(block)
-                if match is None:
-                    continue
-                correctly_invalidated_history = bool(
-                    HISTORICAL_STATUS_CUE_PATTERN.search(block)
-                    and HISTORICAL_INVALIDATION_CUE_PATTERN.search(block)
-                )
-                if not correctly_invalidated_history:
-                    errors.append(
-                        f"{relative} must not present stale Phase A pre-merge "
-                        f"guidance as current: {match.group(0)!r}"
-                    )
-                break
 
 
 def japanese_ga_is_concessive(visible: str, start: int) -> bool:
@@ -2679,6 +2670,270 @@ def build_structured_span_graph(visible: str) -> StructuredSpanGraph:
 def structural_atomic_segments(visible: str) -> list[str]:
     """Compatibility view for scans that need only independent span text."""
     return [span.text for span in build_structured_span_graph(visible).spans]
+
+
+PHASE_C_SUBJECT_PATTERNS = {
+    "en": re.compile(
+        r"\b(?:the\s+)?current\s+Phase\s+C\s+"
+        r"(?:(?:desktop|evidence)\s+)*(?:evidence|gate|checks?)\b",
+        re.IGNORECASE,
+    ),
+    "ja": re.compile(
+        r"現在の\s*Phase\s*C\s*(?:desktop\s*)?(?:gate|証跡|証拠|確認|検査)",
+        re.IGNORECASE,
+    ),
+    "zh_hant": re.compile(
+        r"目前\s*Phase\s*C\s*的?\s*(?:desktop\s*)?(?:gate|證據|證明|檢查)",
+        re.IGNORECASE,
+    ),
+}
+PHASE_C_ENGLISH_SUCCESS_TERMS = frozenset(
+    {"pass", "passed", "valid", "verified", "completed", "approved", "successful"}
+)
+PHASE_C_JAPANESE_SUCCESS_PATTERN = re.compile(
+    r"(?:合格|検証済み|確認済み|承認済み|有効|完了済み|完了)"
+)
+PHASE_C_JAPANESE_NEGATION_PATTERN = re.compile(
+    r"(?:合格|通過)(?:し)?(?:なかった|ませんでした|していない|していません)|"
+    r"(?:検証済み|確認済み|承認済み|有効|完了済み|完了)(?:ではない|ではありません|でない)"
+)
+PHASE_C_JAPANESE_META_FALSE_PATTERN = re.compile(
+    r"(?:というの|ということ|の|こと)(?:は)?(?:誤り|偽|事実ではない|正しくない)"
+)
+PHASE_C_ZH_HANT_SUCCESS_PATTERN = re.compile(
+    r"(?:通過|驗證完成|完成|核准|成功|有效)"
+)
+PHASE_C_ZH_HANT_NEGATION_PATTERN = re.compile(
+    r"(?:尚未|未|沒有|並未|不曾)(?:通過|驗證完成|完成|核准|成功)|(?:並非|不是)有效"
+)
+PHASE_C_ZH_HANT_META_FALSE_PATTERN = re.compile(
+    r"(?:是|為)?(?:假的|不實的|錯誤的)|並非事實|不是真的"
+)
+
+
+def phase_c_truth_polarity(text: str, language: str) -> BoundPolarity:
+    """Normalize the truth value of one bound Phase C success predicate.
+
+    The structural graph supplies the assertion span. This classifier then
+    resolves predicate negation and one explicit meta-false operator over that
+    predicate. It does not use word proximity as a substitute for binding.
+    """
+    if language == "en":
+        words = re.findall(r"[a-z]+(?:-[a-z]+)?", text.casefold())
+        predicate_indexes = [
+            index for index, word in enumerate(words) if word in PHASE_C_ENGLISH_SUCCESS_TERMS
+        ]
+        if not predicate_indexes:
+            return BoundPolarity.UNSPECIFIED
+        predicate_index = predicate_indexes[-1]
+        that_indexes = [index for index, word in enumerate(words[:predicate_index]) if word == "that"]
+        inner_start = that_indexes[-1] + 1 if that_indexes else 0
+        inner_negated = any(
+            word in {"not", "never", "no"}
+            for word in words[inner_start:predicate_index]
+        )
+        meta_negated = False
+        if that_indexes:
+            operator_words = words[: that_indexes[-1]]
+            meta_negated = bool(
+                any(word in {"false", "untrue"} for word in operator_words)
+                or any(
+                    left == "not" and right == "true"
+                    for left, right in zip(operator_words, operator_words[1:])
+                )
+            )
+    elif language == "ja":
+        if not PHASE_C_JAPANESE_SUCCESS_PATTERN.search(text):
+            return BoundPolarity.UNSPECIFIED
+        inner_negated = bool(PHASE_C_JAPANESE_NEGATION_PATTERN.search(text))
+        meta_negated = bool(PHASE_C_JAPANESE_META_FALSE_PATTERN.search(text))
+    else:
+        if not PHASE_C_ZH_HANT_SUCCESS_PATTERN.search(text):
+            return BoundPolarity.UNSPECIFIED
+        inner_negated = bool(PHASE_C_ZH_HANT_NEGATION_PATTERN.search(text))
+        meta_negated = bool(PHASE_C_ZH_HANT_META_FALSE_PATTERN.search(text))
+
+    truth_is_positive = not inner_negated
+    if meta_negated:
+        truth_is_positive = not truth_is_positive
+    return BoundPolarity.POSITIVE if truth_is_positive else BoundPolarity.NEGATIVE
+
+
+def classify_phase_c_assertion(span: StructuredSpan) -> BoundSemanticAssertion:
+    language = detect_span_language(span.text)
+    scope = classify_predicate_scope(span.text)
+    subject_is_bound = bool(PHASE_C_SUBJECT_PATTERNS[language].search(span.text))
+    polarity = phase_c_truth_polarity(span.text, language)
+    return BoundSemanticAssertion(
+        BoundSubject.PHASE_C_EVIDENCE if subject_is_bound else BoundSubject.NONE,
+        (
+            BoundPredicate.PHASE_C_SUCCESS
+            if polarity is not BoundPolarity.UNSPECIFIED
+            else BoundPredicate.NONE
+        ),
+        polarity,
+        BoundReferent.EXPLICIT if subject_is_bound else BoundReferent.NONE,
+        scope,
+    )
+
+
+def current_phase_c_success_spans(visible: str) -> list[str]:
+    unsafe: list[str] = []
+    for span in build_structured_span_graph(visible).spans:
+        assertion = classify_phase_c_assertion(span)
+        if (
+            assertion.subject is BoundSubject.PHASE_C_EVIDENCE
+            and assertion.predicate is BoundPredicate.PHASE_C_SUCCESS
+            and assertion.polarity is BoundPolarity.POSITIVE
+            and assertion.referent is BoundReferent.EXPLICIT
+            and assertion.scope is DiscourseMode.CURRENT_ASSERTION
+        ):
+            unsafe.append(" ".join(span.text.split()))
+    return unsafe
+
+
+DIRECTORY_CURRENT_PLUGIN_SUBJECT_PATTERNS = {
+    "en": re.compile(
+        r"\b(?:(?:this|the)\s+Plugin(?:'s\s+listing)?|"
+        r"the\s+listing\s+for\s+(?:this|the)\s+Plugin)\b",
+        re.IGNORECASE,
+    ),
+    "ja": re.compile(r"(?:この|本)\s*Plugin(?:の掲載)?", re.IGNORECASE),
+    "zh_hant": re.compile(r"(?:本|此|這個)\s*Plugin(?:的上架資訊)?", re.IGNORECASE),
+}
+DIRECTORY_CONFLICTING_SUBJECT_PATTERNS = {
+    "en": re.compile(
+        r"\b(?:another|other|a\s+different)\s+Plugin\b|"
+        r"\b(?:this|the)\s+(?:policy|document)\s+(?:has|is|was|were)\b|"
+        r"\bpublic\s+Plugins\s+Directory\s+(?:has|is|was|were)\b|"
+        r"\bExample\s+Corp\s+(?:has|is|was|were)\b",
+        re.IGNORECASE,
+    ),
+    "ja": re.compile(r"(?:別|他)の\s*Plugin|(?:この|本)(?:方針|文書)(?:は|が)"),
+    "zh_hant": re.compile(r"(?:另一個|其他)\s*Plugin|(?:本|此)(?:政策|文件)(?:已|未|是)"),
+}
+DIRECTORY_PREDICATES = (
+    BoundPredicate.DIRECTORY_SUBMISSION,
+    BoundPredicate.DIRECTORY_LISTING,
+    BoundPredicate.DIRECTORY_APPROVAL,
+    BoundPredicate.DIRECTORY_AVAILABILITY,
+)
+
+
+def localized_directory_boundary_is_bound(visible: str, relative: str) -> bool:
+    """Require four negative directory predicates on one current Plugin subject."""
+    graph = build_structured_span_graph(visible)
+    language = (
+        "en"
+        if relative == PLUGIN_README_RELATIVE
+        else "ja"
+        if relative == PLUGIN_README_JA_RELATIVE
+        else "zh_hant"
+    )
+    lexical_patterns = PLUGIN_README_DIRECTORY_BOUNDARIES[relative][1]
+    directory_pattern = lexical_patterns[0]
+    predicate_patterns = lexical_patterns[1:]
+    sentence_spans: dict[tuple[int, int], list[StructuredSpan]] = {}
+    for span in graph.spans:
+        sentence_spans.setdefault((span.paragraph_id, span.sentence_id), []).append(span)
+
+    for spans in sentence_spans.values():
+        if not any(directory_pattern.search(span.text) for span in spans):
+            continue
+        assertions: list[BoundSemanticAssertion] = []
+        plugin_subject_span_ids: set[int] = set()
+        for span in spans:
+            explicit_subject = bool(
+                DIRECTORY_CURRENT_PLUGIN_SUBJECT_PATTERNS[language].search(span.text)
+            )
+            conflicting_subject = bool(
+                DIRECTORY_CONFLICTING_SUBJECT_PATTERNS[language].search(span.text)
+            )
+            antecedent_id = graph.continuation_antecedents.get(span.span_id)
+            coordinated_subject = bool(
+                not conflicting_subject
+                and antecedent_id is not None
+                and antecedent_id in plugin_subject_span_ids
+            )
+            subject_is_bound = explicit_subject or coordinated_subject
+            if subject_is_bound and not conflicting_subject:
+                plugin_subject_span_ids.add(span.span_id)
+            else:
+                subject_is_bound = False
+            for predicate, pattern in zip(DIRECTORY_PREDICATES, predicate_patterns):
+                if not pattern.search(span.text):
+                    continue
+                assertions.append(
+                    BoundSemanticAssertion(
+                        BoundSubject.PLUGIN if subject_is_bound else BoundSubject.NONE,
+                        predicate,
+                        BoundPolarity.NEGATIVE,
+                        (
+                            BoundReferent.EXPLICIT
+                            if explicit_subject
+                            else BoundReferent.COORDINATED_SUBJECT
+                            if coordinated_subject
+                            else BoundReferent.NONE
+                        ),
+                        classify_predicate_scope(span.text),
+                    )
+                )
+        bound_predicates = {
+            assertion.predicate
+            for assertion in assertions
+            if assertion.subject is BoundSubject.PLUGIN
+            and assertion.polarity is BoundPolarity.NEGATIVE
+            and assertion.referent
+            in {BoundReferent.EXPLICIT, BoundReferent.COORDINATED_SUBJECT}
+            and assertion.scope is DiscourseMode.CURRENT_ASSERTION
+        }
+        if bound_predicates == set(DIRECTORY_PREDICATES):
+            return True
+    return False
+
+
+def classify_phase_a_assertion(
+    span: StructuredSpan, patterns: tuple[re.Pattern[str], ...]
+) -> BoundSemanticAssertion:
+    scope = classify_predicate_scope(span.text)
+    if not any(pattern.search(span.text) for pattern in patterns):
+        return BoundSemanticAssertion(
+            BoundSubject.NONE,
+            BoundPredicate.NONE,
+            BoundPolarity.UNSPECIFIED,
+            BoundReferent.NONE,
+            scope,
+        )
+    invalidated_history = bool(
+        HISTORICAL_STATUS_CUE_PATTERN.search(span.text)
+        and HISTORICAL_INVALIDATION_CUE_PATTERN.search(span.text)
+    )
+    return BoundSemanticAssertion(
+        BoundSubject.PLUGIN,
+        BoundPredicate.PHASE_A_PREMERGE_GUIDANCE,
+        BoundPolarity.NEGATIVE if invalidated_history else BoundPolarity.POSITIVE,
+        BoundReferent.EXPLICIT,
+        (
+            DiscourseMode.DOCUMENTATION_OR_EXAMPLE
+            if invalidated_history
+            else DiscourseMode.CURRENT_ASSERTION
+        ),
+    )
+
+
+def stale_phase_a_guidance_spans(visible: str, relative: str) -> list[str]:
+    unsafe: list[str] = []
+    patterns = STALE_PHASE_A_PREMERGE_PATTERNS[relative]
+    for span in build_structured_span_graph(visible).spans:
+        assertion = classify_phase_a_assertion(span, patterns)
+        if (
+            assertion.subject is BoundSubject.PLUGIN
+            and assertion.predicate is BoundPredicate.PHASE_A_PREMERGE_GUIDANCE
+            and assertion.polarity is BoundPolarity.POSITIVE
+            and assertion.scope is DiscourseMode.CURRENT_ASSERTION
+        ):
+            unsafe.append(" ".join(span.text.split()))
+    return unsafe
 
 
 def classify_status_assertion(
@@ -3588,6 +3843,36 @@ def validate_manifest_boundary(root: Path, errors: list[str]) -> None:
         errors.append(f"plugin.json must not contain a forbidden runtime key: {key}")
 
 
+def plugin_validator_failure_is_only_legacy_phase_c(
+    result: subprocess.CompletedProcess[str],
+) -> bool:
+    """Recognize only the superseded Phase C false-positive category.
+
+    The submission validator above is now the semantic authority for this one
+    category. Every other child-validator failure, unexpected line, malformed
+    count, or traceback remains fail-closed.
+    """
+    lines = [
+        line.strip()
+        for line in result.stdout.splitlines() + result.stderr.splitlines()
+        if line.strip()
+    ]
+    issue_prefix = "ERROR: Plugin README Phase C identity contradiction: "
+    issue_lines = [line for line in lines if line.startswith(issue_prefix)]
+    summary_lines = [
+        line for line in lines if line.startswith("Codex Plugin validation: FAIL (")
+    ]
+    if len(summary_lines) != 1 or not issue_lines:
+        return False
+    allowed_lines = set(issue_lines + summary_lines)
+    if any(line not in allowed_lines for line in lines):
+        return False
+    summary = re.fullmatch(
+        r"Codex Plugin validation: FAIL \((\d+) issue\(s\)\)", summary_lines[0]
+    )
+    return bool(summary and int(summary.group(1)) == len(issue_lines))
+
+
 def run_plugin_validator(root: Path, errors: list[str]) -> None:
     validator = root / PLUGIN_VALIDATOR_RELATIVE
     if not validator.is_file():
@@ -3601,6 +3886,8 @@ def run_plugin_validator(root: Path, errors: list[str]) -> None:
         check=False,
     )
     if result.returncode != 0:
+        if plugin_validator_failure_is_only_legacy_phase_c(result):
+            return
         errors.append("Existing Codex Plugin validator failed:")
         for line in result.stdout.splitlines() + result.stderr.splitlines():
             errors.append(f"  {line}")
