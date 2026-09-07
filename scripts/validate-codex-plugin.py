@@ -22,7 +22,7 @@ MARKETPLACE_RELATIVE = ".agents/plugins/marketplace.json"
 SKILL_RELATIVE = f"{PLUGIN_RELATIVE}/skills/agentic-change-audit"
 SYNC_SCRIPT_RELATIVE = "scripts/sync-codex-plugin.py"
 SKILL_VALIDATOR_RELATIVE = "scripts/validate-skill.py"
-README_NAMES = ("README.md", "README.ja.md", "README.zh-Hant.md")
+README_NAMES = ("README.md",)
 
 FORBIDDEN_MANIFEST_KEYS = ("mcpServers", "apps", "hooks")
 FORBIDDEN_VISUAL_KEYS = (
@@ -75,8 +75,6 @@ EXPECTED_PLUGIN_TOP_LEVEL = {
     ".codex-plugin",
     "NOTICE",
     "README.md",
-    "README.ja.md",
-    "README.zh-Hant.md",
     "skills",
 }
 
@@ -140,10 +138,18 @@ STALE_README_MARKERS = (
     "L&Co.LLC Open Source",
     "L&Co. Open Source",
     "0.1.0-dev.2",
+    "after this branch is merged",
+    "Once this Plugin foundation is merged",
+    "README.ja.md",
+    "README.zh-Hant.md",
 )
 REQUIRED_README_MARKERS = (
+    "Development preview",
     "Agentic Change Audit marketplace",
     EXPECTED_VERSION,
+    "Phase C desktop evidence is pending",
+    "historical, superseded, and non-transferable",
+    "English is the sole canonical language for machine semantics and exact tokens",
 )
 
 SEMVER_PATTERN = re.compile(
@@ -159,7 +165,7 @@ PLUGIN_DEVELOPMENT_VERSION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 README_CLAUSE_SPLIT_PATTERN = re.compile(
-    r"(?:[!?。！？;；]+|\.(?=\s|$))",
+    r"(?:[!?;]+|\.(?=\s|$))",
     re.IGNORECASE,
 )
 README_MARKDOWN = MarkdownIt("commonmark")
@@ -168,86 +174,59 @@ README_NON_VISIBLE_HTML_ELEMENTS = frozenset({"head", "script", "style", "templa
 README_GATE_CONTEXT_PATTERN = re.compile(
     r"(?<![A-Za-z0-9])phase\s*c(?![A-Za-z0-9])|desktop\s+gate|"
     r"neutral[- ]marketplace identity|"
-    r"neutral identity|中立(?:な)?\s*marketplace\s*identity|"
-    r"中性\s*marketplace\s*identity|桌面\s*gate|"
-    r"(?:renamed|current)\s+(?:agentic change audit\s+)?marketplace|"
-    r"名称変更後の?\s*agentic change audit\s*marketplace|"
-    r"(?:更名後|目前|現行|現在)\s*(?:的)?\s*marketplace",
+    r"neutral identity|"
+    r"(?:renamed|current)\s+(?:agentic change audit\s+)?marketplace",
     re.IGNORECASE,
 )
 README_VERIFIED_ACTION_PATTERN = re.compile(
     r"marketplace(?:\s+(?:registration|discovery|install(?:ation)?))?|"
     r"\b(?:desktop|registration|discovery|install(?:ation)?|invocation|"
-    r"explicit invocation|working[- ]tree(?: non-mutation)?)\b|"
-    r"marketplace登録|marketplaceの?登録|登録|発見|install|インストール|"
-    r"明示呼び出し|明示的?呼び出し|working\s*tree[^。.!?\n]{0,24}非変更|"
-    r"marketplace\s*註冊|註冊|探索|安裝|明確呼叫|明確叫用|"
-    r"工作樹[^。.!?\n]{0,24}未變更",
+    r"explicit invocation|working[- ]tree(?: non-mutation)?)\b",
     re.IGNORECASE,
 )
 README_CURRENT_IDENTITY_CUE_PATTERN = re.compile(
     rf"{re.escape(EXPECTED_VERSION)}|neutral[- ]marketplace identity|"
     r"neutral identity|renamed|current|present(?:-day)?|now|"
-    r"agentic change audit marketplace|"
-    r"現行|現在|名称変更後|中立|中性\s*marketplace\s*identity|"
-    r"更名後|目前|現已",
+    r"agentic change audit marketplace",
     re.IGNORECASE,
 )
 README_POSITIVE_GATE_STATUS_PATTERN = re.compile(
     r"\b(?:pass(?:ed|es|ing)?|complet(?:e|ed)|verif(?:y|ies|ied|ication complete)|"
     r"validat(?:ed|ion complete)|approv(?:ed|al complete)|"
-    r"success(?:ful|fully)?|succeed(?:ed|s|ing)?|ready)\b|"
-    r"合格(?:済み)?|完了(?:済み|しました)?|検証済み|確認済み|"
-    r"承認済み|承認されました|成功(?:しました)?|"
-    r"(?:已|現已)?(?:通過|完成|驗證完成|驗證完畢|驗證(?!完(?:&|$))|"
-    r"核准|批准|成功)|"
-    r"已獲核准",
+    r"success(?:ful|fully)?|succeed(?:ed|s|ing)?|ready)\b",
     re.IGNORECASE,
 )
 README_NEGATIVE_STATE_STATUS_PATTERN = re.compile(
-    r"\b(?:not|no longer)\s+(?:unverified|incomplete|pending|unsuccessful)\b|"
-    r"(?:未検証|未完了|保留中|不成功)(?:ではない|ではありません)|"
-    r"(?:並非|不是|不再)(?:未驗證|未完成|待處理|未成功)",
+    r"\b(?:not|no longer)\s+(?:unverified|incomplete|pending|unsuccessful)\b",
     re.IGNORECASE,
 )
 README_NEGATIVE_STATE_PREDICATE_PATTERN = re.compile(
-    r"\b(?:unverified|incomplete|pending|unsuccessful)\b|"
-    r"未検証|未完了|保留中|不成功|"
-    r"未驗證|未完成|待處理|未成功",
+    r"\b(?:unverified|incomplete|pending|unsuccessful)\b",
     re.IGNORECASE,
 )
 README_STATUS_NEGATION_BEFORE_PATTERN = re.compile(
     r"(?:\b(?:not|never|no)\s+(?:been\s+)?|"
     r"\b(?:has|have|had|is|are|was|were|does|do|did|must|should|may)\s+"
     r"not\s+(?:have\s+|been\s+|be\s+)?|"
-    r"\b(?:cannot|can't)\s+(?:be\s+)?|"
-    r"(?:未|まだ|尚未|並未|不得|不可|不曾|不能|不)\s*)$",
+    r"\b(?:cannot|can't)\s+(?:be\s+)?)$",
     re.IGNORECASE,
 )
 README_STATUS_COMPOUND_NEGATION_BEFORE_PATTERN = re.compile(
-    r"\bnot\s+yet\s+(?:been\s+|successfully\s+)?$|"
-    r"(?:尚未|並未|未|まだ)\s*"
-    r"(?:獲得|得到|驗證|驗證完畢|検証|確認|承認|成功|通過|合格)?\s*$",
+    r"\bnot\s+yet\s+(?:been\s+|successfully\s+)?$",
     re.IGNORECASE,
 )
 README_STATUS_PENDING_AFTER_PATTERN = re.compile(
-    r"^\s*(?:not\b|ではありません|ではない|ではなく|"
-    r"していません|していない|しておらず|とはいえない|"
-    r"並非|不代表|不表示|不保證)",
+    r"^\s*not\b",
     re.IGNORECASE,
 )
 README_STATUS_NON_CURRENT_BEFORE_PATTERN = re.compile(
     r"\b(?:will|would|shall|must|should|may)\s+(?:later\s+)?"
     r"(?:be\s+)?(?:re[- ]?)?$|"
-    r"\b(?:when|if|once|after)\b[^.!?。！？;；]*$|"
-    r"(?:将来|今後|次回|予定|再(?:検証|確認|実施|試験)|待ち)[^。！？;；]*$|"
-    r"(?:須於未來|未來|將|重新|仍待)[^。！？;；]*$",
+    r"\b(?:when|if|once|after)\b[^.!?;]*$",
     re.IGNORECASE,
 )
 README_STATUS_NON_CURRENT_AFTER_PATTERN = re.compile(
-    r"^\s*(?:in the future\b|later\b|when\b|if\b|"
-    r"(?:になる|となる)?予定|待ち|"
-    r"未來|之後|稍後|仍待)",
+    r"^\s*(?:in the future\b|later\b|when\b|if\b)",
     re.IGNORECASE,
 )
 README_NON_ASSERTION_CUE_PATTERN = re.compile(
@@ -267,44 +246,23 @@ README_NON_ASSERTION_CUE_PATTERN = re.compile(
     r"(?:the\s+)?current\s+state\b|"
     r"\bnot\s+(?:the\s+)?current\s+state\b|\bis not a claim\b|"
     r"\b(?:quoted|shown)\s+only\s+to\s+explain\s+"
-    r"(?:the\s+)?rejection\s+rule\b|"
-    r"主張(?:してい(?:ない|ません)|し(?:ない|ません))|"
-    r"意味し(?:ない|ません)|認め(?:ない|ません)|"
-    r"拒否(?:する|される|されます|されるべき|される予定)|"
-    r"禁止(?:する|される|されます|用語|文言)?|"
-    r"無効(?:な)?(?:例|主張|文言|表現)?|"
-    r"現在(?:の)?(?:状態|state)(?:を示し(?:ない|ません)|"
-    r"では(?:ない|ありません))|"
-    r"拒否規則を説明するため(?:だけ|のみ)?の?(?:引用|例)|"
-    r"並未主張|不主張|不代表|不表示目前狀態|並非目前狀態|"
-    r"(?:必須|必需|預期(?:會)?|應)(?:被)?拒絕|"
-    r"拒絕規則|拒絕|禁止用語|禁止(?:的)?(?:說法|文言|範例)|"
-    r"不得(?:主張|作為目前結果)|"
-    r"無效(?:範例|說法|主張|例)?|"
-    r"僅用於說明拒絕規則",
+    r"(?:the\s+)?rejection\s+rule\b",
     re.IGNORECASE,
 )
 README_REPORTING_MENTION_PATTERN = re.compile(
     r"\b(?:wording|phrase|input|example|claim|quote|quoted\s+text|"
-    r"code\s+example)\b|"
-    r"文言|表現|語句|入力|例|主張|引用|code例|"
-    r"用語|說法|輸入|範例|主張|引用|程式碼範例",
+    r"code\s+example)\b",
     re.IGNORECASE,
 )
 README_REPORTING_SUBJECT_PATTERN = re.compile(
     r"\b(?:fixture|test(?:\s+case)?|example|documentation|document|guide|report|"
-    r"wording|phrase|input|quote|quoted\s+text|code\s+example)\b|"
-    r"fixture|テスト|例|文書|文言|入力|引用|code例|報告|"
-    r"fixture|測試|範例|文件|用語|說法|輸入|引用|程式碼範例|報告",
+    r"wording|phrase|input|quote|quoted\s+text|code\s+example)\b",
     re.IGNORECASE,
 )
 README_REPORTING_VERB_PATTERN = re.compile(
     r"\b(?:records?|reports?|quotes?|contains?|describes?|names?|mentions?|"
     r"discusses?|shows?|uses?|appears?|says?|archives?|preserves?|stores?|saves?|"
-    r"rejects?|forbids?|prohibits?)\b|"
-    r"記録|記載|報告|説明|保存|言及|"
-    r"引用(?:する|します|した|して)|扱|現れ|拒否|禁止|"
-    r"記錄|描述|報告|說明|保存|引用(?:為|作為|於|在)|提及|出現|拒絕|禁止",
+    r"rejects?|forbids?|prohibits?)\b",
     re.IGNORECASE,
 )
 README_ASSERTIVE_REPORTING_ROLE_PATTERN = re.compile(
@@ -312,82 +270,55 @@ README_ASSERTIVE_REPORTING_ROLE_PATTERN = re.compile(
     r"\b(?:records?|reports?|shows?|uses?)\s+(?:the\s+)?current\s+"
     r"(?:result|state|status|outcome)\b|"
     r"\b(?:represents?|shows?|states?|confirms?)\s+(?:the\s+)?current\s+"
-    r"(?:result|state|status|outcome)\b|"
-    r"現在(?:の)?(?:結果|状態|state)(?:を)?(?:示します|表します|意味します)|"
-    r"現在(?:の)?(?:結果|状態|state)(?:です|である)|"
-    r"現在(?:の)?(?:結果|状態|state)として|"
-    r"(?<!不)(?:表示|代表|確認)(?:目前|現在)(?:的)?(?:結果|狀態|status)|"
-    r"(?:是|作為)(?:目前|現在)(?:的)?(?:結果|狀態|status)",
+    r"(?:result|state|status|outcome)\b",
     re.IGNORECASE,
 )
 README_NON_ASSERTION_AFTER_PATTERN = re.compile(
     r"^\s*(?:without\s+(?:asserting|claiming)|"
-    r"is\s+(?:forbidden|prohibited|invalid)|must\s+be\s+rejected|"
-    r"(?:という)?主張をし(?:ない|ません)|禁止(?:される)?|拒否(?:される)?|"
-    r"現在(?:の)?状態を示し(?:ない|ません)|"
-    r"並未主張|不主張|禁止|拒絕|不表示目前狀態|不代表)",
+    r"is\s+(?:forbidden|prohibited|invalid)|must\s+be\s+rejected)",
     re.IGNORECASE,
 )
 README_CONTRAST_PATTERN = re.compile(
-    r"\b(?:but|however|rather|instead|yet|while|whereas)\b|"
-    r"(?:ですが|ますが|ましたが|でしたが|ていますが|だが|が[,、，]|"
-    r"しかし|ではなく|一方|而是|但是|然而|但|卻)",
+    r"\b(?:but|however|rather|instead|yet|while|whereas)\b",
     re.IGNORECASE,
 )
 README_INDEPENDENT_CLAIM_BOUNDARY_PATTERN = re.compile(
-    r"[,，、]\s*(?:(?:and|then|also|the\s+current|currently)\b|"
-    r"現在|現行|目前|並且|而且)|"
+    r",\s*(?:and|then|also|the\s+current|currently)\b|"
     r"\band\s+(?:this|that|the\s+current|current|another|different|"
     r"unrelated|the\s+fixture|the\s+example)\b",
     re.IGNORECASE,
 )
 README_EXPLANATORY_SUBJECT_PATTERN = re.compile(
     r"\b(?:readme|document|wording|phrase|claim|fixture|example|"
-    r"test case|code example|quoted text|quotation)\b|"
-    r"文書|文言|表現|語句|主張|fixture|例|code例|引用|"
-    r"文件|用語|說法|主張|範例|程式碼範例",
+    r"test case|code example|quoted text|quotation)\b",
     re.IGNORECASE,
 )
 README_TRAILING_NON_ASSERTION_LINK_PATTERN = re.compile(
-    r"^\s*[\"'”’」』）》）】]*\s*"
-    r"(?:(?:だと|とは|という(?:文言|主張)?(?:は)?|を|が|は|と|"
-    r"的說法|這項主張|this claim|that claim))?"
-    r"\s*[,、，:]?\s*$",
+    r"^\s*[\"']*\s*(?:(?:this claim|that claim))?\s*[, :]?\s*$",
     re.IGNORECASE,
 )
 README_HISTORICAL_CUE_PATTERN = re.compile(
-    r"\b(?:earlier|previous|prior|old|historical)\b|以前|過去|旧|先前|舊",
+    r"\b(?:earlier|previous|prior|old|historical)\b",
     re.IGNORECASE,
 )
 README_INVALIDATION_CUE_PATTERN = re.compile(
-    r"\b(?:superseded|invalid|expired|no longer valid|does not verify)\b|"
-    r"失効|無効|検証するものではありません|已失效|失效|不能驗證",
+    r"\b(?:superseded|invalid|expired|no longer valid|does not verify)\b",
     re.IGNORECASE,
 )
 README_POLARITY_REVERSAL_BEFORE_PATTERN = re.compile(
     r"\b(?:is|was)\s+not\s+(?:true|correct)\s+that\b|"
-    r"\b(?:cannot|can't)\s+(?:say|claim|state)\b|"
-    r"(?:とはいえません|とは言えません|とはいえない|とは言えない)|"
-    r"(?:不能|不可)\s*(?:say|claim|state|說|声称|聲稱|主張)",
+    r"\b(?:cannot|can't)\s+(?:say|claim|state)\b",
     re.IGNORECASE,
 )
 README_POLARITY_REVERSAL_AFTER_PATTERN = re.compile(
-    r"\b(?:is|was)\s+(?:false|incorrect|wrong)\b|"
-    r"(?:という)?(?:説明|記述|主張)(?:は|が)?"
-    r"(?:誤り|間違い|正しくない|正しくありません|不正確)|"
-    r"(?:とはいえません|とは言えません|とはいえない|とは言えない)|"
-    r"(?:這|該)?(?:說法|描述|主張)(?:是|並不)?(?:錯誤|不正確)",
+    r"\b(?:is|was)\s+(?:false|incorrect|wrong)\b",
     re.IGNORECASE,
 )
 README_ANAPHORIC_STATUS_PREFIX_PATTERN = re.compile(
     r"\s*(?:(?:but|however|instead|yet|and|then|also|"
     r"it|this|that|they|both|which|is|are|was|were|"
-    r"has|have|had|now|currently)\b[\s,，、:：]*|"
-    r"(?:しかし|ではなく|一方|それ|これは|その結果|そして|また|も|"
-    r"は|が|但是|然而|而是|但|卻|其|它|這|該|並且|而且|現已|已|也)"
-    r"[\s,，、:：]*|"
-    r"(?:English|日本語|中文)?\s*(?:status|result|outcome|状態|結果|狀態)"
-    r"[\s,，、:：]*)*",
+    r"has|have|had|now|currently)\b[\s,:]*|"
+    r"(?:English\s+)?(?:status|result|outcome)[\s,:]*)*",
     re.IGNORECASE,
 )
 
@@ -1486,7 +1417,7 @@ def validate_readmes(root: Path, errors: list[str]) -> None:
             continue
         text = candidate.read_text(encoding="utf-8")
         for marker in STALE_README_MARKERS:
-            if marker in text:
+            if marker.casefold() in text.casefold():
                 errors.append(
                     f"Plugin README contains stale marketplace/version identity: "
                     f"{name}: {marker!r}"
@@ -1583,5 +1514,18 @@ def main() -> int:
     return 0
 
 
+def cli() -> int:
+    """Fail closed on unexpected defects without exposing a raw traceback."""
+    try:
+        return main()
+    except Exception as exc:
+        print(
+            "ERROR: Unexpected Codex Plugin validator failure: "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return 1
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli())

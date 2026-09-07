@@ -39,7 +39,7 @@ The core is agent-neutral, but this release does not yet provide:
 - a Custom GPT;
 - dedicated Gemini CLI or GitHub Copilot packages.
 
-OpenAI direct Skill folders remain fully supported for local authoring and discovery. In addition, a **development skills-only Codex Plugin** is now available from this repository's local marketplace. It bundles the same canonical Skill and audit workflow, adds no MCP server, ChatGPT app, connector, or lifecycle hooks, and does not grant approval, merge, deploy, or release authority. Public OpenAI Plugins Directory submission is not complete; this Plugin is installable only through the repository-scoped local marketplace, or a Git-backed marketplace source once merged to `main`, and installation/testing occurs through the ChatGPT desktop app.
+OpenAI direct Skill folders remain fully supported for local authoring and discovery. In addition, a **development skills-only Codex Plugin** is available from this repository's local marketplace. It bundles the same canonical Skill and audit workflow, adds no MCP server, ChatGPT app, connector, or lifecycle hooks, and does not grant approval, merge, deploy, or release authority. Public OpenAI Plugins Directory submission is not complete. The Plugin can be installed through the repository-scoped local marketplace or the Git-backed `main` marketplace source; installation and testing occur through the ChatGPT desktop app.
 
 Register the local marketplace:
 

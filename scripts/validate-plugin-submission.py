@@ -41,6 +41,8 @@ MANIFEST_RELATIVE = f"{PLUGIN_RELATIVE}/.codex-plugin/plugin.json"
 PLUGIN_VALIDATOR_RELATIVE = "scripts/validate-codex-plugin.py"
 
 PLUGIN_README_RELATIVE = f"{PLUGIN_RELATIVE}/README.md"
+# Legacy constants remain only so historical helper tables can be imported;
+# they are not part of PLUGIN_README_FILES and are never validated surfaces.
 PLUGIN_README_JA_RELATIVE = f"{PLUGIN_RELATIVE}/README.ja.md"
 PLUGIN_README_ZH_HANT_RELATIVE = f"{PLUGIN_RELATIVE}/README.zh-Hant.md"
 
@@ -63,8 +65,6 @@ REQUIRED_FILES = (
 # leak boundaries and must exist.
 PLUGIN_README_FILES = (
     PLUGIN_README_RELATIVE,
-    PLUGIN_README_JA_RELATIVE,
-    PLUGIN_README_ZH_HANT_RELATIVE,
 )
 
 # Files scanned for local paths, addresses, and secret-like values.
@@ -128,6 +128,10 @@ EXPECTED_PUBLIC_DIRECTORY_STATUS = "not-submitted"
 URL_LISTING_KEYS = ("websiteUrl", "supportUrl", "privacyUrl", "termsUrl")
 
 EXPECTED_AVAILABILITY_STATUS = "PENDING HUMAN DECISION"
+EXPECTED_LANGUAGE_SUPPORT = [
+    "Conversation language for runtime narrative",
+    "English for canonical machine tokens",
+]
 
 STARTER_PROMPT_FIELDS = ("id", "title", "prompt", "expectedMode", "expectedBoundary")
 TEST_CASE_FIELDS = (
@@ -149,9 +153,7 @@ VALID_TEST_TYPES = ("positive", "negative")
 VALID_MODES = ("FULL", "FOCUSED_REAUDIT", "RELEASE", "DOCS_ONLY")
 
 EXPECTED_MANIFEST_VERSION = "0.1.0-dev.3"
-# Phase A changes runtime marketplace identity only. Submission release notes
-# stay fixed until the separately authorized Phase B synchronization lane.
-EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION = "0.1.0-dev.2"
+EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION = "0.1.0-dev.3"
 EXPECTED_MANIFEST_CAPABILITIES = ["Read"]
 FORBIDDEN_MANIFEST_KEYS = ("mcpServers", "apps", "hooks")
 
@@ -389,28 +391,24 @@ PLUGIN_README_REQUIRED_BOUNDARIES = {
     PLUGIN_README_RELATIVE: (
         ("development preview", ("development preview",)),
         (
-            "not submitted to, listed in, or available from the public Plugins Directory",
-            ("not submitted to, listed in, or available from",),
+            "not submitted to or approved for the public Plugins Directory",
+            ("has not been submitted to or approved for",),
         ),
         (
-            "official OpenAI submission is not complete",
-            ("Official OpenAI submission is not complete",),
+            "Phase C desktop evidence remains pending",
+            ("Phase C desktop evidence is pending",),
         ),
         (
-            "repository lane neither performs nor evidences portal action",
-            ("No portal action is performed or evidenced by this repository lane",),
+            "earlier desktop evidence is historical and non-transferable",
+            ("historical, superseded, and non-transferable",),
         ),
         (
-            "portal state remains a human verification gate",
-            ("Portal state remains a human verification gate",),
+            "human prerequisites remain pending",
+            ("human prerequisites remain pending",),
         ),
         (
-            "no public Directory availability is claimed",
-            ("No public Directory availability is claimed",),
-        ),
-        (
-            "identity verification, logo approval, and submission remain pending",
-            ("remain pending human decisions",),
+            "English is the sole canonical machine language",
+            ("English is the sole canonical language for machine semantics",),
         ),
     ),
     PLUGIN_README_JA_RELATIVE: (
@@ -1643,6 +1641,13 @@ def validate_availability(root: Path, errors: list[str]) -> None:
         if not isinstance(availability.get(key), list):
             errors.append(f"availability.json {key!r} must be a list.")
 
+    check_exact(
+        errors,
+        "availability.json languageSupport",
+        availability.get("languageSupport"),
+        EXPECTED_LANGUAGE_SUPPORT,
+    )
+
     notes = availability.get("decisionNotes")
     if not isinstance(notes, str) or not notes.strip():
         errors.append("availability.json 'decisionNotes' must be a non-empty string.")
@@ -2542,7 +2547,7 @@ def validate_release_notes(root: Path, errors: list[str]) -> None:
 
     if EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION not in text:
         errors.append(
-            f"release-notes.md must retain the Phase B input Plugin version "
+            f"release-notes.md must record the synchronized Plugin version "
             f"{EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION!r}."
         )
 
@@ -2586,6 +2591,72 @@ def validate_status_claims(root: Path, errors: list[str]) -> None:
                             f"status: {normalized!r} asserts "
                             f"{' '.join(match.group(0).split())!r}."
                         )
+
+
+CANONICAL_STATUS_MARKERS = {
+    PLUGIN_README_RELATIVE: (
+        "Development preview",
+        "Agentic Change Audit marketplace",
+        "0.1.0-dev.3",
+        "Phase C desktop evidence is pending",
+        "historical, superseded, and non-transferable",
+        "English is the sole canonical language for machine semantics and exact tokens",
+    ),
+    SUBMISSION_README_RELATIVE: (
+        "Plugin version: `0.1.0-dev.3`",
+        "Marketplace identity: neutral `Agentic Change Audit marketplace`",
+        "Phase C desktop evidence remains pending",
+        "Earlier desktop evidence is historical, superseded, and non-transferable",
+        "Translation parity is not a machine validation gate",
+    ),
+    RELEASE_NOTES_RELATIVE: (
+        "Version: `0.1.0-dev.3`",
+        "Phase C desktop evidence remains pending",
+        "historical, superseded, and non-transferable",
+        "Every human-prerequisite row remains `PENDING HUMAN CHECK`",
+    ),
+}
+FORBIDDEN_CURRENT_STATUS_PATTERNS = (
+    (
+        re.compile(
+            r"Phase\s+C.{0,120}\b(?:passed|complete(?:d)?|verified|succeeded)\b",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        "must keep Phase C pending",
+    ),
+    (
+        re.compile(
+            r"\b(?:Plugin|marketplace)\s+(?:is|was|has been)\s+"
+            r"(?:submitted|approved|published|listed|publicly available)\b",
+            re.IGNORECASE,
+        ),
+        "must not claim an external submission, approval, publication, or listing",
+    ),
+    (
+        re.compile(
+            r"after this branch is merged|once this Plugin foundation is merged|"
+            r"resolve only after this branch is merged",
+            re.IGNORECASE,
+        ),
+        "must not retain stale pre-merge wording",
+    ),
+)
+
+
+def validate_canonical_status_contract(root: Path, errors: list[str]) -> None:
+    """Check bounded English status facts without interpreting arbitrary prose."""
+    for relative, markers in CANONICAL_STATUS_MARKERS.items():
+        path = root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for marker in markers:
+            if marker not in text:
+                errors.append(f"{relative} is missing canonical English marker: {marker!r}.")
+        visible_text = markdown_visible_text(text)
+        for pattern, diagnostic in FORBIDDEN_CURRENT_STATUS_PATTERNS:
+            if pattern.search(visible_text):
+                errors.append(f"{relative} {diagnostic}.")
 
 
 def validate_no_local_paths(root: Path, errors: list[str]) -> None:
@@ -2708,6 +2779,7 @@ def main() -> int:
     validate_visual_assets(root, errors)
     validate_release_notes(root, errors)
     validate_status_claims(root, errors)
+    validate_canonical_status_contract(root, errors)
     validate_no_local_paths(root, errors)
     validate_no_addresses(root, errors)
     validate_no_secrets(root, errors)
@@ -2742,5 +2814,18 @@ def main() -> int:
     return 0
 
 
+def cli() -> int:
+    """Fail closed on unexpected defects without exposing a raw traceback."""
+    try:
+        return main()
+    except Exception as exc:
+        print(
+            "ERROR: Unexpected Plugin submission validator failure: "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return 1
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli())

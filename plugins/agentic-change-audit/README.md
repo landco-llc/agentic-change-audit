@@ -1,19 +1,27 @@
 # Agentic Change Audit — Codex Plugin (development preview)
 
-[日本語](README.ja.md) | [繁體中文](README.zh-Hant.md)
-
 ## Status
 
 **Development preview.** This is the first installable Codex Plugin foundation for Agentic Change Audit. It is a **skills-only Plugin**: it bundles the existing Agentic Change Audit Skill so it can be installed through a repository-scoped local marketplace instead of only a direct Skill folder.
 
-This development Plugin is not submitted to, listed in, or available from OpenAI's public Plugins Directory.
+This development preview uses the neutral **Agentic Change Audit marketplace**
+identity and Plugin version `0.1.0-dev.3`.
 
-## Submission status
+## Development status
 
-- **Desktop gate: superseded for the neutral marketplace identity.** Earlier desktop evidence covered the previous marketplace identity and Plugin version. It does not verify the renamed **Agentic Change Audit marketplace** or Plugin version `0.1.0-dev.3`; repeat marketplace registration, discovery, installation, explicit invocation, and Git working-tree non-mutation checks in Phase C.
-- **Official OpenAI submission is not complete.** No portal action is performed or evidenced by this repository lane. Portal state remains a human verification gate.
-- **Public policy URLs are prepared.** [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md) and [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md) are published from this repository. Publisher identity verification, logo approval, and the submission itself all remain pending human decisions.
-- **No public Directory availability is claimed.** This Plugin is not listed in, available from, or approved for OpenAI's public Plugins Directory. Install it from this repository's local marketplace only.
+- **Phase C desktop evidence is pending.** Earlier desktop evidence is
+  historical, superseded, and non-transferable: it covered a previous
+  marketplace identity and Plugin version. The pending Phase C evidence set
+  covers marketplace registration, discovery, installation, explicit
+  invocation, and Git working-tree non-mutation for the neutral identity and
+  `0.1.0-dev.3`.
+- This Plugin has not been submitted to or approved for OpenAI's public Plugins
+  Directory, is not listed there, and is not available from it.
+- Publisher identity verification, logo approval, and other human decisions
+  remain pending. All human prerequisites remain pending.
+- [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)
+  and [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)
+  document the repository boundaries.
 
 The repository-side preparation material is in the [submission package](https://github.com/landco-llc/agentic-change-audit/tree/main/submission/codex-plugin). It is preparation material, not a submission.
 
@@ -60,9 +68,10 @@ The `codex plugin marketplace add .` command registers the current repository's 
 
 A full ChatGPT desktop UI installation walkthrough is a **PENDING HUMAN CHECK** for anyone reproducing these steps; it is not something this repository can execute or attest to automatically.
 
-## Registering from GitHub after this branch is merged
+## Registering from GitHub
 
-Once this Plugin foundation is merged into `main`, the marketplace can also be added directly from GitHub without a local clone:
+Phase A is merged. The marketplace can be added directly from GitHub without a
+local clone:
 
 ```bash
 codex plugin marketplace add \
@@ -70,7 +79,8 @@ codex plugin marketplace add \
   --ref main
 ```
 
-Until then, use the local `codex plugin marketplace add .` command above against a checkout of this branch.
+Phase C desktop evidence is still pending; this command is an instruction for
+that separate check, not evidence that the check has occurred.
 
 ## Invocation examples
 
@@ -106,6 +116,13 @@ The audit result produced through this Plugin is not a security certification, l
 ## Version
 
 This Plugin uses a development version identifier, `0.1.0-dev.3`. It is not a public release or a stable Plugin version, and it does not correspond to a tagged Skill release.
+
+## Language contract
+
+English is the sole canonical language for machine semantics and exact tokens.
+The runtime may write narrative prose in the user's conversation language, but
+it must never translate or alias Verdicts, severities, schema keys or values,
+human-check statuses, audit statuses, or other exact machine tokens.
 
 ## Related documents
 

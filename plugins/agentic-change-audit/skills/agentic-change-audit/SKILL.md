@@ -59,7 +59,8 @@ Before issuing a verdict, read the relevant files:
 - [Audit invalidation](standard/audit-invalidation.md)
 - [Human-check boundary](standard/human-check-boundary.md)
 
-Use the English files as canonical. Use the corresponding `.ja.md` files when Japanese explanation is needed.
+Use the English files as the sole canonical specifications. Localized documents
+are explanatory aids only and do not define or override machine semantics.
 
 Use [the JSON Schema](standard/output-schema.json) when producing structured JSON.
 
@@ -139,7 +140,9 @@ Possible checks include:
 - security-relevant checks;
 - documentation link or structure checks.
 
-For docs-only changes, do not require unrelated application builds or tests. Check the diff, structure, links when applicable, internal consistency, and translation parity when applicable.
+For docs-only changes, do not require unrelated application builds or tests.
+Check the diff, structure, links when applicable, internal consistency, and
+whitespace. Translation parity is not a machine audit gate.
 
 For each executed command or verification method, record when relevant:
 
@@ -229,8 +232,12 @@ A result applies only to its recorded target. Material changes to the target, ef
 
 ## Output rules
 
-- Keep verdict names, severity names, schema values, human-check status values, and audit status values in English.
-- Narrative explanation may use the user's language.
+- Keep verdict names, severity names, schema keys and values, human-check status
+  values, audit status values, and every other exact machine token in canonical
+  English.
+- Write narrative explanation in the user's conversation language unless the
+  user requests a different language.
+- Never translate, alias, or localize an exact machine token.
 - Prefer concise evidence summaries over large raw logs.
 - Never include secret values.
 - State checks not performed and evidence limitations.

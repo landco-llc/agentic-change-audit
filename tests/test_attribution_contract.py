@@ -34,7 +34,7 @@ PROHIBITED_SUBMISSION_IDENTITY_FILE_SHA256 = {
         "da7f2eff4eef5fa3be4c86432390923e14e2f8d9cc6a72ec779d3fa57efef70d"
     ),
     "submission/codex-plugin/starter-prompts.json": (
-        "67c5dbf5651c0c6418837ae8abe8378dabdaea7b54f424b8605f43453dff8899"
+        "6c0d87bbfed60726ef65445b7f9ffab8974fc515ff53da067e0de4f3ed9915fd"
     ),
 }
 

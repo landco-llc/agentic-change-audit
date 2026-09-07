@@ -159,9 +159,9 @@ Skillは監査者に次を要求します。
 
 ## 言語方針
 
-- 英語を仕様正本とします。
-- 日本語を公式翻訳および利用言語とします。
-- Verdict、Severity、schema値、status値は英語表記を維持します。
+- 仕様およびmachine semanticsの唯一の正本言語は英語です。
+- 日本語文書は説明用です。runtime narrativeは、利用者が別の言語を指定しない限り、会話で使用している言語に合わせます。
+- Verdict、Severity、schemaのkeyとvalue、status value、その他すべてのexact machine tokenは、英語表記のまま変更しません。
 
 ## サポート方針
 

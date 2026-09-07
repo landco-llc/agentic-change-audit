@@ -119,6 +119,10 @@ def replace_text(relative: str, text: str) -> Mutation:
         fixture = (
             "Agentic Change Audit marketplace\n\n"
             "0.1.0-dev.3\n\n"
+            "Development preview\n\n"
+            "Phase C desktop evidence is pending. Earlier desktop evidence is "
+            "historical, superseded, and non-transferable.\n\n"
+            "English is the sole canonical language for machine semantics and exact tokens.\n\n"
             f"{body}\n"
         )
         (root / relative).write_text(fixture, encoding="utf-8")
@@ -1512,7 +1516,7 @@ install_positive_cases(
             "submission",
             append_text(
                 PLUGIN_READMES[0],
-                "Phase C desktop registration must be re-verified in the future.",
+                "Fresh Phase C desktop evidence remains required.",
             ),
         ),
         (
@@ -1691,13 +1695,10 @@ install_invalid_regression_cases(
             "plugin",
             replace_bytes(
                 PLUGIN_READMES[0],
+                "Phase C desktop evidence is pending.".encode(),
                 (
-                    "It does not verify the renamed **Agentic Change Audit "
-                    "marketplace** or Plugin version `0.1.0-dev.3`;"
-                ).encode(),
-                (
-                    "It verifies the renamed **Agentic Change Audit marketplace** "
-                    "and Plugin version `0.1.0-dev.3`; ACA-FRESH-RDM-039"
+                    "Phase C desktop evidence is complete for the "
+                    "Agentic Change Audit marketplace; ACA-FRESH-RDM-039"
                 ).encode(),
             ),
             "Plugin README Phase C identity contradiction",
@@ -4511,6 +4512,76 @@ class SeventhRemediationCorpusContractTests(unittest.TestCase):
                 }
             ),
         )
+
+
+# ACA-W008 removes the two Plugin-localized README files from the machine
+# acceptance surface. Preserve every English identity/security regression and
+# skip only generated cases that explicitly bind to the removed Japanese,
+# Traditional Chinese, or mixed-language Plugin surface.
+_REMOVED_LANGUAGE_MARKERS = (
+    "Japanese",
+    "Traditional Chinese",
+    "Taiwan Traditional Chinese",
+    "Mixed-language",
+    "README.ja.md",
+    "README.zh-Hant.md",
+    "_ja_",
+    "_zh_",
+    "_mx_",
+    "_mixed_",
+)
+
+
+def _contains_removed_language_surface(value, seen: set[int] | None = None) -> bool:
+    if seen is None:
+        seen = set()
+    identity = id(value)
+    if identity in seen:
+        return False
+    seen.add(identity)
+    if isinstance(value, str):
+        return any(marker in value for marker in _REMOVED_LANGUAGE_MARKERS)
+    if isinstance(value, (tuple, list, set, frozenset)):
+        return any(_contains_removed_language_surface(item, seen) for item in value)
+    if isinstance(value, dict):
+        return any(
+            _contains_removed_language_surface(item, seen)
+            for pair in value.items()
+            for item in pair
+        )
+    closure = getattr(value, "__closure__", None)
+    if closure and any(
+        _contains_removed_language_surface(cell.cell_contents, seen) for cell in closure
+    ):
+        return True
+    attributes = getattr(value, "__dict__", None)
+    return isinstance(attributes, dict) and _contains_removed_language_surface(attributes, seen)
+
+
+for _candidate in tuple(globals().values()):
+    if not isinstance(_candidate, type) or not issubclass(_candidate, unittest.TestCase):
+        continue
+    for _name in dir(_candidate):
+        if not _name.startswith("test_"):
+            continue
+        _method = getattr(_candidate, _name)
+        _metadata = " ".join(
+            (
+                _name,
+                getattr(_method, "__doc__", "") or "",
+                repr(getattr(_method, "__defaults__", None)),
+            )
+        )
+        if any(marker in _metadata for marker in _REMOVED_LANGUAGE_MARKERS) or (
+            _contains_removed_language_surface(getattr(_method, "__defaults__", None))
+        ):
+            setattr(
+                _candidate,
+                _name,
+                unittest.skip("Plugin-localized machine-semantic lane removed by ACA-W008")(
+                    _method
+                ),
+            )
 
 
 if __name__ == "__main__":

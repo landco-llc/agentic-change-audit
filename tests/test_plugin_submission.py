@@ -76,8 +76,9 @@ def tracked_repo_state() -> tuple[dict[str, str], str]:
     )
     hashes: dict[str, str] = {}
     for relative in listing.stdout.split("\0"):
-        if relative:
-            hashes[relative] = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+        path = ROOT / relative
+        if relative and path.is_file():
+            hashes[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
     status = subprocess.run(
         ["git", "status", "--porcelain=v1", "--untracked-files=all"],
         cwd=ROOT,
@@ -461,6 +462,7 @@ class HardenedValidationTests(RepoInvariantTestCase):
             self.assert_rejected(result, "must not claim")
             self.assertIn(submission_module.PLUGIN_README_RELATIVE, result.stderr)
 
+    @unittest.skip("Plugin-localized README surface removed by ACA-W008")
     def test_plugin_readme_ja_public_availability_claim_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             root = build_repo(temp)
@@ -475,6 +477,7 @@ class HardenedValidationTests(RepoInvariantTestCase):
             self.assert_rejected(result, "must not claim")
             self.assertIn(submission_module.PLUGIN_README_JA_RELATIVE, result.stderr)
 
+    @unittest.skip("Plugin-localized README surface removed by ACA-W008")
     def test_plugin_readme_zh_hant_public_availability_claim_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             root = build_repo(temp)
@@ -495,7 +498,7 @@ class HardenedValidationTests(RepoInvariantTestCase):
             remove_text(
                 root,
                 submission_module.PLUGIN_README_RELATIVE,
-                "No public Directory availability is claimed.",
+                "Phase C desktop evidence is pending.",
             )
 
             self.assert_rejected(run_validator(root), "must state the boundary")
@@ -503,7 +506,7 @@ class HardenedValidationTests(RepoInvariantTestCase):
     def test_missing_plugin_readme_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             root = build_repo(temp)
-            (root / submission_module.PLUGIN_README_ZH_HANT_RELATIVE).unlink()
+            (root / submission_module.PLUGIN_README_RELATIVE).unlink()
 
             self.assert_rejected(run_validator(root), "Required Plugin README is missing")
 
@@ -620,8 +623,8 @@ class PortalStateWordingTests(RepoInvariantTestCase):
 
     SAFE_BOUNDARIES = {
         submission_module.PLUGIN_README_RELATIVE: (
-            "No portal action is performed or evidenced by this repository lane.",
-            "Portal state remains a human verification gate.",
+            "Phase C desktop evidence is pending.",
+            "All human prerequisites remain pending.",
         ),
         submission_module.PLUGIN_README_JA_RELATIVE: (
             "このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません。",
@@ -2549,6 +2552,47 @@ class PrivacyBoundaryRemovalTests(RepoInvariantTestCase):
     """F-05: every canonical Privacy boundary, independently removed and
     verified through the full validator subprocess.
     """
+
+
+# ACA-W008 removes the Plugin-localized README surfaces and their
+# language-specific machine-semantic acceptance lane. Keep every English and
+# policy-boundary regression active; skip only tests whose name explicitly
+# identifies a removed localized or cross-language surface.
+_REMOVED_LOCALIZED_TEST_MARKERS = (
+    "japanese",
+    "traditional_chinese",
+    "translated",
+    "all_three",
+    "mixed_language",
+    "_ja_",
+    "_zh_",
+)
+for _test_class in (
+    HardenedValidationTests,
+    PortalStateWordingTests,
+    StatusClaimSubprocessTests,
+    SupportChannelClassificationTests,
+):
+    for _test_name in dir(_test_class):
+        _test_method = getattr(_test_class, _test_name)
+        _code_names = getattr(getattr(_test_method, "__code__", None), "co_names", ())
+        _closure_values = tuple(
+            cell.cell_contents for cell in (getattr(_test_method, "__closure__", None) or ())
+        )
+        if _test_name.startswith("test_") and (
+            any(marker in _test_name for marker in _REMOVED_LOCALIZED_TEST_MARKERS)
+            or "PLUGIN_README_JA_RELATIVE" in _code_names
+            or "PLUGIN_README_ZH_HANT_RELATIVE" in _code_names
+            or submission_module.PLUGIN_README_JA_RELATIVE in _closure_values
+            or submission_module.PLUGIN_README_ZH_HANT_RELATIVE in _closure_values
+        ):
+            setattr(
+                _test_class,
+                _test_name,
+                unittest.skip("Plugin-localized machine-semantic lane removed by ACA-W008")(
+                    _test_method
+                ),
+            )
 
 
 def _make_privacy_removal_test(snippet: str):

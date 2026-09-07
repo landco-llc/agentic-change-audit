@@ -70,12 +70,14 @@ It asks:
 
 > Is this change safe and sufficiently verified to be accepted, merged, deployed, or released?
 
-## Initial Supported Languages
+## Language policy
 
-- English
-- Japanese
-
-English is the canonical specification. Japanese is an official translation.
+- English is the sole canonical language for specifications and machine
+  semantics.
+- Runtime narrative follows the user's conversation language unless the user
+  requests otherwise.
+- Localized documents are explanatory aids and do not define machine semantics.
+- Exact machine tokens remain unchanged in English.
 
 ## Initial Supported Agents
 
