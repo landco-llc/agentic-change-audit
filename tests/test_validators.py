@@ -246,5 +246,35 @@ class MarkdownReferenceTests(unittest.TestCase):
             self.assertTrue(any("escapes the skill root" in error for error in errors))
 
 
+class CanonicalLanguageContractTests(unittest.TestCase):
+    def test_canonical_machine_contract_is_english_only(self):
+        errors = skill_validator.validate_project_documentation(ROOT)
+        self.assertEqual([], errors)
+
+    def test_localized_prose_is_not_a_machine_semantic_gate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for relative in (
+                "README.md",
+                "SKILL.md",
+                "docs/product-definition.md",
+                "standard/change-audit-standard.md",
+                "standard/verdict-criteria.md",
+                "standard/evidence-requirements.md",
+                "standard/audit-invalidation.md",
+                "standard/human-check-boundary.md",
+                "standard/output-schema.json",
+            ):
+                source = ROOT / relative
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(source.read_bytes())
+            (root / "README.ja.md").write_text(
+                "# 説明\n\nこの文書はruntime proseだけを説明します。\n",
+                encoding="utf-8",
+            )
+            self.assertEqual([], skill_validator.validate_project_documentation(root))
+
+
 if __name__ == "__main__":
     unittest.main()

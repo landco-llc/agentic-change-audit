@@ -40,7 +40,7 @@ AIの「確認した」「問題ない」という説明だけに依存せず、
 - Gemini CLI専用package
 - GitHub Copilot専用package
 
-OpenAIのdirect Skill folderは、ローカル利用とrepository単位の利用に向く方式として、引き続き完全にサポートしています。加えて、本repositoryのlocal marketplaceから**development skills-only Codex Plugin**を現在利用できます。この Pluginは同一の正本Skillと監査workflowを同梱し、MCP server、ChatGPT app、connector、lifecycle hooksは一切追加せず、approval、merge、deploy、release権限も付与しません。OpenAIの公開Plugins Directoryへの申請は完了していません。このPluginは、repository限定のlocal marketplace、または`main`へのmerge後はGit-backedなmarketplace sourceからのみinstall可能で、install・テストはChatGPT desktop appを通じて行います。
+OpenAIのdirect Skill folderは、ローカル利用とrepository単位の利用に向く方式として、引き続き完全にサポートしています。加えて、本repositoryのlocal marketplaceから**development skills-only Codex Plugin**を利用できます。このPluginは同一の正本Skillと監査workflowを同梱し、MCP server、ChatGPT app、connector、lifecycle hooksは一切追加せず、approval、merge、deploy、release権限も付与しません。OpenAIの公開Plugins Directoryへの申請は完了していません。Pluginはrepository限定のlocal marketplaceまたはGit-backedな`main`のmarketplace sourceからinstallでき、install・テストはChatGPT desktop appを通じて行います。
 
 Local marketplaceを登録します。
 

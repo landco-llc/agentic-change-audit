@@ -321,34 +321,32 @@ def validate_markdown_references(
 
 
 def validate_project_documentation(root: Path) -> list[str]:
-    """Validate project-specific document pairs without claiming translation parity."""
+    """Validate canonical English machine contracts only.
+
+    Localized files remain eligible distribution content and receive the same
+    generic link/safety validation as every Markdown file, but they are not an
+    independent semantic acceptance lane.
+    """
     errors: list[str] = []
-    pairs = [
-        ("README.md", "README.ja.md"),
-        ("docs/product-definition.md", "docs/product-definition.ja.md"),
-        ("standard/change-audit-standard.md", "standard/change-audit-standard.ja.md"),
-        ("standard/verdict-criteria.md", "standard/verdict-criteria.ja.md"),
-        ("standard/evidence-requirements.md", "standard/evidence-requirements.ja.md"),
-        ("standard/audit-invalidation.md", "standard/audit-invalidation.ja.md"),
-        ("standard/human-check-boundary.md", "standard/human-check-boundary.ja.md"),
+    canonical_files = [
+        "README.md",
+        "SKILL.md",
+        "docs/product-definition.md",
+        "standard/change-audit-standard.md",
+        "standard/verdict-criteria.md",
+        "standard/evidence-requirements.md",
+        "standard/audit-invalidation.md",
+        "standard/human-check-boundary.md",
+        "standard/output-schema.json",
     ]
 
-    for english, japanese in pairs:
-        if not (root / english).is_file():
-            errors.append(f"Missing canonical English document: {english}")
-        if not (root / japanese).is_file():
-            errors.append(f"Missing official Japanese document: {japanese}")
+    for relative in canonical_files:
+        if not (root / relative).is_file():
+            errors.append(f"Missing canonical English contract: {relative}")
 
     readme = root / "README.md"
-    readme_ja = root / "README.ja.md"
-    if readme.is_file() and readme_ja.is_file():
+    if readme.is_file():
         english_text = readme.read_text(encoding="utf-8")
-        japanese_text = readme_ja.read_text(encoding="utf-8")
-        if "[日本語](README.ja.md)" not in english_text:
-            errors.append("README.md must link to README.ja.md.")
-        if "[English](README.md)" not in japanese_text:
-            errors.append("README.ja.md must link to README.md.")
-
         verdicts = [
             "PASS",
             "PASS WITH COMMENTS",
@@ -359,8 +357,20 @@ def validate_project_documentation(root: Path) -> list[str]:
         for verdict in verdicts:
             if verdict not in english_text:
                 errors.append(f"README.md is missing verdict: {verdict}")
-            if verdict not in japanese_text:
-                errors.append(f"README.ja.md is missing verdict: {verdict}")
+
+    skill = root / "SKILL.md"
+    if skill.is_file():
+        skill_text = skill.read_text(encoding="utf-8")
+        for marker in (
+            "sole canonical specifications",
+            "user's conversation language",
+            "Never translate, alias, or localize an exact machine token",
+            "Translation parity is not a machine audit gate",
+        ):
+            if marker not in skill_text:
+                errors.append(
+                    f"SKILL.md is missing canonical runtime-language marker: {marker!r}"
+                )
 
     return errors
 
@@ -573,7 +583,7 @@ def main() -> int:
     print(
         "- CommonMark file/image/reference links and Markdown heading fragments: PASS"
     )
-    print("- English/Japanese document pairs: PASS")
+    print("- canonical English machine contract: PASS")
     print(f"- author: {EXPECTED_AUTHOR}")
     print("- NOTICE / LICENSE / legal attribution: PASS")
     return 0

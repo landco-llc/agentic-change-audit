@@ -104,7 +104,8 @@ Return the result in Markdown.
 Audit this documentation-only change with Agentic Change Audit.
 
 Check target identity, requested scope, internal consistency, links,
-translation parity where applicable, and git diff whitespace.
+internal consistency, and git diff whitespace. Translation parity is not a
+machine audit gate.
 Do not require unrelated application builds or tests.
 ```
 
@@ -159,9 +160,12 @@ See [Human Check Boundary](standard/human-check-boundary.md).
 
 ## Language policy
 
-- English is the canonical specification.
-- Japanese is an official translation and usage language.
-- Verdict names, severity names, schema values, and status values remain in English.
+- English is the sole canonical language for specifications and machine
+  semantics.
+- Localized documents are explanatory aids; runtime narrative follows the
+  user's conversation language unless the user requests otherwise.
+- Verdict names, severity names, schema keys and values, status values, and all
+  other exact machine tokens remain unchanged in English.
 
 ## Support policy
 

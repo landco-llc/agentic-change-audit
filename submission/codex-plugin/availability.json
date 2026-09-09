@@ -6,9 +6,8 @@
     "United States"
   ],
   "languageSupport": [
-    "English",
-    "Japanese",
-    "Traditional Chinese"
+    "Conversation language for runtime narrative",
+    "English for canonical machine tokens"
   ],
   "excludedRegions": [],
   "decisionNotes": "Final availability must be selected by the maintainer in the OpenAI submission portal after policy and support review."

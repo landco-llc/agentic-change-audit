@@ -40,7 +40,7 @@ Agentic Change Audit 是一個開源 Agent Skill，用於在人類決定 merge�
 - Gemini CLI 專用套件
 - GitHub Copilot 專用套件
 
-OpenAI 的 direct Skill folder 適合本機使用與 repository 範圍內的工作流程，此方式仍完整支援。此外，現在也可以從本 repository 的 local marketplace 取得**development skills-only Codex Plugin**。這個 Plugin 內含相同的正本 Skill 與稽核 workflow，未新增任何 MCP server、ChatGPT app、connector 或 lifecycle hooks，也不會授予 approval、merge、deploy 或 release 權限。OpenAI 公開 Plugins Directory 的申請尚未完成；這個 Plugin 僅能透過 repository 範圍的 local marketplace，或 merge 進 `main` 之後透過 Git-backed marketplace source 安裝，安裝與測試皆透過 ChatGPT desktop app 進行。
+OpenAI 的 direct Skill folder 適合本機使用與 repository 範圍內的工作流程，此方式仍完整支援。此外，也可以從本 repository 的 local marketplace 取得**development skills-only Codex Plugin**。這個 Plugin 內含相同的正本 Skill 與稽核 workflow，未新增任何 MCP server、ChatGPT app、connector 或 lifecycle hooks，也不會授予 approval、merge、deploy 或 release 權限。OpenAI 公開 Plugins Directory 的申請尚未完成。Plugin 可透過 repository 範圍的 local marketplace 或 Git-backed 的 `main` marketplace source 安裝，安裝與測試皆透過 ChatGPT desktop app 進行。
 
 註冊 local marketplace：
 

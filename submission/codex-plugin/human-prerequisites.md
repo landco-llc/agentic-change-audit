@@ -30,7 +30,7 @@ No item on this list has been completed. Nothing here may be marked done on the 
 
 **L&Co.LLC business identity verification.** This is a verification performed by OpenAI against L&Co.LLC. Its state is not known to this repository and must not be asserted anywhere in the submission materials. `listing.json` records it as `PENDING HUMAN CHECK`, and the validator enforces that.
 
-**Public website review, Support URL review, Privacy URL review, Terms URL review.** The URLs in `listing.json` resolve only after this branch is merged into `main`. A human must open each one from the public internet and confirm it renders the intended content before the draft is submitted.
+**Public website review, Support URL review, Privacy URL review, Terms URL review.** The URLs in `listing.json` target the repository's `main` branch. A human must open each one from the public internet and confirm it renders the intended content before any external submission decision.
 
 **Availability decision.** `availability.json` records a recommendation, not a decision. The maintainer selects final availability in the submission portal.
 

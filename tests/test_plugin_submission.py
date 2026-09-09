@@ -76,8 +76,9 @@ def tracked_repo_state() -> tuple[dict[str, str], str]:
     )
     hashes: dict[str, str] = {}
     for relative in listing.stdout.split("\0"):
-        if relative:
-            hashes[relative] = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+        path = ROOT / relative
+        if relative and path.is_file():
+            hashes[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
     status = subprocess.run(
         ["git", "status", "--porcelain=v1", "--untracked-files=all"],
         cwd=ROOT,
@@ -461,33 +462,7 @@ class HardenedValidationTests(RepoInvariantTestCase):
             self.assert_rejected(result, "must not claim")
             self.assertIn(submission_module.PLUGIN_README_RELATIVE, result.stderr)
 
-    def test_plugin_readme_ja_public_availability_claim_fails(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = build_repo(temp)
-            append_text(
-                root,
-                submission_module.PLUGIN_README_JA_RELATIVE,
-                "\nこのPluginはOpenAIの公開Plugins Directoryから利用可能です。\n",
-            )
 
-            result = run_validator(root)
-
-            self.assert_rejected(result, "must not claim")
-            self.assertIn(submission_module.PLUGIN_README_JA_RELATIVE, result.stderr)
-
-    def test_plugin_readme_zh_hant_public_availability_claim_fails(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = build_repo(temp)
-            append_text(
-                root,
-                submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-                "\n本 Plugin 已在 OpenAI 的公開 Plugins Directory 上架。\n",
-            )
-
-            result = run_validator(root)
-
-            self.assert_rejected(result, "must not claim")
-            self.assertIn(submission_module.PLUGIN_README_ZH_HANT_RELATIVE, result.stderr)
 
     def test_plugin_readme_boundary_removal_fails(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -495,7 +470,7 @@ class HardenedValidationTests(RepoInvariantTestCase):
             remove_text(
                 root,
                 submission_module.PLUGIN_README_RELATIVE,
-                "No public Directory availability is claimed.",
+                "Phase C desktop evidence is pending.",
             )
 
             self.assert_rejected(run_validator(root), "must state the boundary")
@@ -503,7 +478,7 @@ class HardenedValidationTests(RepoInvariantTestCase):
     def test_missing_plugin_readme_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             root = build_repo(temp)
-            (root / submission_module.PLUGIN_README_ZH_HANT_RELATIVE).unlink()
+            (root / submission_module.PLUGIN_README_RELATIVE).unlink()
 
             self.assert_rejected(run_validator(root), "Required Plugin README is missing")
 
@@ -524,7 +499,7 @@ class HardenedValidationTests(RepoInvariantTestCase):
 
             self.assert_rejected(run_validator(root), "must not present another support channel")
 
-    def test_support_additional_official_channel_in_translated_section_fails(self):
+    def test_support_additional_official_channel_at_document_end_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             root = build_repo(temp)
             append_text(
@@ -620,16 +595,8 @@ class PortalStateWordingTests(RepoInvariantTestCase):
 
     SAFE_BOUNDARIES = {
         submission_module.PLUGIN_README_RELATIVE: (
-            "No portal action is performed or evidenced by this repository lane.",
-            "Portal state remains a human verification gate.",
-        ),
-        submission_module.PLUGIN_README_JA_RELATIVE: (
-            "このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません。",
-            "申請ポータルの状態は人間が確認する必要があります。",
-        ),
-        submission_module.PLUGIN_README_ZH_HANT_RELATIVE: (
-            "本次儲存庫端作業未操作申請入口，也沒有相關操作證據。",
-            "申請入口的實際狀態仍須由人工確認。",
+            "Phase C desktop evidence is pending.",
+            "All human prerequisites remain pending.",
         ),
     }
 
@@ -661,17 +628,7 @@ class PortalStateWordingTests(RepoInvariantTestCase):
             "No draft exists in the OpenAI submission portal, and nothing has been submitted.",
         )
 
-    def test_old_japanese_portal_sentence_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "OpenAI submission portalにdraftは存在せず、何も提出していません。",
-        )
 
-    def test_old_traditional_chinese_portal_sentence_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "OpenAI submission portal 中沒有 draft，也未提交任何內容。",
-        )
 
     # --- Materially equivalent portal-state claims -------------------------
 
@@ -692,41 +649,11 @@ class PortalStateWordingTests(RepoInvariantTestCase):
             "A draft exists in the OpenAI submission portal.",
         )
 
-    def test_japanese_portal_has_no_draft_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "申請ポータルに下書きは存在しません。",
-        )
 
-    def test_japanese_nothing_submitted_through_portal_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "ポータルからは何も提出されていません。",
-        )
 
-    def test_japanese_portal_draft_exists_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "申請ポータルに下書きが存在します。",
-        )
 
-    def test_traditional_chinese_portal_has_no_draft_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "申請入口中沒有草稿。",
-        )
 
-    def test_traditional_chinese_portal_empty_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "申請入口是空的。",
-        )
 
-    def test_traditional_chinese_portal_draft_exists_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "申請入口中有草稿。",
-        )
 
     # --- Every repository-lane boundary is independently required ----------
 
@@ -742,31 +669,11 @@ class PortalStateWordingTests(RepoInvariantTestCase):
             self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_RELATIVE][1],
         )
 
-    def test_japanese_repository_lane_boundary_required(self):
-        self.assert_boundary_required(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_JA_RELATIVE][0],
-        )
 
-    def test_japanese_human_gate_boundary_required(self):
-        self.assert_boundary_required(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_JA_RELATIVE][1],
-        )
 
-    def test_traditional_chinese_repository_lane_boundary_required(self):
-        self.assert_boundary_required(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_ZH_HANT_RELATIVE][0],
-        )
 
-    def test_traditional_chinese_human_gate_boundary_required(self):
-        self.assert_boundary_required(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            self.SAFE_BOUNDARIES[submission_module.PLUGIN_README_ZH_HANT_RELATIVE][1],
-        )
 
-    def test_safe_wording_passes_in_all_three_plugin_readmes(self):
+    def test_safe_wording_passes_in_canonical_plugin_readme(self):
         with tempfile.TemporaryDirectory() as temp:
             root = build_repo(temp)
             self.assert_accepted(run_validator(root))
@@ -776,17 +683,7 @@ class PortalStateWordingTests(RepoInvariantTestCase):
             submission_module.PLUGIN_README_RELATIVE, "There is no portal draft."
         )
 
-    def test_unsafe_japanese_assertion_after_safe_wording_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "下書きは作成されていません。",
-        )
 
-    def test_unsafe_traditional_chinese_assertion_after_safe_wording_fails(self):
-        self.reject_portal_assertion(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "沒有建立任何申請草稿。",
-        )
 
     def test_submission_readme_safe_portal_wording_passes(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -803,41 +700,7 @@ class PortalStateWordingTests(RepoInvariantTestCase):
 
     # --- Eleventh-remediation exact audit regressions -----------------------
 
-    def test_eleventh_audit_full_sorenimokakawarazu_fails(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = build_repo(temp)
-            relative = submission_module.PLUGIN_README_JA_RELATIVE
-            append_text(
-                root,
-                relative,
-                "\n申請フォームは確認待ちです。それにもかかわらず、受付済みです。\n",
-            )
 
-            result = run_validator(root)
-
-            self.assert_rejected(
-                result, "must not assert unverified external portal state"
-            )
-            self.assertIn(relative, result.stderr)
-            self.assertIn("受付済みです", result.stderr)
-
-    def test_eleventh_audit_hitsuyou_deari_fails(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = build_repo(temp)
-            relative = submission_module.PLUGIN_README_JA_RELATIVE
-            append_text(
-                root,
-                relative,
-                "\n提出一覧は確認が必要であり、送付済み資料があります。\n",
-            )
-
-            result = run_validator(root)
-
-            self.assert_rejected(
-                result, "must not assert unverified external portal state"
-            )
-            self.assertIn(relative, result.stderr)
-            self.assertIn("送付済み資料があります", result.stderr)
 
     def test_eleventh_audit_explicit_surface_anaphoric_one_fails(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -879,18 +742,6 @@ PORTAL_REQUIRED_INVALID_CASES = (
     ("required_en_nothing_submitted", submission_module.PLUGIN_README_RELATIVE, "Nothing has been submitted through the portal."),
     ("required_en_draft_exists", submission_module.PLUGIN_README_RELATIVE, "A draft exists in the submission portal."),
     ("required_en_content_submitted", submission_module.PLUGIN_README_RELATIVE, "Content has already been submitted through the portal."),
-    ("required_ja_no_draft", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きは存在しません。"),
-    ("required_ja_portal_empty", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには何もありません。"),
-    ("required_ja_draft_not_created", submission_module.PLUGIN_README_JA_RELATIVE, "下書きは作成されていません。"),
-    ("required_ja_nothing_submitted", submission_module.PLUGIN_README_JA_RELATIVE, "ポータルからは何も提出されていません。"),
-    ("required_ja_draft_exists", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きが存在します。"),
-    ("required_ja_submitted_content", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには提出済みの内容があります。"),
-    ("required_zh_no_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中沒有草稿。"),
-    ("required_zh_portal_empty", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口是空的。"),
-    ("required_zh_draft_not_created", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "沒有建立任何申請草稿。"),
-    ("required_zh_nothing_submitted", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "尚未透過申請入口提交任何內容。"),
-    ("required_zh_draft_exists", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中已有草稿。"),
-    ("required_zh_content_submitted", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "已透過申請入口提交內容。"),
 )
 
 # The 15 concrete false-PASS cases observed by the independent focused
@@ -898,20 +749,10 @@ PORTAL_REQUIRED_INVALID_CASES = (
 # stay explicitly traceable in the test report.
 PORTAL_OBSERVED_FALSE_PASS_CASES = (
     ("observed_en_content_submitted", submission_module.PLUGIN_README_RELATIVE, "Content has already been submitted through the portal."),
-    ("observed_ja_submitted_content", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには提出済みの内容があります。"),
-    ("observed_zh_existing_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中已有草稿。"),
-    ("observed_zh_content_submitted", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "已透過申請入口提交內容。"),
     ("observed_en_application_portal_saved_draft", submission_module.PLUGIN_README_RELATIVE, "The application portal contains a saved draft."),
     ("observed_en_pending_application_draft", submission_module.PLUGIN_README_RELATIVE, "A pending draft exists in the application portal."),
     ("observed_en_no_saved_application_draft", submission_module.PLUGIN_README_RELATIVE, "No saved draft exists in the application portal."),
     ("observed_en_submitted_soft_break", submission_module.PLUGIN_README_RELATIVE, "Content has already been submitted through the\nportal."),
-    ("observed_ja_dorafuto", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルにドラフトが存在します。"),
-    ("observed_ja_soukou", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに草稿が存在します。"),
-    ("observed_ja_soushin", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには送審済みの内容があります。"),
-    ("observed_zh_pending_review_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中有待送審草稿。"),
-    ("observed_zh_existing_pending_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中已有待處理草稿。"),
-    ("observed_zh_not_reviewed", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "尚未透過申請入口送審任何內容。"),
-    ("observed_zh_reviewed", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "已透過申請入口送審內容。"),
 )
 
 PORTAL_SEMANTIC_REQUIRED_CASES = (
@@ -927,28 +768,6 @@ PORTAL_SEMANTIC_REQUIRED_CASES = (
     ("semantic_en_does_not_contain", submission_module.PLUGIN_README_RELATIVE, "The portal does not contain a draft."),
     ("semantic_en_portal_not_empty", submission_module.PLUGIN_README_RELATIVE, "The developer portal is not empty."),
     ("semantic_en_portal_absent", submission_module.PLUGIN_README_RELATIVE, "The review portal is absent."),
-    ("semantic_ja_submitted_content", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルには提出済みの内容があります。"),
-    ("semantic_ja_draft_exists", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルにドラフトがあります。"),
-    ("semantic_ja_draft_absent", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに草稿は存在しません。"),
-    ("semantic_ja_saved_draft", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面には保存済みの下書きがあります。"),
-    ("semantic_ja_nothing_submitted", submission_module.PLUGIN_README_JA_RELATIVE, "申請サイトからは何も提出されていません。"),
-    ("semantic_ja_reviewed", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルで送審済みです。"),
-    ("semantic_ja_awaiting_review", submission_module.PLUGIN_README_JA_RELATIVE, "申請入口には送審待ちの内容があります。"),
-    ("semantic_ja_no_application_content", submission_module.PLUGIN_README_JA_RELATIVE, "審査ポータルには申請内容がありません。"),
-    ("semantic_ja_submitted_materials_saved", submission_module.PLUGIN_README_JA_RELATIVE, "申請システムに提出済み資料が保存されています。"),
-    ("semantic_ja_draft_not_created", submission_module.PLUGIN_README_JA_RELATIVE, "ポータルにはドラフトが作成されていません。"),
-    ("semantic_ja_portal_not_empty", submission_module.PLUGIN_README_JA_RELATIVE, "ポータルは空ではありません。"),
-    ("semantic_zh_existing_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中已有草稿。"),
-    ("semantic_zh_submitted_content", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "已透過申請入口提交內容。"),
-    ("semantic_zh_no_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請平台中沒有草稿。"),
-    ("semantic_zh_pending_submission_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "提交入口已有待提交草稿。"),
-    ("semantic_zh_pending_review_content", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "送審平台中已有待送審內容。"),
-    ("semantic_zh_not_reviewed", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口尚未送審。"),
-    ("semantic_zh_submitted_page_content", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請頁面已有提交內容。"),
-    ("semantic_zh_no_pending_application", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核入口沒有待審核申請。"),
-    ("semantic_zh_saved_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "平台中已儲存草稿。"),
-    ("semantic_zh_no_draft_exists", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中不存在任何草稿。"),
-    ("semantic_zh_platform_not_empty", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "平台不是空的。"),
 )
 
 PORTAL_FORMATTING_INVALID_CASES = (
@@ -958,14 +777,6 @@ PORTAL_FORMATTING_INVALID_CASES = (
     ("format_en_soft_break", submission_module.PLUGIN_README_RELATIVE, "A saved draft exists in the application\nportal."),
     ("format_en_case", submission_module.PLUGIN_README_RELATIVE, "THE APPLICATION PORTAL HAS A SAVED DRAFT."),
     ("format_en_whitespace", submission_module.PLUGIN_README_RELATIVE, "The application   portal has   a saved   draft."),
-    ("format_ja_markdown_emphasis", submission_module.PLUGIN_README_JA_RELATIVE, "**申請ポータル**に**ドラフト**があります。"),
-    ("format_ja_html_emphasis", submission_module.PLUGIN_README_JA_RELATIVE, "<em>申請ポータル</em>に<strong>草稿</strong>があります。"),
-    ("format_ja_link", submission_module.PLUGIN_README_JA_RELATIVE, "[申請ポータルにドラフトがあります](https://example.com)。"),
-    ("format_ja_soft_break", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに\nドラフトがあります。"),
-    ("format_zh_markdown_emphasis", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "**申請入口**中**已有草稿**。"),
-    ("format_zh_html_emphasis", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "<em>申請入口</em>中<strong>已有草稿</strong>。"),
-    ("format_zh_link", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "[申請入口中已有草稿](https://example.com)。"),
-    ("format_zh_soft_break", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中\n已有草稿。"),
     ("format_explanatory_then_current", submission_module.PLUGIN_README_RELATIVE, "The portal documentation defines a field named \"draft\". A saved draft exists in the portal."),
 )
 
@@ -978,16 +789,6 @@ PORTAL_SAFE_CONTROL_CASES = (
     ("safe_en_documentation_field", submission_module.PLUGIN_README_RELATIVE, "The portal documentation defines a field named \"draft\"."),
     ("safe_en_future_draft", submission_module.PLUGIN_README_RELATIVE, "A future portal draft may be created after human approval."),
     ("safe_en_fixture_example", submission_module.PLUGIN_README_RELATIVE, "The test fixture contains the phrase \"pending draft\" as an example."),
-    ("safe_ja_repository_lane", submission_module.PLUGIN_README_JA_RELATIVE, "このリポジトリ側の作業では申請ポータルを操作していません。"),
-    ("safe_ja_human_gate", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルの状態は人間が確認します。"),
-    ("safe_ja_documentation_field", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルの「下書き」項目について説明します。"),
-    ("safe_ja_future_draft", submission_module.PLUGIN_README_JA_RELATIVE, "人間の承認後に下書きを作成する可能性があります。"),
-    ("safe_ja_term_explanation", submission_module.PLUGIN_README_JA_RELATIVE, "この文は「送審」という用語の説明です。"),
-    ("safe_zh_repository_lane", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本次儲存庫端作業未操作申請入口。"),
-    ("safe_zh_human_gate", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口的實際狀態仍須由人工確認。"),
-    ("safe_zh_documentation_field", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "文件說明申請入口的「草稿」欄位。"),
-    ("safe_zh_future_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "人工核准後可能建立草稿。"),
-    ("safe_zh_term_explanation", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段僅解釋「送審」這個詞彙。"),
 )
 
 # Seventh-remediation F-06A audit vocabulary. Each case is an independent
@@ -997,17 +798,7 @@ F06_AUDIT_LEXICAL_INVALID_CASES = (
     ("f06a_en_review_system_holds_material", submission_module.PLUGIN_README_RELATIVE, "The review system currently holds submitted material."),
     ("f06a_en_no_application_on_file", submission_module.PLUGIN_README_RELATIVE, "No application is on file in the portal."),
     ("f06a_en_dashboard_pending_application", submission_module.PLUGIN_README_RELATIVE, "The submission dashboard contains a pending application."),
-    ("f06a_ja_draft_remains", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルにドラフトが残っています。"),
-    ("f06a_ja_material_registered", submission_module.PLUGIN_README_JA_RELATIVE, "提出ポータルに提出物が登録されています。"),
-    ("f06a_ja_sent_to_review", submission_module.PLUGIN_README_JA_RELATIVE, "審査ポータルで審査に回っています。"),
-    ("f06a_ja_application_not_remaining", submission_module.PLUGIN_README_JA_RELATIVE, "申請システムには申請が残っていません。"),
-    ("f06a_zh_draft_retained", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中仍保留草稿。"),
-    ("f06a_zh_application_material_saved", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "提交平台中保存了申請資料。"),
-    ("f06a_zh_delivery_completed", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "送審入口已完成送件。"),
-    ("f06a_zh_application_under_review", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核平台正在審查申請。"),
-    ("f06a_zh_material_uploaded", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請資料已上傳至平台。"),
     ("f06a_en_portal_shows_awaiting_draft", submission_module.PLUGIN_README_RELATIVE, "The portal shows a draft awaiting review."),
-    ("f06a_ja_screen_saved_draft", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面に草稿が保存されています。"),
 )
 
 F06_MORPHOLOGY_INVALID_CASES = (
@@ -1024,60 +815,18 @@ F06_MORPHOLOGY_INVALID_CASES = (
     ("morph_en_record_remains", submission_module.PLUGIN_README_RELATIVE, "A submission record remains in the developer console."),
     ("morph_en_dashboard_displayed", submission_module.PLUGIN_README_RELATIVE, "The application dashboard displayed a saved form."),
     ("morph_en_workspace_stored", submission_module.PLUGIN_README_RELATIVE, "The submission workspace stored an application packet."),
-    # Japanese surfaces, objects, inflection, and auxiliary forms.
-    ("morph_ja_saved", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面に草稿が保存されています。"),
-    ("morph_ja_applied", submission_module.PLUGIN_README_JA_RELATIVE, "申請サイトで申請済みです。"),
-    ("morph_ja_registered", submission_module.PLUGIN_README_JA_RELATIVE, "提出ポータルに提出物が登録されています。"),
-    ("morph_ja_under_review", submission_module.PLUGIN_README_JA_RELATIVE, "審査ポータルで審査に回っています。"),
-    ("morph_ja_not_remaining", submission_module.PLUGIN_README_JA_RELATIVE, "申請システムには申請が残っていません。"),
-    ("morph_ja_sent_material", submission_module.PLUGIN_README_JA_RELATIVE, "ポータルに送付済みの資料があります。"),
-    ("morph_ja_awaiting_case", submission_module.PLUGIN_README_JA_RELATIVE, "申請ページには審査待ちの案件があります。"),
-    ("morph_ja_sent_from_entry", submission_module.PLUGIN_README_JA_RELATIVE, "申請入口から送信済みです。"),
-    ("morph_ja_content_not_saved", submission_module.PLUGIN_README_JA_RELATIVE, "審査画面に申請内容が保存されていません。"),
-    ("morph_ja_list_registered", submission_module.PLUGIN_README_JA_RELATIVE, "申請一覧に案件が登録されています。"),
-    ("morph_ja_queue_remaining", submission_module.PLUGIN_README_JA_RELATIVE, "審査キューに提出物が残っています。"),
-    ("morph_ja_file_accepted", submission_module.PLUGIN_README_JA_RELATIVE, "管理画面で申請書が受理されています。"),
-    # Taiwan Traditional Chinese surfaces, objects, and aspect markers.
-    ("morph_zh_delivery_record", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請平台已有送件紀錄。"),
-    ("morph_zh_material_saved", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "提交平台中保存了申請資料。"),
-    ("morph_zh_pending_case", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請頁面已有待審案件。"),
-    ("morph_zh_delivery_completed", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "送審入口已完成送件。"),
-    ("morph_zh_reviewing", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核平台正在審查申請。"),
-    ("morph_zh_no_delivery_material", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "入口中沒有任何送件資料。"),
-    ("morph_zh_uploaded", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請資料已上傳至平台。"),
-    ("morph_zh_sent_through_entry", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請已透過入口送出。"),
-    ("morph_zh_pending_draft", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "平台中仍有待處理的草稿。"),
-    ("morph_zh_backend_retained", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請後台留存了提交紀錄。"),
-    ("morph_zh_queue_pending", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核佇列中已有待審案件。"),
-    ("morph_zh_form_registered", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請介面已登記表單。"),
     # Additional unseen inflections from the audited morphology families.
     ("inflect_en_held", submission_module.PLUGIN_README_RELATIVE, "The review portal held submitted material."),
     ("inflect_en_holding", submission_module.PLUGIN_README_RELATIVE, "The application console is holding a saved record."),
     ("inflect_en_remained", submission_module.PLUGIN_README_RELATIVE, "A saved application remained in the review portal."),
     ("inflect_en_registration_remains", submission_module.PLUGIN_README_RELATIVE, "An application registration record remains in the developer console."),
     ("inflect_en_registered", submission_module.PLUGIN_README_RELATIVE, "The application was registered in the submission system."),
-    ("inflect_ja_plain_remains", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きが残る。"),
-    ("inflect_ja_registered_progressive", submission_module.PLUGIN_README_JA_RELATIVE, "申請一覧に案件が登録されている。"),
-    ("inflect_ja_registered_complete", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面の申請書は登録済みです。"),
-    ("inflect_ja_unregistered", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面の申請書は未登録です。"),
-    ("inflect_zh_not_retained", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口中未保留草稿。"),
-    ("inflect_zh_saved", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請平台已保存申請資料。"),
-    ("inflect_zh_not_saved", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請平台未保存申請資料。"),
-    ("inflect_zh_delivered", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口已送件。"),
-    ("inflect_zh_not_yet_delivered", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口尚未送件。"),
-    ("inflect_zh_uploaded", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請資料已上傳至申請平台。"),
-    ("inflect_zh_not_uploaded", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請資料未上傳至申請平台。"),
 )
 
 F06_STRUCTURE_INVALID_CASES = (
     ("structure_en_parentheses", submission_module.PLUGIN_README_RELATIVE, "Portal state remains a human verification gate (a saved draft exists in the application portal)."),
-    ("structure_en_fullwidth_parentheses", submission_module.PLUGIN_README_RELATIVE, "Portal state remains a human verification gate （a saved draft exists in the application portal）."),
     ("structure_en_square_brackets", submission_module.PLUGIN_README_RELATIVE, "Human review is required [the submission dashboard contains a pending application]."),
     ("structure_en_curly_brackets", submission_module.PLUGIN_README_RELATIVE, "The repository cannot determine the portal state {submitted content is present in the application system}."),
-    ("structure_ja_fullwidth_parentheses", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルの状態は人間が確認します（申請画面には保存済みの下書きがあります）。"),
-    ("structure_ja_corner_brackets", submission_module.PLUGIN_README_JA_RELATIVE, "人間による確認が必要です【提出ポータルに提出物が登録されています】。"),
-    ("structure_zh_fullwidth_parentheses", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口的實際狀態仍須由人工確認（申請入口中已有草稿）。"),
-    ("structure_zh_corner_brackets", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "仍須人工確認【申請資料已上傳至平台】。"),
     ("structure_nested_parentheses", submission_module.PLUGIN_README_RELATIVE, "Human verification is required (the reviewer should check whether the portal contains a draft (a saved draft actually exists))."),
 )
 
@@ -1085,13 +834,7 @@ F06_SAFE_PLUS_UNSAFE_INVALID_CASES = (
     ("isolation_en_later_sentence", submission_module.PLUGIN_README_RELATIVE, "The reviewer must verify the portal. A saved draft exists there in the application portal."),
     ("isolation_en_contrast", submission_module.PLUGIN_README_RELATIVE, "Human verification is required, but the portal currently holds submitted material."),
     ("isolation_en_coordinated_clause", submission_module.PLUGIN_README_RELATIVE, "Human verification is required, and a saved draft exists in the portal."),
-    ("isolation_ja_contrast", submission_module.PLUGIN_README_JA_RELATIVE, "人間が確認しますが、申請ポータルには下書きがあります。"),
-    ("isolation_ja_later_sentence", submission_module.PLUGIN_README_JA_RELATIVE, "確認が必要です。提出物は申請画面に登録されています。"),
-    ("isolation_zh_contrast", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "仍須人工確認，但申請入口中已有草稿。"),
-    ("isolation_zh_later_sentence", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要查核。申請資料已上傳至平台。"),
     ("isolation_en_future_semicolon", submission_module.PLUGIN_README_RELATIVE, "A future draft may be created; a saved draft currently exists in the portal."),
-    ("isolation_ja_future_contrast", submission_module.PLUGIN_README_JA_RELATIVE, "承認後に操作する予定ですが、現在は申請画面に下書きがあります。"),
-    ("isolation_zh_future_contrast", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "人工核准後可能建立草稿，但申請入口中已有草稿。"),
     ("isolation_list_items", submission_module.PLUGIN_README_RELATIVE, "- Portal state remains a human verification gate.\n- A saved draft exists in the application portal."),
 )
 
@@ -1101,70 +844,29 @@ F06_DISCOURSE_SAFE_CASES = (
     ("discourse_en_direct_question", submission_module.PLUGIN_README_RELATIVE, "Does a saved draft exist in the application portal? Human verification is required."),
     ("discourse_en_whether_remains", submission_module.PLUGIN_README_RELATIVE, "Whether submitted material remains in the review portal must be checked by a human."),
     ("discourse_en_cannot_determine_if", submission_module.PLUGIN_README_RELATIVE, "The repository cannot determine if an application is on file in the portal."),
-    # Japanese questions and scoped verification.
-    ("discourse_ja_exists_question", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きがあるかは人間が確認します。"),
-    ("discourse_ja_draft_confirmation", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルにドラフトが存在するか確認が必要です。"),
-    ("discourse_ja_cannot_determine", submission_module.PLUGIN_README_JA_RELATIVE, "申請が残っているかどうかは、このリポジトリから判断できません。"),
-    ("discourse_ja_presence_human_check", submission_module.PLUGIN_README_JA_RELATIVE, "提出物の有無は人間が確認します。"),
-    # Taiwan Traditional Chinese questions and scoped verification.
-    ("discourse_zh_draft_whether", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口是否已有草稿，仍須人工確認。"),
-    ("discourse_zh_submission_whether", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要確認申請是否已送件。"),
-    ("discourse_zh_cannot_determine", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "平台中有無待審案件，無法由本儲存庫判定。"),
-    ("discourse_zh_content_verification", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "提交內容是否存在仍須查核。"),
     # Documentation, examples, and quoted terms.
     ("discourse_en_documentation", submission_module.PLUGIN_README_RELATIVE, "The portal documentation defines a field named \"draft\"."),
     ("discourse_en_fixture_example", submission_module.PLUGIN_README_RELATIVE, "The test fixture contains the phrase \"pending draft\" as an example."),
     ("discourse_en_term_example", submission_module.PLUGIN_README_RELATIVE, "This example explains the term \"submitted content\"."),
-    ("discourse_ja_documentation", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルの「下書き」項目について説明します。"),
-    ("discourse_ja_term", submission_module.PLUGIN_README_JA_RELATIVE, "この文書は「送審」という用語を説明しています。"),
-    ("discourse_ja_test_example", submission_module.PLUGIN_README_JA_RELATIVE, "テスト例として「提出済み」という文字列を記載します。"),
-    ("discourse_zh_documentation", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "文件說明申請入口的「草稿」欄位。"),
-    ("discourse_zh_term", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段僅說明「送審」這個詞彙。"),
-    ("discourse_zh_test_example", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "測試範例包含「已提交」字樣。"),
     # Future and hypothetical scopes.
     ("discourse_en_future", submission_module.PLUGIN_README_RELATIVE, "A future portal draft may be created after human approval."),
     ("discourse_en_hypothetical", submission_module.PLUGIN_README_RELATIVE, "If a draft is created in the portal, a human will review it."),
     ("discourse_en_future_will", submission_module.PLUGIN_README_RELATIVE, "A portal draft will be created after approval."),
     ("discourse_en_future_when", submission_module.PLUGIN_README_RELATIVE, "When a human later submits an application through the portal, it will be reviewed."),
-    ("discourse_ja_future", submission_module.PLUGIN_README_JA_RELATIVE, "人間の承認後に下書きを作成する可能性があります。"),
-    ("discourse_ja_hypothetical", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きが作成された場合は人間が確認します。"),
-    ("discourse_ja_future_plan", submission_module.PLUGIN_README_JA_RELATIVE, "承認後に申請ポータルへ送信する予定です。"),
-    ("discourse_ja_hypothetical_nara", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きがあるなら人間が確認します。"),
-    ("discourse_zh_future", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "人工核准後可能建立草稿。"),
-    ("discourse_zh_hypothetical", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "如果申請入口建立草稿，屆時由人工確認。"),
-    ("discourse_zh_future_expected", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "預計人工核准後在申請入口建立草稿。"),
-    ("discourse_zh_hypothetical_ruo", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "若申請入口建立草稿，屆時由人工確認。"),
     # Code content is removed before structural segmentation.
     ("discourse_inline_code", submission_module.PLUGIN_README_RELATIVE, "Portal state remains a human verification gate. `(a saved draft exists in the application portal)`"),
     ("discourse_fenced_code", submission_module.PLUGIN_README_RELATIVE, "Portal state remains a human verification gate.\n\n```text\n(a saved draft exists in the application portal)\n```"),
 )
 
 PRODUCT_STATUS_DISCOURSE_INVALID_CASES = (
-    ("product_zh_example_then_actual", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "測試範例包含「已提交」字樣，但本 Plugin 已提交。"),
-    ("product_zh_bare_quoted_claim", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本 Plugin「已提交」。"),
 )
 
 # Eighth-remediation lexical closures. The six audited sentences and fresh
 # inflections each execute the real validator against an isolated repository.
 F06_PREDICATE_LEXICAL_INVALID_CASES = (
     ("predicate_lexical_en_shows_no_entry", submission_module.PLUGIN_README_RELATIVE, "The developer console shows no pending entry."),
-    ("predicate_lexical_ja_sent_file", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧には送付済みファイルがあります。"),
-    ("predicate_lexical_ja_returned_case", submission_module.PLUGIN_README_JA_RELATIVE, "審査画面で案件が差し戻されています。"),
-    ("predicate_lexical_ja_accepted_form", submission_module.PLUGIN_README_JA_RELATIVE, "申請フォームはすでに受付済みです。"),
-    ("predicate_lexical_zh_shows_returned", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核頁面顯示退回的申請。"),
-    ("predicate_lexical_zh_was_rejected", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "提交內容已被駁回。"),
     ("predicate_inflect_en_showing_entry", submission_module.PLUGIN_README_RELATIVE, "The application dashboard is showing a pending entry."),
     ("predicate_inflect_en_showed_entries", submission_module.PLUGIN_README_RELATIVE, "The review console showed no pending entries."),
-    ("predicate_inflect_ja_file_was_sent", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧に送付されたファイルがあります。"),
-    ("predicate_inflect_ja_file_sent_complete", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面のファイルは送付済みです。"),
-    ("predicate_inflect_ja_case_will_return", submission_module.PLUGIN_README_JA_RELATIVE, "審査画面で案件が差し戻される。"),
-    ("predicate_inflect_ja_case_returned", submission_module.PLUGIN_README_JA_RELATIVE, "審査一覧の案件は差し戻されている。"),
-    ("predicate_inflect_ja_form_accepted", submission_module.PLUGIN_README_JA_RELATIVE, "申請フォームは受け付けられている。"),
-    ("predicate_inflect_ja_application_received", submission_module.PLUGIN_README_JA_RELATIVE, "申請フォームの申請は受付されています。"),
-    ("predicate_inflect_zh_displayed_returned", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核頁面顯示已退回的申請。"),
-    ("predicate_inflect_zh_list_returned", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核列表呈現退回的案件。"),
-    ("predicate_inflect_zh_content_rejected", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "提交內容遭駁回。"),
-    ("predicate_inflect_zh_material_returned", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請資料已被退回。"),
 )
 
 # Safe operators and independent current predicates deliberately share one
@@ -1172,30 +874,12 @@ F06_PREDICATE_LEXICAL_INVALID_CASES = (
 # is exempt, including cross-language coordination.
 F06_PREDICATE_SCOPE_INVALID_CASES = (
     ("predicate_question_en_while", submission_module.PLUGIN_README_RELATIVE, "The reviewer asks whether a draft exists while the review portal currently contains submitted material."),
-    ("predicate_question_ja_ga", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きがあるか確認しますが、申請画面には提出済み資料があります。"),
-    ("predicate_question_zh_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要確認申請入口是否有草稿，但申請資料已上傳至平台。"),
     ("predicate_example_en_while", submission_module.PLUGIN_README_RELATIVE, "This is an explanatory example, while the portal currently contains a saved application."),
-    ("predicate_example_ja_comma", submission_module.PLUGIN_README_JA_RELATIVE, "これは説明例で、申請画面には提出済み資料があります。"),
-    ("predicate_example_zh_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "這只是說明範例，但申請入口中已有草稿。"),
     ("predicate_repository_en_while", submission_module.PLUGIN_README_RELATIVE, "No portal action is performed or evidenced by this repository lane while a saved draft exists in the portal."),
-    ("predicate_human_ja_ga", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルの状態は人間が確認しますが、申請画面には下書きがあります。"),
-    ("predicate_human_zh_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口的狀態仍須人工確認，但申請資料已提交。"),
     ("predicate_future_en_while", submission_module.PLUGIN_README_RELATIVE, "A draft may be created later while the portal currently holds submitted material."),
-    ("predicate_future_ja_ga", submission_module.PLUGIN_README_JA_RELATIVE, "将来下書きを作成する可能性がありますが、現在は申請画面に下書きがあります。"),
-    ("predicate_future_zh_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "未來可能建立草稿，但申請入口中已有草稿。"),
-    ("predicate_cross_en_ja", submission_module.PLUGIN_README_JA_RELATIVE, "This is only a hypothetical example, 申請ポータルには提出済み資料があります。"),
-    ("predicate_cross_ja_zh", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "これは用語の説明です，但申請入口中已有草稿。"),
-    ("predicate_cross_zh_en", submission_module.PLUGIN_README_RELATIVE, "本段僅為範例, but a saved draft exists in the application portal."),
     ("predicate_coord_en_whereas", submission_module.PLUGIN_README_RELATIVE, "The reviewer asks whether a draft exists whereas the portal currently stores submitted material."),
     ("predicate_coord_en_and", submission_module.PLUGIN_README_RELATIVE, "Human verification is required and a saved draft exists in the portal."),
     ("predicate_coord_en_comma", submission_module.PLUGIN_README_RELATIVE, "This is a documentation example, the application console currently holds a saved record."),
-    ("predicate_coord_ja_simultaneous", submission_module.PLUGIN_README_JA_RELATIVE, "下書きがあるか確認すると同時に、申請画面には提出済み資料があります。"),
-    ("predicate_coord_ja_one_side", submission_module.PLUGIN_README_JA_RELATIVE, "これは用語の説明である一方、申請一覧には案件が登録されています。"),
-    ("predicate_coord_ja_nagara", submission_module.PLUGIN_README_JA_RELATIVE, "将来の操作を説明しながら、現在は申請画面に下書きがあります。"),
-    ("predicate_coord_ja_plain_ga", submission_module.PLUGIN_README_JA_RELATIVE, "下書きの有無は人間が確認するが申請画面には提出物があります。"),
-    ("predicate_coord_zh_simultaneous", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要確認是否有草稿，同時申請資料已上傳至平台。"),
-    ("predicate_coord_zh_er", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段只是範例，而申請入口中已有草稿。"),
-    ("predicate_coord_zh_and", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "仍須人工確認且提交內容已被駁回。"),
 )
 
 F06_PREDICATE_SAFE_CASES = (
@@ -1203,33 +887,12 @@ F06_PREDICATE_SAFE_CASES = (
     ("predicate_safe_en_human_question", submission_module.PLUGIN_README_RELATIVE, "Human verification is required to determine whether the portal contains submitted material."),
     ("predicate_safe_en_example", submission_module.PLUGIN_README_RELATIVE, "This example explains the phrase \"submitted material is present in the portal\"."),
     ("predicate_safe_en_hypothetical", submission_module.PLUGIN_README_RELATIVE, "If a draft is created later, a human must review it."),
-    ("predicate_safe_ja_question", submission_module.PLUGIN_README_JA_RELATIVE, "申請ポータルに下書きがあるかを人間が確認します。"),
-    ("predicate_safe_ja_verification", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面に提出物があるかどうかは確認が必要です。"),
-    ("predicate_safe_ja_example", submission_module.PLUGIN_README_JA_RELATIVE, "これは「申請画面に提出済み資料があります」という例文の説明です。"),
-    ("predicate_safe_ja_future", submission_module.PLUGIN_README_JA_RELATIVE, "将来下書きを作成する場合は、人間が確認します。"),
-    ("predicate_safe_zh_question", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口是否已有草稿，仍須人工確認。"),
-    ("predicate_safe_zh_verification", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要確認平台中是否有待審案件。"),
-    ("predicate_safe_zh_example", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段說明「申請資料已提交」這個範例句。"),
-    ("predicate_safe_zh_future", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "若未來建立草稿，仍須人工審核。"),
 )
 
 F06_JA_AVAILABILITY_INVALID_CASES = (
-    ("availability_ja_public_available", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開利用可能です。"),
-    ("availability_ja_current_public_available", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは現在公開利用可能です。"),
-    ("availability_ja_general_public", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは一般公開で利用できます。"),
-    ("availability_ja_published_available", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開済みで利用可能です。"),
-    ("availability_ja_anyone", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは誰でも利用可能です。"),
-    ("availability_ja_public_progressive", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開利用可能になっています。"),
-    ("availability_ja_general_possible", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは一般公開で利用可能です。"),
-    ("availability_ja_anyone_became", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは誰でも利用可能になりました。"),
 )
 
 F06_JA_AVAILABILITY_SAFE_CASES = (
-    ("availability_safe_ja_future", submission_module.PLUGIN_README_JA_RELATIVE, "将来公開できる可能性があります。"),
-    ("availability_safe_ja_question", submission_module.PLUGIN_README_JA_RELATIVE, "公開できるかどうかは人間が判断します。"),
-    ("availability_safe_ja_direct_question", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開利用可能ですか？"),
-    ("availability_safe_ja_negated", submission_module.PLUGIN_README_JA_RELATIVE, "このPluginは公開利用可能ではありません。"),
-    ("availability_safe_ja_explanation", submission_module.PLUGIN_README_JA_RELATIVE, "これは「公開利用可能」という表現の説明です。"),
 )
 
 # Ninth-remediation fixed audit corpus. Every tuple becomes one independently
@@ -1246,103 +909,62 @@ F06_CONTEXT_AUDIT_FALSE_PASS_CASES = (
     ("ninth_audit_fp06_en_parenthetical", submission_module.PLUGIN_README_RELATIVE, "The portal must be reviewed (currently contains a saved application)."),
     ("ninth_audit_fp07_en_square_bracket", submission_module.PLUGIN_README_RELATIVE, "The portal state remains unverified [the review queue holds a pending form]."),
     ("ninth_audit_fp08_en_curly_bracket", submission_module.PLUGIN_README_RELATIVE, "Human review is required {it already stores submitted material}."),
-    ("ninth_audit_fp09_ja_human_ga", submission_module.PLUGIN_README_JA_RELATIVE, "人間が確認しますが、すでに提出済み資料があります。"),
-    ("ninth_audit_fp10_zh_review_buguo", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核入口仍待確認，不過已顯示退回的申請。"),
 )
 
 F06_CONTEXT_REQUIRED_INVALID_CASES = (
-    ("ninth_required_ja_screen_draft", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認する必要があり、現在は下書きが残っています。"),
-    ("ninth_required_ja_review_returned", submission_module.PLUGIN_README_JA_RELATIVE, "審査画面は確認中ですが、案件が差し戻されています。"),
-    ("ninth_required_ja_fullwidth_semicolon", submission_module.PLUGIN_README_JA_RELATIVE, "申請状態は不明です；しかし提出済み資料があります。"),
-    ("ninth_required_ja_parenthetical", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します（現在は下書きがあります）。"),
-    ("ninth_required_zh_human_dan", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "仍須人工確認，但其中已有草稿。"),
-    ("ninth_required_zh_page_erqie", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "需要查核申請頁面，而且目前保存了提交內容。"),
-    ("ninth_required_zh_fullwidth_semicolon", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "入口狀態尚未確認；然而已有提交內容。"),
-    ("ninth_required_zh_parenthetical", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認【其中已有草稿】。"),
 )
 
 F06_CONTEXT_AUDIT_FALSE_REJECT_CASES = (
-    ("ninth_audit_fr01_ja_repository_governs_question", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面に登録済み案件があるかは、このリポジトリから判断できません。"),
-    ("ninth_audit_fr02_ja_particle_ga_question", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧に送付済みファイルがあるか確認します。"),
-    ("ninth_audit_fr03_ja_future", submission_module.PLUGIN_README_JA_RELATIVE, "将来、申請フォームが受付済みになる可能性があります。"),
     ("ninth_audit_fr04_en_quoted_separator", submission_module.PLUGIN_README_RELATIVE, "The example phrase is \"draft exists, but submission is pending\"."),
-    ("ninth_audit_fr05_ja_quoted_separator", submission_module.PLUGIN_README_JA_RELATIVE, "これは「下書きがありますが、未提出です」という例文です。"),
-    ("ninth_audit_fr06_zh_quoted_separator", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段說明「已有草稿，但尚未提交」這個範例句。"),
 )
 
 F06_BOUNDED_CONTEXT_INVALID_CASES = (
     ("ninth_near_en_semicolon_pronoun", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review; it already contains a draft."),
-    ("ninth_near_ja_coordinated_sentence", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します。なお、現在は提出済み資料があります。"),
-    ("ninth_near_zh_semicolon_pronoun", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口需要查核；其中已有草稿。"),
     ("ninth_near_en_colon_omitted_subject", submission_module.PLUGIN_README_RELATIVE, "The review portal remains unverified: submitted material is already present."),
-    ("ninth_near_ja_em_dash_omitted_subject", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は確認中です—現在は提出済み資料があります。"),
-    ("ninth_near_zh_contrast_omitted_subject", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請平台仍待查核，然而已有送件資料。"),
 )
 
 F06_BOUNDED_CONTEXT_SAFE_CASES = (
     ("ninth_far_en_blank_line", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review.\n\nThe next section explains validator architecture."),
     ("ninth_far_en_heading_reset", submission_module.PLUGIN_README_RELATIVE, "## Portal review\nThe portal state requires human verification.\n\n## Test examples\nThe phrase \"submitted material\" is used as an example."),
-    ("ninth_far_ja_blank_line", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は人間が確認します。\n\n別の項目では、提出という用語を説明します。"),
-    ("ninth_far_zh_blank_line", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須人工確認。\n\n下一節只說明「草稿」詞彙。"),
     ("ninth_far_en_unrelated_database", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review.\n\nThe database contains submitted material used by a local fixture."),
-    ("ninth_far_ja_unrelated_database", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は人間が確認します。\n\nこのデータベースには資料があります。"),
-    ("ninth_far_zh_unrelated_archive", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須人工確認。\n\n本地封存中已有測試資料。"),
     ("ninth_far_en_independent_sentence_reset", submission_module.PLUGIN_README_RELATIVE, "The portal requires review. The archive contains a saved record for a fixture."),
 )
 
 F06_PARENT_CHILD_INVALID_CASES = (
     ("ninth_parent_nested_en_square", submission_module.PLUGIN_README_RELATIVE, "The portal must be checked (status unknown [submitted content is already present])."),
     ("ninth_parent_nested_en_curly", submission_module.PLUGIN_README_RELATIVE, "Human verification is required [review pending {it already holds a saved draft}]."),
-    ("ninth_parent_nested_ja", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します（状態は未確認【現在は提出済み資料があります】）。"),
-    ("ninth_parent_nested_zh", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認【狀態未知（其中已有草稿）】。"),
     ("ninth_parent_quote_then_real_assertion", submission_module.PLUGIN_README_RELATIVE, "The example phrase is \"draft exists, but submission is pending\"; the portal currently contains submitted material."),
-    ("ninth_parent_outer_safe_inner_current", submission_module.PLUGIN_README_JA_RELATIVE, "人間が確認します【申請画面には提出済み資料があります】。"),
 )
 
 F06_PARENT_CHILD_SAFE_CASES = (
     ("ninth_parent_safe_en_whether", submission_module.PLUGIN_README_RELATIVE, "The portal must be checked (whether it contains submitted material)."),
-    ("ninth_parent_safe_ja_question", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します（下書きがあるかどうか）。"),
-    ("ninth_parent_safe_zh_whether", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認【是否已有草稿】。"),
 )
 
 F06_MARKDOWN_CONTEXT_INVALID_CASES = (
     ("ninth_markdown_en_strong", submission_module.PLUGIN_README_RELATIVE, "The application portal must be checked, and **currently contains submitted material**."),
-    ("ninth_markdown_ja_link", submission_module.PLUGIN_README_JA_RELATIVE, "これは確認文ですが、申請画面には[提出済み資料](https://example.invalid)があります。"),
-    ("ninth_markdown_zh_comment", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "審核入口仍待確認，不過提交內容已<!-- split -->被駁回。"),
     ("ninth_markdown_en_html_emphasis", submission_module.PLUGIN_README_RELATIVE, "The developer console must be checked; <em>it already contains a saved draft</em>."),
     ("ninth_markdown_en_linked_antecedent", submission_module.PLUGIN_README_RELATIVE, "The [application portal](https://example.invalid) must be checked, and currently contains submitted material."),
     ("ninth_markdown_en_entity_dash", submission_module.PLUGIN_README_RELATIVE, "The portal state is unknown &mdash; submitted content is already present."),
     ("ninth_markdown_en_soft_break", submission_module.PLUGIN_README_RELATIVE, "The application portal must be checked,\nand currently contains submitted material."),
-    ("ninth_markdown_ja_nested_strong", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面を確認します（状態は未確認【**現在は下書きがあります**】）。"),
-    ("ninth_markdown_mixed_language_spacing", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口 remains unverified； submitted content 已存在。"),
 )
 
 F06_MARKDOWN_CONTEXT_SAFE_CASES = (
     ("ninth_quote_single_en", submission_module.PLUGIN_README_RELATIVE, "The example phrase is 'draft exists, but submission is pending'."),
     ("ninth_quote_curly_en", submission_module.PLUGIN_README_RELATIVE, "The example phrase is “draft exists; submission is pending”."),
-    ("ninth_quote_corner_ja", submission_module.PLUGIN_README_JA_RELATIVE, "これは『下書きがありますが、未提出です』という例文です。"),
-    ("ninth_quote_angle_ja", submission_module.PLUGIN_README_JA_RELATIVE, "これは〈下書きがありますが、未提出です〉という例文です。"),
-    ("ninth_quote_book_zh", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段說明《已有草稿，但尚未提交》這個範例句。"),
-    ("ninth_quote_angle_zh", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "本段說明〈已有草稿；但尚未提交〉這個範例句。"),
 )
 
 
 # Tenth-remediation continuation-context corpus. The first five cases are the
 # independently observed false-PASSes: the structural separator was consumed,
 # so the following span lost the portal/surface antecedent. The sixth case
-# covers the paired Traditional Chinese continuation form required by the same
-# semantic rule. Every tuple still runs the real validator subprocess against
+# Every tuple still runs the real validator subprocess against
 # its own fresh repository copy through the factories below.
 F06_CONTINUATION_CONTEXT_FALSE_PASS_CASES = (
     ("tenth_audit_fp01_en_nevertheless", submission_module.PLUGIN_README_RELATIVE, "The application portal must be checked. Nevertheless, submitted material is already present."),
     ("tenth_audit_fp02_en_even_so", submission_module.PLUGIN_README_RELATIVE, "The developer dashboard remains unverified. Even so, it currently holds a pending application."),
-    ("tenth_audit_fp03_ja_soredemo", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は確認が必要です。それでも、現在は提出済み資料があります。"),
-    ("tenth_audit_fp04_ja_towaie", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は確認が必要です。とはいえ、現在は提出済み資料があります。"),
-    ("tenth_audit_fp05_zh_jinguanruci", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認。儘管如此，其中已有資料。"),
 )
 
 F06_CONTINUATION_VARIANT_INVALID_CASES = (
-    ("tenth_variant_zh_jishiruci", submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "申請入口仍須確認。即使如此，其中已有資料。"),
 )
 
 
@@ -1370,9 +992,6 @@ F06_CONTINUATION_CONTEXT_SAFE_CASES = (
     # A continuation operator may use only its nearest structural antecedent;
     # it must not jump over unrelated prose to find an older portal mention.
     ("tenth_nearest_antecedent_only", submission_module.PLUGIN_README_RELATIVE, "The application portal requires review. The local archive is described here. Nevertheless, submitted material is already present."),
-    # The case-particle が belongs to the question predicate and must not be
-    # mistaken for the continuation boundary in 必要があり、.
-    ("tenth_ja_case_particle_question", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面に下書きがあるか確認する必要があります。"),
 )
 
 
@@ -1380,20 +999,9 @@ F06_CONTINUATION_CONTEXT_SAFE_CASES = (
 # exact audit cases above. Each tuple is still a fresh-copy real-validator
 # subprocess test generated by the same factories as all earlier F-06 cases.
 F06_RESIDUAL_CONTINUATION_INVALID_CASES = (
-    ("eleventh_continuation_kanji_accepted", submission_module.PLUGIN_README_JA_RELATIVE, "申請フォームは未確認です。それにも関わらず、すでに受付済みです。"),
-    ("eleventh_continuation_list_material", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧は確認待ちです。それにもかかわらず、送付済み資料があります。"),
-    ("eleventh_continuation_review_returned", submission_module.PLUGIN_README_JA_RELATIVE, "審査画面は未確認です。それにも関わらず、案件が差し戻されています。"),
-    ("eleventh_continuation_near_draft", submission_module.PLUGIN_README_JA_RELATIVE, "申請入口は確認待ちです。それにもかかわらず、下書きがあります。"),
-    ("eleventh_continuation_markdown_strong", submission_module.PLUGIN_README_JA_RELATIVE, "申請フォームは確認待ちです。それにもかかわらず、**受付済みです**。"),
 )
 
 F06_RESIDUAL_NECESSARY_INVALID_CASES = (
-    ("eleventh_necessary_screen_draft", submission_module.PLUGIN_README_JA_RELATIVE, "申請画面は確認が必要であり、現在は下書きがあります。"),
-    ("eleventh_necessary_review_returned", submission_module.PLUGIN_README_JA_RELATIVE, "審査画面は確認が必要であり、案件が差し戻されています。"),
-    ("eleventh_necessary_form_accepted", submission_module.PLUGIN_README_JA_RELATIVE, "申請フォームは確認が必要であり、すでに受付済みです。"),
-    ("eleventh_necessary_verb_file", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧は確認する必要があり、送付済みファイルが残っています。"),
-    ("eleventh_necessary_near_rejected", submission_module.PLUGIN_README_JA_RELATIVE, "審査一覧は確認が必要であり、却下済み案件があります。"),
-    ("eleventh_necessary_markdown_link", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧は確認が必要であり、[送付済み資料](https://example.invalid)があります。"),
 )
 
 F06_RESIDUAL_ANAPHORIC_INVALID_CASES = (
@@ -1414,12 +1022,6 @@ F06_RESIDUAL_VERIFICATION_COMBINED_INVALID_CASES = (
 )
 
 F06_RESIDUAL_SAFE_CASES = (
-    ("eleventh_safe_continuation_quoted_term", submission_module.PLUGIN_README_JA_RELATIVE, "次の段落では「それにもかかわらず」という接続表現を説明します。"),
-    ("eleventh_safe_continuation_quoted_example", submission_module.PLUGIN_README_JA_RELATIVE, "これは「それにも関わらず、受付済みです」という例文です。"),
-    ("eleventh_safe_necessary_embedded_question", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧に送付済み資料があるか確認する必要があります。"),
-    ("eleventh_safe_necessary_whether", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧に送付済み資料があるかどうかは確認が必要です。"),
-    ("eleventh_safe_necessary_only", submission_module.PLUGIN_README_JA_RELATIVE, "提出一覧は確認が必要です。"),
-    ("eleventh_safe_necessary_quoted_term", submission_module.PLUGIN_README_JA_RELATIVE, "これは「確認が必要であり」という表現の説明です。"),
     ("eleventh_safe_anaphoric_question", submission_module.PLUGIN_README_RELATIVE, "Does the developer console show one pending entry?"),
     ("eleventh_safe_anaphoric_example", submission_module.PLUGIN_README_RELATIVE, 'The test example contains the word "one".'),
     ("eleventh_safe_anaphoric_future", submission_module.PLUGIN_README_RELATIVE, "One possible future entry may be displayed after submission."),
@@ -1429,8 +1031,6 @@ F06_RESIDUAL_SAFE_CASES = (
     ("eleventh_safe_verification_not_checked", submission_module.PLUGIN_README_RELATIVE, "The application portal has not been checked."),
     ("eleventh_safe_verification_awaiting", submission_module.PLUGIN_README_RELATIVE, "The review interface is awaiting human verification."),
     ("eleventh_safe_verification_human_review", submission_module.PLUGIN_README_RELATIVE, "The submission page still requires human review."),
-    ("eleventh_safe_near_ja_human", submission_module.PLUGIN_README_JA_RELATIVE, "申請入口が確認済みかどうかを人間が判断します。"),
-    ("eleventh_safe_near_ja_explanation", submission_module.PLUGIN_README_JA_RELATIVE, "これは「必要であり」という接続表現の説明です。"),
     ("eleventh_safe_near_review_unchecked", submission_module.PLUGIN_README_RELATIVE, "The review dashboard remains unchecked."),
     ("eleventh_safe_near_documentation_one", submission_module.PLUGIN_README_RELATIVE, 'The documentation explains the pronoun "one".'),
 )
@@ -1507,8 +1107,6 @@ F06_THIRTEENTH_EXACT_GENERIC_FALSE_REJECT_CASES = (
     ("thirteenth_exact_pr_v_11", submission_module.PLUGIN_README_RELATIVE, "The submission site presents one documentation example."),
     ("thirteenth_exact_pr_v_13", submission_module.PLUGIN_README_RELATIVE, "The application console presents one operational runbook diagram."),
     ("thirteenth_exact_pr_v_14", submission_module.PLUGIN_README_RELATIVE, "The submission dashboard presents one schema documentation example."),
-    ("thirteenth_exact_ja_v_06", submission_module.PLUGIN_README_JA_RELATIVE, "ドキュメントサイトには申請書テンプレートの例があります。"),
-    ("thirteenth_exact_ja_v_07", submission_module.PLUGIN_README_JA_RELATIVE, "監視ダッシュボードには審査メトリクスの例があります。"),
 )
 
 F06_THIRTEENTH_EXACT_HYPOTHETICAL_FALSE_REJECT_CASES = (
@@ -1595,18 +1193,18 @@ F06_THIRTEENTH_HYPOTHETICAL_SAFE_CASES = (
 )
 
 F06_THIRTEENTH_MIXED_SCOPE_INVALID_CASES = (
-    ("thirteenth_mixed_if_then_current_pronoun", submission_module.PLUGIN_README_RELATIVE, "If the portal changes later, we will investigate. It currently lists another approved item."),
-    ("thirteenth_mixed_hyp_then_current_portal", submission_module.PLUGIN_README_RELATIVE, "In a hypothetical scenario the portal lists a returned item; the portal currently shows an approved item."),
-    ("thirteenth_mixed_suppose_then_now", submission_module.PLUGIN_README_RELATIVE, "Suppose the review portal presented a rejected item; however, the review portal now contains a completed item."),
-    ("thirteenth_mixed_assuming_then_actual", submission_module.PLUGIN_README_RELATIVE, "Assuming the developer console lists a returned item, the test is useful, but the developer console actually shows an approved item."),
-    ("thirteenth_mixed_unless_then_current", submission_module.PLUGIN_README_RELATIVE, "Unless the application portal displays a completed item, the demo passes; the application portal currently holds a rejected item."),
-    ("thirteenth_mixed_counterfactual_then_now", submission_module.PLUGIN_README_RELATIVE, "In a counterfactual walkthrough the portal presents an approved item. The portal now lists a returned item."),
-    ("thirteenth_mixed_future_then_already", submission_module.PLUGIN_README_RELATIVE, "The submission portal might show a rejected item later, but it already contains a completed item."),
-    ("thirteenth_mixed_question_then_current", submission_module.PLUGIN_README_RELATIVE, "Could the review portal list a returned item? The review portal currently presents an approved item."),
-    ("thirteenth_mixed_quote_then_current", submission_module.PLUGIN_README_RELATIVE, "The guide quotes ‘the portal lists a completed item’; the portal currently shows a rejected item."),
-    ("thirteenth_mixed_example_then_current", submission_module.PLUGIN_README_RELATIVE, "For example, if the developer portal showed an approved item, we would inspect it; the developer portal now lists a returned item."),
-    ("thirteenth_mixed_should_then_actual", submission_module.PLUGIN_README_RELATIVE, "Should the application console later list a completed item, the mock will fail, whereas the application console actually contains a rejected item."),
-    ("thirteenth_mixed_may_then_current", submission_module.PLUGIN_README_RELATIVE, "The review dashboard may display a returned item in a future demo. It currently presents one approved item."),
+    ("thirteenth_scope_if_then_current_pronoun", submission_module.PLUGIN_README_RELATIVE, "If the portal changes later, we will investigate. It currently lists another approved item."),
+    ("thirteenth_scope_hyp_then_current_portal", submission_module.PLUGIN_README_RELATIVE, "In a hypothetical scenario the portal lists a returned item; the portal currently shows an approved item."),
+    ("thirteenth_scope_suppose_then_now", submission_module.PLUGIN_README_RELATIVE, "Suppose the review portal presented a rejected item; however, the review portal now contains a completed item."),
+    ("thirteenth_scope_assuming_then_actual", submission_module.PLUGIN_README_RELATIVE, "Assuming the developer console lists a returned item, the test is useful, but the developer console actually shows an approved item."),
+    ("thirteenth_scope_unless_then_current", submission_module.PLUGIN_README_RELATIVE, "Unless the application portal displays a completed item, the demo passes; the application portal currently holds a rejected item."),
+    ("thirteenth_scope_counterfactual_then_now", submission_module.PLUGIN_README_RELATIVE, "In a counterfactual walkthrough the portal presents an approved item. The portal now lists a returned item."),
+    ("thirteenth_scope_future_then_already", submission_module.PLUGIN_README_RELATIVE, "The submission portal might show a rejected item later, but it already contains a completed item."),
+    ("thirteenth_scope_question_then_current", submission_module.PLUGIN_README_RELATIVE, "Could the review portal list a returned item? The review portal currently presents an approved item."),
+    ("thirteenth_scope_quote_then_current", submission_module.PLUGIN_README_RELATIVE, "The guide quotes ‘the portal lists a completed item’; the portal currently shows a rejected item."),
+    ("thirteenth_scope_example_then_current", submission_module.PLUGIN_README_RELATIVE, "For example, if the developer portal showed an approved item, we would inspect it; the developer portal now lists a returned item."),
+    ("thirteenth_scope_should_then_actual", submission_module.PLUGIN_README_RELATIVE, "Should the application console later list a completed item, the mock will fail, whereas the application console actually contains a rejected item."),
+    ("thirteenth_scope_may_then_current", submission_module.PLUGIN_README_RELATIVE, "The review dashboard may display a returned item in a future demo. It currently presents one approved item."),
 )
 
 F06_THIRTEENTH_SCOPE_CONTROL_SAFE_CASES = (
@@ -1867,52 +1465,6 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
             "The Plugin is not stable, nevertheless it is officially released.",
         )
 
-    # --- Japanese invalid variants ------------------------------------------
-
-    def test_ja_claim_after_desuga_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "このPluginは未申請ですが、公開Directoryで利用可能です。",
-        )
-
-    def test_ja_claim_after_sarete_imasen_ga_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "このPluginは申請されていませんが、OpenAIの公開Plugins Directoryから利用できます。",
-        )
-
-    def test_ja_claim_after_monono_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "未承認ではあるものの、このPluginは公開Directoryで提供されています。",
-        )
-
-    def test_ja_claim_after_nimokakawarazu_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "申請されていないにもかかわらず、公開Directoryで利用可能です。",
-        )
-
-    # --- Traditional Chinese invalid variants -------------------------------
-
-    def test_zh_claim_after_dan_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "本Plugin尚未提交，但目前可從OpenAI公開Plugins Directory使用。",
-        )
-
-    def test_zh_claim_after_buguo_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "本Plugin尚未送出申請，不過現在可在公開Directory取得。",
-        )
-
-    def test_zh_claim_after_suiran_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "雖然尚未核准，本Plugin目前已於公開Plugins Directory提供。",
-        )
-
     # --- Valid controls: every allowed statement, through the validator -----
 
     def test_valid_no_submission_statement_passes(self):
@@ -1953,15 +1505,7 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
             submission_module.RELEASE_NOTES_RELATIVE, "Public policy URLs are prepared."
         )
 
-    def test_valid_ja_policy_urls_prepared_statement_passes(self):
-        self.accept_statement(
-            submission_module.PLUGIN_README_JA_RELATIVE, "公開ポリシーURLは準備済みです。"
-        )
 
-    def test_valid_zh_policy_urls_prepared_statement_passes(self):
-        self.accept_statement(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE, "公開政策 URL 已備妥。"
-        )
 
     # --- F-03: Markdown formatting must not hide a status claim -------------
 
@@ -2017,17 +1561,7 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
             "## This Plugin is **officially released**",
         )
 
-    def test_md_ja_bold_claim_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "このPluginは**正式公開済み**です。",
-        )
 
-    def test_md_zh_bold_claim_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "本Plugin目前已**正式發布**。",
-        )
 
     def test_md_inline_code_example_passes(self):
         self.accept_statement(
@@ -2122,17 +1656,7 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
             "This Plugin is **publicly\navailable**.",
         )
 
-    def test_md_soft_line_break_ja_claim_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_JA_RELATIVE,
-            "このPluginは正式\n公開済みです。",
-        )
 
-    def test_md_soft_line_break_zh_claim_fails(self):
-        self.reject_claim(
-            submission_module.PLUGIN_README_ZH_HANT_RELATIVE,
-            "本Plugin目前已正式\n發布。",
-        )
 
     def test_md_paragraph_boundary_is_not_joined_passes(self):
         # Two paragraphs must never be fused into one synthetic claim.
@@ -2181,8 +1705,7 @@ class StatusClaimSubprocessTests(RepoInvariantTestCase):
 
 class SupportChannelClassificationTests(RepoInvariantTestCase):
     """F-04 acceptance tests: a noncanonical URL fails only when asserted as
-    a support/contact channel, in any of the three languages, at any
-    placement in the file.
+    an English support/contact channel at any placement in the file.
     """
 
     SUPPORT_ERROR = "must not present another support channel"
@@ -2210,23 +1733,7 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
 
     # --- Invalid: channel assertions with a /help URL, all placements -------
 
-    def test_support_mixed_language_help_desk_in_japanese_section_fails(self):
-        self.reject_support(
-            lambda root: self.insert_before(
-                root,
-                "### セキュリティに関わる報告",
-                "公式help deskは https://example.com/help です。\n\n",
-            )
-        )
 
-    def test_support_official_zh_channel_in_zh_section_fails(self):
-        self.reject_support(
-            lambda root: self.insert_before(
-                root,
-                "### 涉及安全性的回報",
-                "官方支援可透過 https://example.com/help 取得。\n\n",
-            )
-        )
 
     def test_support_official_customer_support_at_eof_fails(self):
         self.reject_support(
@@ -2237,14 +1744,6 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
             )
         )
 
-    def test_support_assertion_on_preceding_line_fails(self):
-        self.reject_support(
-            lambda root: append_text(
-                root,
-                submission_module.SUPPORT_RELATIVE,
-                "\n公式サポート窓口:\n\nhttps://example.com/help\n",
-            )
-        )
 
     # --- Valid: reference and documentation links must stay allowed ---------
 
@@ -2260,16 +1759,7 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
             "https://example.com/docs/glossary."
         )
 
-    def test_support_ja_glossary_reference_passes(self):
-        self.accept_support(
-            "サポート用語の背景資料は https://example.com/docs/support-glossary "
-            "を参照してください。"
-        )
 
-    def test_support_zh_glossary_reference_passes(self):
-        self.accept_support(
-            "支援術語的背景資料請參閱 https://example.com/docs/support-glossary。"
-        )
 
     # --- F-04: reference-style links resolve to their destinations ----------
 
@@ -2294,23 +1784,7 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
             )
         )
 
-    def test_support_reference_link_ja_official_fails(self):
-        self.reject_support(
-            lambda root: append_text(
-                root,
-                submission_module.SUPPORT_RELATIVE,
-                "\n[公式サポート][help]\n\n[help]: https://example.com/help\n",
-            )
-        )
 
-    def test_support_reference_link_zh_official_fails(self):
-        self.reject_support(
-            lambda root: append_text(
-                root,
-                submission_module.SUPPORT_RELATIVE,
-                "\n[官方支援][help]\n\n[help]: https://example.com/help\n",
-            )
-        )
 
     def test_support_inline_link_official_support_fails(self):
         self.reject_support(
@@ -2332,23 +1806,7 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
             )
         )
 
-    def test_support_colon_carry_ja_toiawasesaki_fails(self):
-        self.reject_support(
-            lambda root: append_text(
-                root,
-                submission_module.SUPPORT_RELATIVE,
-                "\n問い合わせ先:\nhttps://example.com/help\n",
-            )
-        )
 
-    def test_support_colon_carry_zh_fullwidth_fails(self):
-        self.reject_support(
-            lambda root: append_text(
-                root,
-                submission_module.SUPPORT_RELATIVE,
-                "\n官方支援：\nhttps://example.com/help\n",
-            )
-        )
 
     def test_support_multiple_links_canonical_does_not_hide_alternative_fails(self):
         self.reject_support(
@@ -2372,16 +1830,8 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
             "[glossary]: https://example.com/docs/support-glossary"
         )
 
-    def test_support_ja_inline_link_glossary_passes(self):
-        self.accept_support("[ヘルプデスクという語の説明](https://example.com/docs/glossary)")
 
-    def test_support_zh_inline_link_glossary_passes(self):
-        self.accept_support("[支援術語的背景資料](https://example.com/docs/support-glossary)")
 
-    def test_support_ja_doc_prose_same_line_passes(self):
-        self.accept_support(
-            "ヘルプデスクという語の説明は https://example.com/docs/glossary にあります。"
-        )
 
     def test_support_two_line_documentation_reference_passes(self):
         self.accept_support(
@@ -2389,8 +1839,6 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
             "Documentation reference: https://example.com/help"
         )
 
-    def test_support_zh_doc_prose_passes(self):
-        self.accept_support("本文件說明客服用語：https://example.com/docs/glossary。")
 
     # --- Reference destination forms ----------------------------------------
 
@@ -2482,14 +1930,6 @@ class SupportChannelClassificationTests(RepoInvariantTestCase):
             )
         )
 
-    def test_support_reference_image_alt_official_support_fails(self):
-        self.reject_support(
-            lambda root: append_text(
-                root,
-                submission_module.SUPPORT_RELATIVE,
-                "\n![公式サポート][help]\n\n[help]: https://example.com/help\n",
-            )
-        )
 
     def test_support_linked_image_official_support_fails(self):
         # The outer destination is the support destination.
@@ -2549,6 +1989,49 @@ class PrivacyBoundaryRemovalTests(RepoInvariantTestCase):
     """F-05: every canonical Privacy boundary, independently removed and
     verified through the full validator subprocess.
     """
+
+
+class CanonicalEnglishRuntimeRegressionTests(RepoInvariantTestCase):
+    def test_validator_has_no_localized_machine_semantic_tables(self):
+        source = VALIDATE_SUBMISSION_SCRIPT.read_text(encoding="utf-8")
+        self.assertIsInstance(submission_module.PORTAL_CONTEXT_PATTERNS, tuple)
+        self.assertIsInstance(submission_module.PORTAL_STATE_OBJECT_PATTERNS, tuple)
+        self.assertIsInstance(submission_module.PORTAL_STATE_PREDICATE_PATTERNS, tuple)
+        self.assertNotRegex(source, r"[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]")
+        self.assertIn("not a general natural-language", source)
+
+    def test_each_canonical_english_status_marker_is_required(self):
+        for relative, markers in submission_module.CANONICAL_STATUS_MARKERS.items():
+            for marker in markers:
+                with self.subTest(relative=relative, marker=marker):
+                    with tempfile.TemporaryDirectory() as temp:
+                        root = build_repo(temp)
+                        remove_text(root, relative, marker)
+                        self.assert_rejected(
+                            run_validator(root), "missing canonical English marker"
+                        )
+
+    def test_f05_unexpected_name_error_has_no_pass_or_runtime_details(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_repo(temp)
+            script = root / "scripts/validate-plugin-submission.py"
+            source = script.read_text(encoding="utf-8")
+            self.assertIn("return main()", source)
+            script.write_text(
+                source.replace("return main()", "return missing_entrypoint()", 1),
+                encoding="utf-8",
+            )
+
+            result = run_validator(root)
+            combined = result.stdout + result.stderr
+            self.assertEqual(1, result.returncode, combined)
+            self.assertIn(
+                "ERROR: Unexpected Plugin submission validator failure.",
+                result.stderr,
+            )
+            self.assertNotIn("Plugin submission validation: PASS", combined)
+            self.assertNotIn("NameError", combined)
+            self.assertNotIn("Traceback", combined)
 
 
 def _make_privacy_removal_test(snippet: str):

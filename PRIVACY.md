@@ -4,7 +4,7 @@ This policy applies to the **Agentic Change Audit Codex Plugin** distributed fro
 
 English is the canonical version. The Japanese and Traditional Chinese sections below are provided for convenience and are materially equivalent.
 
-Public URL after merge:
+Public URL:
 
 ```text
 https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md

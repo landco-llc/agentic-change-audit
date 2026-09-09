@@ -184,6 +184,40 @@ class PluginValidatorTests(unittest.TestCase):
         result = run_validator(ROOT)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
+    def test_plugin_root_has_only_canonical_english_readme(self):
+        self.assertEqual(
+            [".codex-plugin", "NOTICE", "README.md", "skills"],
+            sorted(path.name for path in PLUGIN_ROOT.iterdir()),
+        )
+
+    def test_stale_pre_merge_wording_fails_without_traceback(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_plugin_repo(temp)
+            readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+            readme.write_text(
+                readme.read_text(encoding="utf-8")
+                + "\nAfter this branch is merged, use the Git source.\n",
+                encoding="utf-8",
+            )
+            result = run_validator(root)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("stale marketplace/version identity", result.stderr)
+            self.assertNotIn("Codex Plugin validation: PASS", result.stdout)
+            self.assertNotIn("NameError", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
+    def test_unexpected_decode_error_is_fail_closed_without_traceback(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = build_plugin_repo(temp)
+            readme = root / validate_module.PLUGIN_RELATIVE / "README.md"
+            readme.write_bytes(b"\xff")
+            result = run_validator(root)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("Unexpected Codex Plugin validator failure", result.stderr)
+            self.assertNotIn("Codex Plugin validation: PASS", result.stdout)
+            self.assertNotIn("NameError", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
 
 class PluginValidatorHtmlBlockTests(unittest.TestCase):
     def test_visible_html_block_phase_claim_is_rejected(self):
@@ -629,8 +663,6 @@ class PluginSecurityBoundaryTests(unittest.TestCase):
             ROOT / "guides/ja/installation.md",
             ROOT / "guides/zh-Hant/installation.md",
             PLUGIN_ROOT / "README.md",
-            PLUGIN_ROOT / "README.ja.md",
-            PLUGIN_ROOT / "README.zh-Hant.md",
         ]
         for path in candidates:
             self.assertTrue(path.is_file(), f"Missing documentation file: {path}")
