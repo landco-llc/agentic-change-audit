@@ -41,10 +41,6 @@ MANIFEST_RELATIVE = f"{PLUGIN_RELATIVE}/.codex-plugin/plugin.json"
 PLUGIN_VALIDATOR_RELATIVE = "scripts/validate-codex-plugin.py"
 
 PLUGIN_README_RELATIVE = f"{PLUGIN_RELATIVE}/README.md"
-# Legacy constants remain only so historical helper tables can be imported;
-# they are not part of PLUGIN_README_FILES and are never validated surfaces.
-PLUGIN_README_JA_RELATIVE = f"{PLUGIN_RELATIVE}/README.ja.md"
-PLUGIN_README_ZH_HANT_RELATIVE = f"{PLUGIN_RELATIVE}/README.zh-Hant.md"
 
 # Files the submission package must provide.
 REQUIRED_FILES = (
@@ -70,13 +66,11 @@ PLUGIN_README_FILES = (
 # Files scanned for local paths, addresses, and secret-like values.
 SCANNED_FILES = REQUIRED_FILES + PLUGIN_README_FILES
 
-# Files scanned for product and submission status claims.
+# Canonical English prose surfaces carrying marketplace and portal-state facts.
 CLAIM_SCAN_FILES = (
     RELEASE_NOTES_RELATIVE,
     SUBMISSION_README_RELATIVE,
 ) + PLUGIN_README_FILES
-
-# Files whose portal wording must stay inside the repository-evidence lane.
 PORTAL_STATE_SCAN_FILES = (SUBMISSION_README_RELATIVE,) + PLUGIN_README_FILES
 
 EXPECTED_LISTING_KEYS = {
@@ -267,43 +261,26 @@ SUPPORT_REQUIRED_BOUNDARIES = (
 SUPPORT_CHANNEL_HEADING = "## Support channel"
 CANONICAL_SUPPORT_URL = "https://github.com/landco-llc/agentic-change-audit/issues"
 
-# Phrases that materially assert a support/contact channel role, in English,
-# Japanese, and Traditional Chinese, including mixed-language forms such as
-# "公式help desk". Generic support vocabulary ("support terminology",
-# "customer-support vocabulary", "サポート用語", "支援術語") does not match,
-# and a URL path such as /help or /support is never proof by itself — the
-# assertion must appear in the text around the URL.
+# Bounded English phrases that explicitly assign a support/contact channel
+# role. Localized prose is distribution content, not a machine-semantic lane.
+# A URL path such as /help or /support is never proof by itself: the assertion
+# must appear in the visible label or adjacent English text.
 SUPPORT_ASSERTION_PATTERNS = (
-    # English.
     re.compile(r"\bofficial\s+(?:customer\s+)?support\b", re.IGNORECASE),
     re.compile(r"\bsupport\s+is\s+(?:also\s+)?available\s+(?:at|via|through|from)\b", re.IGNORECASE),
     re.compile(r"\bsupport\s+(?:channel|portal|contact)\b", re.IGNORECASE),
     re.compile(r"\bcontact\s+support\b", re.IGNORECASE),
     re.compile(r"\bhelp\s*desk\b", re.IGNORECASE),
     re.compile(r"\bcustomer\s+support\s+(?:hotline|line|desk|team|portal)\b", re.IGNORECASE),
-    # Japanese.
-    re.compile(r"公式\s*(?:サポート|ヘルプデスク|help\s*desk)", re.IGNORECASE),
-    re.compile(r"サポート(?:窓口|チャネル|チャンネル|ポータル)"),
-    re.compile(r"問い?合わせ(?:窓口|先)"),
-    re.compile(r"ヘルプデスク"),
-    re.compile(r"支援窓口"),
-    # Traditional Chinese.
-    re.compile(r"官方(?:支援|客服)"),
-    re.compile(r"(?:支援|客服)(?:管道|入口)"),
-    re.compile(r"聯絡支援"),
-    re.compile(r"服務台"),
-    re.compile(r"協助中心"),
 )
-URL_PATTERN = re.compile(r"https?://[^\s<>()\[\]\"'`。、，]+")
+URL_PATTERN = re.compile(r"https?://[^\s<>()\[\]\"'`]+")
 
 # Explanatory wording: a line qualified as documentation, reference, or
 # terminology material is describing support concepts, not assigning the URL
 # a channel role.
 SUPPORT_DOC_QUALIFIER_PATTERN = re.compile(
     r"\b(?:documentation|reference|background|terminology|vocabulary|glossary"
-    r"|implementation\s+notes|explains|discusses|compares)\b"
-    r"|説明|用語|背景資料|参照|参考資料|ドキュメント|実装ノート|解説"
-    r"|說明|術語|背景資料|參閱|參考資料|文件|詞彙|解說",
+    r"|implementation\s+notes|explains|discusses|compares)\b",
     re.IGNORECASE,
 )
 
@@ -411,138 +388,47 @@ PLUGIN_README_REQUIRED_BOUNDARIES = {
             ("English is the sole canonical language for machine semantics",),
         ),
     ),
-    PLUGIN_README_JA_RELATIVE: (
-        ("development preview", ("development preview",)),
-        (
-            "公開Plugins Directoryへ申請・登録・公開されていない",
-            ("公開Plugins Directoryへ申請・登録・公開されていません",),
-        ),
-        ("正式申請は完了していない", ("正式申請は完了していません",)),
-        (
-            "リポジトリ側で申請ポータルを操作せず証跡もない",
-            (
-                "このリポジトリ側の作業では申請ポータルを操作しておらず、その操作を示す証跡もありません",
-            ),
-        ),
-        (
-            "申請ポータルの状態は人間が確認する",
-            ("申請ポータルの状態は人間が確認する必要があります",),
-        ),
-        ("公開Directoryでの提供を主張しない", ("公開Directoryでの提供は一切主張しません",)),
-        (
-            "identity verification、logo承認、申請が人間判断待ち",
-            ("人間の判断待ちです",),
-        ),
-    ),
-    PLUGIN_README_ZH_HANT_RELATIVE: (
-        ("development preview", ("development preview",)),
-        (
-            "尚未提交、列入或公開於公開Plugins Directory",
-            ("尚未提交、列入或公開於",),
-        ),
-        ("尚未完成正式申請", ("尚未完成向 OpenAI 的正式申請",)),
-        (
-            "儲存庫端未操作申請入口且沒有操作證據",
-            ("本次儲存庫端作業未操作申請入口，也沒有相關操作證據",),
-        ),
-        (
-            "申請入口狀態仍須人工確認",
-            ("申請入口的實際狀態仍須由人工確認",),
-        ),
-        ("不主張任何公開Directory上架", ("不主張任何公開 Directory 上架",)),
-        (
-            "identity verification、logo核准與申請仍待人工決定",
-            ("均仍待人工決定",),
-        ),
-    ),
 }
 
-# External portal state is not observable from this repository lane. Classify
-# normalized visible prose by semantic components instead of accumulating
-# whole-sentence deny-list phrases. A segment is rejected only when it has a
-# portal context, a material draft/submission/review object or action, and a
-# current-state predicate. Positive and negative polarity are equally
-# unverifiable here.
-PORTAL_CONTEXT_PATTERNS = {
-    "en": (
-        re.compile(
-            r"(?<![A-Za-z0-9_])(?:portal|"
-            r"(?:submission|application|review|developer|application[-\s]+review)\s+"
-            r"(?:portal|dashboard|console|interface|workspace|site|page|screen|system|queue)|"
-            r"repository\s+of\s+applications)(?![A-Za-z0-9_])",
-            re.IGNORECASE,
-        ),
+# External portal state is not observable from this repository lane. These
+# bounded patterns inspect only the canonical English submission surfaces;
+# they are not a general natural-language or translation-equivalence oracle.
+PORTAL_CONTEXT_PATTERNS = (
+    re.compile(
+        r"(?<![A-Za-z0-9_])(?:portal|"
+        r"(?:submission|application|review|developer|application[-\s]+review)\s+"
+        r"(?:portal|dashboard|console|interface|workspace|site|page|screen|system|queue)|"
+        r"repository\s+of\s+applications)(?![A-Za-z0-9_])",
+        re.IGNORECASE,
     ),
-    "ja": (
-        re.compile(
-            r"(?:申請ポータル|提出ポータル|審査ポータル|申請入口|申請画面|申請ページ|"
-            r"申請サイト|申請システム|申請ダッシュボード|申請フォーム|管理画面|審査画面|"
-            r"申請一覧|提出一覧|審査一覧|審査キュー|申請状態|審査状態|ポータル)"
-        ),
-    ),
-    "zh_hant": (
-        re.compile(
-            r"(?:申請入口|提交入口|送審入口|審核入口|申請平台|提交平台|送審平台|"
-            r"審核平台|申請頁面|審核頁面|申請系統|申請後台|申請儀表板|申請介面|申請列表|"
-            r"審核列表|審核佇列|入口)"
-        ),
-    ),
-}
+)
 
 # Generic surfaces need a material application/submission/review object in the
 # same segment. This keeps ordinary mentions of a system, page, or queue out of
 # scope while still recognizing natural names such as "review queue".
-PORTAL_GENERIC_SURFACE_PATTERNS = {
-    "en": (
-        re.compile(
-            r"\b(?:dashboard|console|interface|workspace|site|page|screen|system|queue)\b",
-            re.IGNORECASE,
-        ),
+PORTAL_GENERIC_SURFACE_PATTERNS = (
+    re.compile(
+        r"\b(?:dashboard|console|interface|workspace|site|page|screen|system|queue)\b",
+        re.IGNORECASE,
     ),
-    "ja": (
-        re.compile(
-            r"(?:画面|ページ|サイト|システム|ダッシュボード|管理画面|審査画面|"
-            r"申請一覧|審査一覧|キュー)"
-        ),
-    ),
-    "zh_hant": (
-        re.compile(r"(?:平台|頁面|系統|後台|儀表板|介面|申請列表|審核列表|佇列)"),
-    ),
-}
+)
 
-PORTAL_STATE_OBJECT_PATTERNS = {
-    "en": (
-        re.compile(
-            r"\b(?:drafts?|(?:saved|pending|existing|application|submission|review)\s+drafts?|"
-            r"(?:pending|saved|returned|approved|completed|rejected)\s+"
-            r"(?:(?:application|submission|review)\s+)?"
-            r"(?:applications?|submissions?|items?|entr(?:y|ies)|records?|files?|forms?|"
-            r"materials?|content|requests?|cases?)|(?:application|submission|submitted|uploaded)\s+"
-            r"(?:content|data|materials?|files?|records?|entr(?:y|ies)|packets?|forms?|cases?|requests?)|"
-            r"materials?|content|files?|records?|entr(?:y|ies)|packets?|forms?|cases?|requests?|nothing|"
-            r"applications?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
-            r"exists?|remains?|remained|awaits?|awaited|awaiting)\b))|"
-            r"submissions?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
-            r"exists?|remains?|remained|awaits?|awaited|awaiting)\b)))",
-            re.IGNORECASE,
-        ),
+PORTAL_STATE_OBJECT_PATTERNS = (
+    re.compile(
+        r"\b(?:drafts?|(?:saved|pending|existing|application|submission|review)\s+drafts?|"
+        r"(?:pending|saved|returned|approved|completed|rejected)\s+"
+        r"(?:(?:application|submission|review)\s+)?"
+        r"(?:applications?|submissions?|items?|entr(?:y|ies)|records?|files?|forms?|"
+        r"materials?|content|requests?|cases?)|(?:application|submission|submitted|uploaded)\s+"
+        r"(?:content|data|materials?|files?|records?|entr(?:y|ies)|packets?|forms?|cases?|requests?)|"
+        r"materials?|content|files?|records?|entr(?:y|ies)|packets?|forms?|cases?|requests?|nothing|"
+        r"applications?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
+        r"exists?|remains?|remained|awaits?|awaited|awaiting)\b))|"
+        r"submissions?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
+        r"exists?|remains?|remained|awaits?|awaited|awaiting)\b)))",
+        re.IGNORECASE,
     ),
-    "ja": (
-        re.compile(
-            r"(?:下書き|草稿|ドラフト|保存済み|未保存|提出(?:済み)?|未提出|送信(?:済み)?|"
-            r"未送信|申請(?:済み)?|未申請|受付(?:済み)?|受理(?:済み)?|"
-            r"送審(?:済み|待ち)?|未送審|審査待ち|審査中|"
-            r"審査|申請内容|提出内容|提出物|内容|資料|データ|案件|記録|申請書|フォーム|ファイル|何も)"
-        ),
-    ),
-    "zh_hant": (
-        re.compile(
-            r"(?:草稿|已儲存草稿|待提交草稿|待送審草稿|待送審|已送審|未送審|提交|"
-            r"已提交|未提交|送件|已送件|未送件|送出|已送出|未送出|送審|審核中|待審核|申請內容|提交內容|"
-            r"申請資料|送件資料|資料|內容|案件|紀錄|記錄|表單|檔案|待審案件|申請|任何)"
-        ),
-    ),
-}
+)
 
 # English quantity pronouns are state objects only when they are attached to
 # a material display/containment predicate. Portal context and discourse scope
@@ -577,10 +463,7 @@ PORTAL_STRONG_CONTEXTUAL_OBJECT_PATTERN = re.compile(
     r"applications?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
     r"exists?|remains?|awaits?)\b))|"
     r"submissions?(?=\s*(?:$|[.,;:!?)}\]]|\b(?:is|are|was|were|has|have|had|"
-    r"exists?|remains?|awaits?)\b))|review\s+queue)\b"
-    r"|(?:下書き|草稿|ドラフト|提出済み|申請済み|送審(?:済み|待ち)?|"
-    r"案件|資料|申請書(?!テンプレート)|フォーム)"
-    r"|(?:草稿|提交|申請|送件|送審|審核|案件|資料|表單)",
+    r"exists?|remains?|awaits?)\b))|review\s+queue)\b",
     re.IGNORECASE,
 )
 
@@ -596,19 +479,12 @@ PORTAL_MATERIAL_DISPLAY_PREDICATE_PATTERNS = (
         r"records?|recorded|recording|does\s+not\s+contain|do\s+not\s+contain)\b",
         re.IGNORECASE,
     ),
-    re.compile(r"(?:表示|掲載|登録|記録|保持|保存|含まれて|残って|あります|ありません)"),
-    re.compile(r"(?:顯示|呈現|列出|包含|保留|留存|保存|儲存|登記|記錄|已有|有|沒有)"),
 )
 
-# In the submission-status files, these objects carry their own application
-# context even when a sentence omits the noun "portal". This is intentionally
-# limited to draft-specific Japanese/Traditional Chinese vocabulary so a
-# generic statement such as "This Plugin is not submitted" stays outside the
-# external-portal classifier.
+# In the canonical English submission-status files, draft objects carry their
+# own application context even when a sentence omits the noun "portal".
 PORTAL_IMPLICIT_CONTEXT_PATTERNS = (
     re.compile(r"\b(?:saved\s+|pending\s+|existing\s+)?drafts?\b", re.IGNORECASE),
-    re.compile(r"(?:下書き|草稿|ドラフト)"),
-    re.compile(r"(?:申請草稿|待提交草稿|待送審草稿|提交內容|申請資料|送件資料)"),
 )
 
 # The portal/system itself is the state object for empty/present/absent
@@ -619,97 +495,56 @@ PORTAL_SELF_STATE_PATTERNS = (
         r"(?:is|are|was|were)\s+(?:not\s+)?(?:present|absent|empty)\b",
         re.IGNORECASE,
     ),
-    re.compile(
-        r"(?:ポータル|入口|画面|ページ|サイト|システム|ダッシュボード|管理画面|"
-        r"審査画面|申請一覧|審査一覧|キュー)(?:は|が)?空(?:です|ではありません|ではない)"
-    ),
-    re.compile(r"(?:入口|平台|頁面|系統|後台|儀表板|介面|列表|佇列)(?:是|不是)空的"),
 )
 
-PORTAL_STATE_PREDICATE_PATTERNS = {
-    "en": (
-        re.compile(r"\bthere\s+(?:is|are)\s+(?:no\s+)?", re.IGNORECASE),
-        re.compile(r"\b(?:exists?|existed|existing|does\s+not\s+exist)\b", re.IGNORECASE),
-        re.compile(
-            r"\b(?:is|are|was|were)\s+(?:not\s+)?(?:present|absent|empty|pending|approved|"
-            r"rejected|returned|complete|completed|processed)\b",
-            re.IGNORECASE,
-        ),
-        re.compile(
-            r"\b(?:has|have|had|holds?|held|holding|contains?|contained|containing|shows?|"
-            r"showed|showing|display(?:s|ed|ing)?|stores?|stored|storing|"
-            r"list(?:s|ed|ing)?|present(?:s|ed|ing)?|retains?|retained|retaining|"
-            r"records?|recorded|recording|does\s+not\s+contain|do\s+not\s+contain)\s+"
-            r"(?:no\s+|an?\s+|the\s+|any\s+)?",
-            re.IGNORECASE,
-        ),
-        re.compile(
-            r"\b(?:remains?|remained|remaining|retains?|retained|holds?|held|holding)\b",
-            re.IGNORECASE,
-        ),
-        re.compile(
-            r"\b(?:has|have|had)\s+(?:not\s+|already\s+|still\s+)?been\s+"
-            r"(?:saved|created|registered|recorded|filed|lodged|submitted|sent|uploaded|"
-            r"transmitted|queued|enqueued|approved|rejected|returned|completed|processed)\b",
-            re.IGNORECASE,
-        ),
-        re.compile(
-            r"\b(?:is|are|was|were)\s+(?:not\s+|already\s+|still\s+|currently\s+)?"
-            r"(?:saved|created|registered|recorded|filed|lodged|submitted|sent|uploaded|"
-            r"transmitted|queued|enqueued|approved|rejected|returned|completed|processed)\b",
-            re.IGNORECASE,
-        ),
-        re.compile(
-            r"\b(?:not\s+|already\s+|still\s+|currently\s+)?(?:saved|created|registered|"
-            r"recorded|filed|lodged|submitted|sent|uploaded|transmitted|queued|enqueued|"
-            r"approved|rejected|returned|completed|processed)\b",
-            re.IGNORECASE,
-        ),
-        re.compile(
-            r"\b(?:is|are|was|were)\s+(?:already\s+|currently\s+|not\s+)?"
-            r"(?:under|being)\s+review(?:ed)?\b|\b(?:awaits?|awaited|awaiting|queued\s+for|"
-            r"sent\s+for)\s+review\b",
-            re.IGNORECASE,
-        ),
-        re.compile(r"\b(?:is|are|was|were)\s+(?:still\s+)?on\s+file\b", re.IGNORECASE),
-        re.compile(r"\b(?:on\s+file|filed|lodged|sent\s+for\s+review)\b", re.IGNORECASE),
-        re.compile(r"\b(?:not\s+)?pending\b", re.IGNORECASE),
+PORTAL_STATE_PREDICATE_PATTERNS = (
+    re.compile(r"\bthere\s+(?:is|are)\s+(?:no\s+)?", re.IGNORECASE),
+    re.compile(r"\b(?:exists?|existed|existing|does\s+not\s+exist)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:is|are|was|were)\s+(?:not\s+)?(?:present|absent|empty|pending|approved|"
+        r"rejected|returned|complete|completed|processed)\b",
+        re.IGNORECASE,
     ),
-    "ja": (
-        re.compile(r"(?:ある|ない|あります|ありません)"),
-        re.compile(r"存在(?:する|します|しない|しません|せず)"),
-        re.compile(
-            r"(?:作成|保存|保持|登録|記録|受付|受理|提出|送信|送付|申請|送審|"
-            r"アップロード)(?:済み|されています|されていません|されている|されていない|"
-            r"された|されなかった|している|しています|していません|していない|した|していなかった)"
-        ),
-        re.compile(r"未(?:作成|保存|登録|記録|受付|受理|提出|送信|送付|申請|送審|アップロード)"),
-        re.compile(r"残(?:る|ります|っている|っています|っていない|っていません|った|存)"),
-        re.compile(r"審査に回(?:る|ります|っている|っています|った)"),
-        re.compile(
-            r"(?:審査中|審査待ち|送審待ち|処理中|完了|承認|却下|"
-            r"差し戻し|差し戻され(?:る|ている|ています|た)|受け付けられ(?:ている|ています|た))"
-        ),
-        re.compile(r"空(?:です|ではありません|ではない)"),
-        re.compile(r"含まれて(?:います|いません|いる|いない)"),
-        re.compile(r"何も[^。！？；\n]{0,24}(?:提出|送信|申請|送審)[^。！？；\n]{0,12}(?:ていません|していない)"),
+    re.compile(
+        r"\b(?:has|have|had|holds?|held|holding|contains?|contained|containing|shows?|"
+        r"showed|showing|display(?:s|ed|ing)?|stores?|stored|storing|"
+        r"list(?:s|ed|ing)?|present(?:s|ed|ing)?|retains?|retained|retaining|"
+        r"records?|recorded|recording|does\s+not\s+contain|do\s+not\s+contain)\s+"
+        r"(?:no\s+|an?\s+|the\s+|any\s+)?",
+        re.IGNORECASE,
     ),
-    "zh_hant": (
-        re.compile(r"(?:已有|有|沒有|尚未)"),
-        re.compile(r"(?:存在|不存在)"),
-        re.compile(r"(?:是空的|不是空的)"),
-        re.compile(
-            r"(?:已|未|尚未|正在|仍)(?:保留|留存|保存|儲存|建立|建檔|登錄|登記|"
-            r"記錄|送件|送出|提交|送審|上傳|完成|處理|核准|駁回|退回)"
-        ),
-        re.compile(r"(?:保留|留存|保存|儲存|建立|建檔|登錄|登記|記錄|送件|送出|提交|送審|上傳)了"),
-        re.compile(r"沒有(?:保留|留存|保存|儲存|建立|建檔|登錄|登記|記錄|送件|送出|提交|送審|上傳)"),
-        re.compile(r"已(?:透過|經由)[^。！？；\n]{0,24}(?:提交|送出|送審|上傳)"),
-        re.compile(r"(?:正在審查|審核中|待審核|待審|待送審|待提交|處理中)"),
-        re.compile(r"(?:退回|駁回)(?:的)?|(?:已被|遭)(?:退回|駁回)"),
-        re.compile(r"(?:包含|不包含)"),
+    re.compile(
+        r"\b(?:remains?|remained|remaining|retains?|retained|holds?|held|holding)\b",
+        re.IGNORECASE,
     ),
-}
+    re.compile(
+        r"\b(?:has|have|had)\s+(?:not\s+|already\s+|still\s+)?been\s+"
+        r"(?:saved|created|registered|recorded|filed|lodged|submitted|sent|uploaded|"
+        r"transmitted|queued|enqueued|approved|rejected|returned|completed|processed)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:is|are|was|were)\s+(?:not\s+|already\s+|still\s+|currently\s+)?"
+        r"(?:saved|created|registered|recorded|filed|lodged|submitted|sent|uploaded|"
+        r"transmitted|queued|enqueued|approved|rejected|returned|completed|processed)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:not\s+|already\s+|still\s+|currently\s+)?(?:saved|created|registered|"
+        r"recorded|filed|lodged|submitted|sent|uploaded|transmitted|queued|enqueued|"
+        r"approved|rejected|returned|completed|processed)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:is|are|was|were)\s+(?:already\s+|currently\s+|not\s+)?"
+        r"(?:under|being)\s+review(?:ed)?\b|\b(?:awaits?|awaited|awaiting|queued\s+for|"
+        r"sent\s+for)\s+review\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(?:is|are|was|were)\s+(?:still\s+)?on\s+file\b", re.IGNORECASE),
+    re.compile(r"\b(?:on\s+file|filed|lodged|sent\s+for\s+review)\b", re.IGNORECASE),
+    re.compile(r"\b(?:not\s+)?pending\b", re.IGNORECASE),
+)
 
 # Discourse modes are segment-local. Structural segmentation runs first, so a
 # safe outer sentence cannot license a later clause or nested bracketed claim.
@@ -776,7 +611,6 @@ class AssertionSpan:
     text: str
     start: int
     end: int
-    language: str
     predicate_kind: str
     discourse_scope: DiscourseMode
     structure_id: int = -1
@@ -821,16 +655,11 @@ PORTAL_REPOSITORY_EVIDENCE_SAFE_PATTERNS = (
         r"\bno\s+portal\s+action\s+is\s+performed\s+or\s+evidenced\s+by\s+this\s+repository\s+lane\b",
         re.IGNORECASE,
     ),
-    re.compile(r"このリポジトリ側の作業では申請ポータルを操作して(?:いません|おらず)"),
-    re.compile(r"本次儲存庫端作業未操作申請入口"),
 )
 PORTAL_HUMAN_GATE_SAFE_PATTERNS = (
     re.compile(r"\bportal\s+state\s+remains\s+a\s+human\s+verification\s+gate\b", re.IGNORECASE),
     re.compile(r"\b(?:final\s+)?portal\s+state\s+must\s+be\s+checked\s+by\s+a\s+human\b", re.IGNORECASE),
     re.compile(r"\bhuman\s+(?:review|verification)\s+is\s+required\b", re.IGNORECASE),
-    re.compile(r"申請ポータルの状態は人間が確認"),
-    re.compile(r"申請入口の実際の状態は人間が確認"),
-    re.compile(r"申請入口的實際狀態仍須由人工確認"),
 )
 PORTAL_EXPLANATORY_SEGMENT_PATTERNS = (
     re.compile(
@@ -839,8 +668,6 @@ PORTAL_EXPLANATORY_SEGMENT_PATTERNS = (
         r"defines?|explains?|describes?|hypothetical)\b",
         re.IGNORECASE,
     ),
-    re.compile(r"(?:説明|解説|項目|フィールド|用語|例|例示|テスト例|サンプル|文字列|仮定|文書)"),
-    re.compile(r"(?:文件|說明|解說|欄位|詞彙|術語|範例|測試範例|字樣|字串|假設|解釋)"),
 )
 PORTAL_FUTURE_SEGMENT_PATTERNS = (
     re.compile(
@@ -852,12 +679,6 @@ PORTAL_FUTURE_SEGMENT_PATTERNS = (
         r"when\s+a\s+human\s+later|after\s+(?:human\s+)?approval|"
         r"following\s+human\s+approval|hypothetical|conditional|counterfactual)\b",
         re.IGNORECASE,
-    ),
-    re.compile(r"(?:将来|今後|可能性|予定|承認後|場合|なら|ことがあります)"),
-    re.compile(
-        r"(?:未來|預計|人工核准後|核准後|若|如果|屆時|之後|"
-        r"(?:有)?可能(?:已|未|尚未|會|將)?(?:存在|建立|建檔|登錄|登記|記錄|"
-        r"保留|留存|保存|儲存|送件|送出|提交|送審|上傳|完成|處理|核准|駁回|退回))"
     ),
 )
 PORTAL_QUESTION_VERIFICATION_PATTERNS = (
@@ -877,13 +698,6 @@ PORTAL_QUESTION_VERIFICATION_PATTERNS = (
         r"still\s+requires?\s+human\s+review)\b",
         re.IGNORECASE,
     ),
-    re.compile(r"(?:かどうか|か)(?:は|を)?[^。！？；\n]{0,32}(?:確認|判断)"),
-    re.compile(r"(?:かどうか)$"),
-    re.compile(r"(?:です|ます|でしょう)?か[?？]$"),
-    re.compile(r"(?:有無)[^。！？；\n]{0,24}(?:確認|判断)"),
-    re.compile(r"(?:確認が必要|確認する必要|確認できません|確認できない|人間が確認|判断できません|判断できない|状態は不明)"),
-    re.compile(r"(?:是否|有無)"),
-    re.compile(r"(?:需確認|須確認|仍須人工確認|無法[^。！？；\n]{0,16}判定|狀態不明|需要查核|仍須查核)"),
 )
 PORTAL_CURRENT_STATE_CUE_PATTERNS = (
     re.compile(
@@ -892,13 +706,9 @@ PORTAL_CURRENT_STATE_CUE_PATTERNS = (
         r"under\s+review|being\s+reviewed|awaiting\s+review|queued\s+for\s+review|on\s+file)\b",
         re.IGNORECASE,
     ),
-    re.compile(r"(?:現在|すでに|既に|実際|済み|存在|残って|(?<!可能性が)あります|ありません|されています|されていません|審査中|審査待ち|空です)"),
-    re.compile(r"(?:目前|已有|實際|正在|仍(?:保留|留存|有)|已(?:建立|儲存|保存|提交|送出|送件|送審|上傳)|未(?:建立|儲存|保存|提交|送出|送件|送審|上傳)|沒有|存在|審核中|待審核|是空的|不是空的)"),
 )
 PORTAL_EXPLICIT_CURRENT_TIME_PATTERNS = (
     re.compile(r"\b(?:already|currently|now|actually)\b", re.IGNORECASE),
-    re.compile(r"(?:現在|すでに|既に|実際)"),
-    re.compile(r"(?:目前|已有|實際|正在)"),
 )
 
 QUOTED_TEXT_PATTERNS = (
@@ -906,10 +716,6 @@ QUOTED_TEXT_PATTERNS = (
     re.compile(r"'[^'\n]*'"),
     re.compile(r"“[^”\n]*”"),
     re.compile(r"‘[^’\n]*’"),
-    re.compile(r"「[^」\n]*」"),
-    re.compile(r"『[^』\n]*』"),
-    re.compile(r"《[^》\n]*》"),
-    re.compile(r"〈[^〉\n]*〉"),
 )
 
 # A private local path leaking into a public submission artifact.
@@ -979,23 +785,6 @@ NEGATED_STATUS_PATTERNS = (
     # "Stable, approved, and published status are not claimed."
     re.compile(r"[\w,\s-]{0,60}\bstatus\s+(?:is|are)\s+not\s+claimed\b", re.IGNORECASE),
     re.compile(r"\bnever\s+(?:been\s+)?[A-Za-z]+\b", re.IGNORECASE),
-    # Japanese: "申請・登録・公開されていません", "完了していません",
-    # "提出していません", "未申請", "一切主張しません". The bounded eater
-    # covers a coordinated ・-list but cannot reach back across a positive
-    # claim, sentence punctuation, or a connector.
-    re.compile(r"[\w・]{0,12}(?:されて|して)?い?ません"),
-    re.compile(r"[\w・]{0,12}(?:されて|して)いない"),
-    re.compile(
-        r"(?:公開(?:済みで)?利用可能|一般公開で(?:利用可能|利用できる)|誰でも利用可能)"
-        r"(?:ではありません|ではない)"
-    ),
-    re.compile(r"未(?:申請|承認|提出|公開|完了|提供|掲載|登録)"),
-    re.compile(r"[\w・]{0,16}(?:を|は)?(?:一切)?主張(?:しません|しない)"),
-    # Traditional Chinese: "尚未提交、列入或公開於", "未在…上架", "不主張…".
-    re.compile(r"尚未[\w、]{0,12}"),
-    re.compile(r"未(?:在|於)[^\n。，]{0,30}(?:上架|提供|核准|發布)"),
-    re.compile(r"不主張[^\n。]{0,20}"),
-    re.compile(r"(?:並未|並非|沒有|不會)[\w、]{0,12}"),
 )
 
 # Positive status claims scanned over the masked text. These target the
@@ -1021,30 +810,6 @@ POSITIVE_STATUS_PATTERNS = (
     re.compile(r"\bpublic\s+release\b", re.IGNORECASE),
     re.compile(r"\blisted\s+in\b[^\n]{0,60}?\bDirectory\b", re.IGNORECASE),
     re.compile(r"\bavailable\s+(?:from|in|on)\b[^\n]{0,60}?\bDirectory\b", re.IGNORECASE),
-    # Japanese.
-    re.compile(
-        r"公開\s*(?:Plugins\s*)?Directory\s*(?:で|から|に|上で)?[^\n。、]{0,12}?"
-        r"(?:利用可能|利用でき|提供されてい|入手でき|取得でき|インストールでき|installでき)"
-    ),
-    re.compile(r"(?:現在)?公開(?:済みで)?利用可能(?:です)?"),
-    re.compile(r"(?:一般公開で|誰でも)(?:利用可能(?:です)?|利用でき(?:ます|る))"),
-    re.compile(r"正式公開済み"),
-    re.compile(r"申請完了"),
-    re.compile(r"承認済み"),
-    re.compile(r"上架済み"),
-    re.compile(r"(?:掲載|公開|承認|提供)されています"),
-    re.compile(r"(?:正式)?申請(?:は|が)?完了しています"),
-    # Traditional Chinese.
-    re.compile(
-        r"可(?:從|在|由|自)[^\n。，]{0,20}公開\s*(?:Plugins\s*)?Directory"
-        r"[^\n。，]{0,10}(?:使用|取得|安裝|下載)"
-    ),
-    re.compile(r"已(?:於|在)[^\n。，]{0,25}Directory[^\n。，]{0,10}(?:提供|上架)"),
-    re.compile(r"目前已提供"),
-    re.compile(r"已上架"),
-    re.compile(r"已提交"),
-    re.compile(r"已核准"),
-    re.compile(r"正式發布"),
 )
 
 # Structural separators are shared by portal-state and product-status scans.
@@ -1052,20 +817,16 @@ POSITIVE_STATUS_PATTERNS = (
 # discourse classification. Brackets are handled separately so nested inner
 # and outer text is always inspected as independent segments.
 STRUCTURAL_SEPARATOR_PATTERN = re.compile(
-    r"([.!?;:\n。！？；：]"
+    r"([.!?;:\n]"
     r"|[—–]"
     r"|,\s*(?:and|or)\s+"
     r"|(?<![A-Za-z])(?:even\s+though|even\s+so|but|however|yet|although|though|"
-    r"whereas|nevertheless|nonetheless)(?![A-Za-z])"
-    r"|があり[、,]|が[、,]"
-    r"|ですが|だが|しかし|ただし|一方で|一方|それにもかかわらず|それにも関わらず|"
-    r"にもかかわらず|にも関わらず|それでも|とはいえ|ものの|けれども|けれど"
-    r"|儘管如此|即使如此|但是|但|然而|不過|可是|卻|雖然|儘管)",
+    r"whereas|nevertheless|nonetheless)(?![A-Za-z]))",
     re.IGNORECASE,
 )
-STRUCTURAL_BRACKET_PATTERN = re.compile(r"[()（）\[\]【】{}]")
-QUESTION_BOUNDARIES = {"?", "？"}
-STRUCTURAL_OPENING_BRACKETS = {"(": ")", "（": "）", "[": "]", "【": "】", "{": "}"}
+STRUCTURAL_BRACKET_PATTERN = re.compile(r"[()\[\]{}]")
+QUESTION_BOUNDARIES = {"?"}
+STRUCTURAL_OPENING_BRACKETS = {"(": ")", "[": "]", "{": "}"}
 MAX_PORTAL_CONTEXT_SOURCE_DISTANCE = 240
 MAX_PORTAL_BRACKET_CONTEXT_DEPTH = 4
 
@@ -1077,9 +838,7 @@ MAX_PORTAL_BRACKET_CONTEXT_DEPTH = 4
 ASSERTION_SCOPE_SEPARATOR_PATTERN = re.compile(
     r"\b(?:even\s+though|even\s+so|at\s+the\s+same\s+time|simultaneously|while|whereas|"
     r"although|though|and|but)\b"
-    r"|(?:けれども|けれど|しかし|一方で|一方|それでも|とはいえ|同時に|ながら|ものの|のに|また|そして|があり[、,]|が)"
-    r"|(?:儘管如此|即使如此|但是|然而|不過|一方面|並且|同時|但|且|而)"
-    r"|[,、，]",
+    r"|,",
     re.IGNORECASE,
 )
 
@@ -1087,19 +846,12 @@ ASSERTION_SCOPE_SEPARATOR_PATTERN = re.compile(
 # tokens are separators themselves and therefore no longer appear in the next
 # span's text; matching the retained boundary is what preserves their meaning.
 CONTINUATION_LEAD_PATTERN = re.compile(
-    r"(?<![A-Za-z])(?:however|nevertheless|nonetheless|even\s+so|still|also|yet)(?![A-Za-z])"
-    r"|(?:それにもかかわらず|それにも関わらず|にもかかわらず|にも関わらず|"
-    r"なお|ただし|しかし|また|一方で|それでも|とはいえ)"
-    r"|(?:儘管如此|即使如此|但是|但|然而|不過|可是|卻|而且)",
+    r"(?<![A-Za-z])(?:however|nevertheless|nonetheless|even\s+so|still|also|yet)(?![A-Za-z])",
     re.IGNORECASE,
 )
 CONTINUATION_BOUNDARY_PATTERN = re.compile(
-    r"[;；:：—–]|\b(?:even\s+though|even\s+so|and|or|but|however|yet|although|"
-    r"though|whereas|nevertheless|nonetheless|while)\b|(?:があり[、,]|が|ですが|だが|"
-    r"しかし|一方|ながら|ものの|けれども|けれど|それにもかかわらず|"
-    r"それにも関わらず|にもかかわらず|にも関わらず|なお|ただし|"
-    r"それでも|とはいえ|儘管如此|即使如此|但是|但|然而|不過|可是|卻|雖然|儘管|"
-    r"而且|且|而)",
+    r"[;:—–]|\b(?:even\s+though|even\s+so|and|or|but|however|yet|although|"
+    r"though|whereas|nevertheless|nonetheless|while)\b",
     re.IGNORECASE,
 )
 PORTAL_BOUNDED_SURFACE_ANAPHOR_PATTERN = re.compile(
@@ -1107,10 +859,6 @@ PORTAL_BOUNDED_SURFACE_ANAPHOR_PATTERN = re.compile(
     r"(?:it|this|that)\b",
     re.IGNORECASE,
 )
-JAPANESE_SCRIPT_PATTERN = re.compile(r"[ぁ-ゟ゠-ヿ]")
-CJK_SCRIPT_PATTERN = re.compile(r"[㐀-䶿一-鿿豈-﫿]")
-
-
 def mask_negated_status_spans(text: str) -> str:
     """Blank every explicitly negated status span, preserving offsets."""
     masked = text
@@ -1147,11 +895,6 @@ MD_THEMATIC_BREAK_PATTERN = re.compile(r"^\s{0,3}(?:\*\s*){3,}$|^\s{0,3}(?:[-_]\
 MD_INDENTED_CODE_PATTERN = re.compile(r"^(?: {4}|\t)")
 # CommonMark allows a backslash to escape any ASCII punctuation character.
 MD_BACKSLASH_ESCAPE_PATTERN = re.compile(r"\\([!-/:-@\[-`{-~])")
-
-CJK_CHARACTER_PATTERN = re.compile(
-    r"[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]"
-)
-
 
 def strip_code_blocks(text: str) -> list[str]:
     """Blank out fenced and top-level indented code blocks, keeping line count.
@@ -1209,10 +952,9 @@ def strip_code_blocks(text: str) -> list[str]:
 def join_soft_line_breaks(lines: list[str]) -> str:
     """Join soft line breaks inside a paragraph, as a renderer would.
 
-    Lines are joined with a space, except between two CJK characters where a
-    rendered soft break introduces no visible gap. Blank lines, headings,
-    list items, blockquotes, and thematic breaks all start a new block and
-    are never joined across.
+    Canonical English lines are joined with one space. Blank lines, headings,
+    list items, blockquotes, and thematic breaks start a new block and are
+    never joined across.
     """
     blocks: list[str] = []
     current: list[str] = []
@@ -1229,12 +971,7 @@ def join_soft_line_breaks(lines: list[str]) -> str:
             if not left:
                 joined = right
                 continue
-            if CJK_CHARACTER_PATTERN.match(left[-1]) and CJK_CHARACTER_PATTERN.match(
-                right[0]
-            ):
-                joined = left + right
-            else:
-                joined = left + " " + right
+            joined = left + " " + right
         blocks.append(joined)
         current.clear()
 
@@ -1734,10 +1471,10 @@ def validate_support(root: Path, errors: list[str]) -> None:
             pattern.search(visible) for pattern in SUPPORT_ASSERTION_PATTERNS
         ) and not SUPPORT_DOC_QUALIFIER_PATTERN.search(visible)
         residue = URL_PATTERN.sub("", visible)
-        url_only = not re.search(r"[\w一-龠ぁ-んァ-ン]", residue)
+        url_only = not re.search(r"[A-Za-z0-9_]", residue)
 
         for raw_url in targets:
-            url = raw_url.rstrip(".,;)。、，：:")
+            url = raw_url.rstrip(".,;):")
             if url == CANONICAL_SUPPORT_URL:
                 continue
             if line_asserts or (url_only and pending_assertion):
@@ -1751,7 +1488,7 @@ def validate_support(root: Path, errors: list[str]) -> None:
             pending_assertion = ""
         elif (
             line_asserts
-            and stripped_line.endswith((":", "："))
+            and stripped_line.endswith(":")
         ):
             # The line materially introduces a destination that follows.
             pending_assertion = stripped_line
@@ -1777,18 +1514,6 @@ def validate_plugin_readmes(root: Path, errors: list[str]) -> None:
         )
 
 
-def japanese_ga_is_concessive(visible: str, start: int) -> bool:
-    """Distinguish a predicate-final concessive が from a case particle が."""
-    left = visible[max(0, start - 64) : start].rstrip()
-    return bool(
-        re.search(
-            r"(?:ます|ました|ません|です|でした|ではない|する|した|しない|"
-            r"される|された|されない|いる|いた|いない|ある|あった|ない|必要|不明)$",
-            left,
-        )
-    )
-
-
 def build_structured_span_graph(visible: str) -> StructuredSpanGraph:
     """Split visible prose without discarding source or discourse structure.
 
@@ -1803,8 +1528,6 @@ def build_structured_span_graph(visible: str) -> StructuredSpanGraph:
         if position_is_quoted(match.start(), quoted_ranges):
             continue
         raw = match.group(0)
-        if raw.startswith("が") and not japanese_ga_is_concessive(visible, match.start()):
-            continue
         events.append((match.start(), match.end(), "separator", raw))
     for match in STRUCTURAL_BRACKET_PATTERN.finditer(visible):
         if position_is_quoted(match.start(), quoted_ranges):
@@ -1827,10 +1550,10 @@ def build_structured_span_graph(visible: str) -> StructuredSpanGraph:
     def emit(end: int) -> int | None:
         nonlocal pending_boundary
         start = cursor
-        while start < end and (visible[start].isspace() or visible[start] in ",、，"):
+        while start < end and (visible[start].isspace() or visible[start] == ","):
             start += 1
         stop = end
-        while stop > start and (visible[stop - 1].isspace() or visible[stop - 1] in ",、，"):
+        while stop > start and (visible[stop - 1].isspace() or visible[stop - 1] == ","):
             stop -= 1
         if start >= stop:
             pending_boundary += visible[cursor:end]
@@ -1882,7 +1605,7 @@ def build_structured_span_graph(visible: str) -> StructuredSpanGraph:
             if "\n" in raw:
                 paragraph_id += raw.count("\n")
                 sentence_id += raw.count("\n")
-            elif any(boundary in raw for boundary in ".!?。！？"):
+            elif any(boundary in raw for boundary in ".!?"):
                 sentence_id += 1
         cursor = end
 
@@ -1930,13 +1653,9 @@ def structural_atomic_segments(visible: str) -> list[str]:
 
 
 def portal_patterns_match(
-    patterns_by_language: dict[str, tuple[re.Pattern[str], ...]], segment: str
+    patterns: tuple[re.Pattern[str], ...], segment: str
 ) -> bool:
-    return any(
-        pattern.search(segment)
-        for patterns in patterns_by_language.values()
-        for pattern in patterns
-    )
+    return any(pattern.search(segment) for pattern in patterns)
 
 
 def matches_any(patterns: tuple[re.Pattern[str], ...], segment: str) -> bool:
@@ -1975,13 +1694,7 @@ def portal_text_has_state_predicate(text: str) -> bool:
 def portal_text_has_explicit_context(text: str) -> bool:
     return portal_patterns_match(PORTAL_CONTEXT_PATTERNS, text) or (
         portal_patterns_match(PORTAL_GENERIC_SURFACE_PATTERNS, text)
-        and (
-            PORTAL_STRONG_CONTEXTUAL_OBJECT_PATTERN.search(text) is not None
-            # Preserve the established Japanese/Traditional Chinese bare
-            # surface self-state contract; the F-06R1-C ambiguity is the
-            # English anaphoric ``one`` family, not these explicit forms.
-            or any(pattern.search(text) for pattern in PORTAL_SELF_STATE_PATTERNS[1:])
-        )
+        and PORTAL_STRONG_CONTEXTUAL_OBJECT_PATTERN.search(text) is not None
     )
 
 
@@ -2067,8 +1780,6 @@ def trailing_safe_scope_governs_question(left: str, right: str) -> bool:
     """Keep a governed question intact when its operator follows a comma."""
     left_has_question_object = bool(
         re.search(r"\bwhether\b[^.!?]*$", left, re.IGNORECASE)
-        or re.search(r"(?:かどうか|か)(?:は|を)?$", left)
-        or re.search(r"(?:是否|有無)[^。！？；]*$", left)
     )
     right_is_governing_operator = bool(
         re.search(
@@ -2077,9 +1788,6 @@ def trailing_safe_scope_governs_question(left: str, right: str) -> bool:
             right,
             re.IGNORECASE,
         )
-        or re.search(r"(?:このリポジトリから)?(?:判断|確認)でき(?:ません|ない)", right)
-        or re.search(r"(?:確認|判断)(?:します|する|が必要|できません|できない)", right)
-        or re.search(r"(?:無法[^。！？；]{0,20}判定|需要確認|仍須查核)", right)
     )
     return left_has_question_object and right_is_governing_operator
 
@@ -2090,8 +1798,7 @@ def leading_safe_scope_governs_predicate(left: str, right: str) -> bool:
         re.fullmatch(
             r"(?:in\s+the\s+future|in\s+this\s+example|for\s+example|future|later|"
             r"in\s+(?:a\s+)?(?:hypothetical|conditional|counterfactual)"
-            r"(?:\s+[a-z]+){0,2}|"
-            r"将来|今後|例えば|たとえば|未來|例如)",
+            r"(?:\s+[a-z]+){0,2})",
             left.strip(),
             re.IGNORECASE,
         )
@@ -2112,10 +1819,6 @@ def predicate_clause_ranges(segment: str) -> list[tuple[int, int]]:
 
     for match in ASSERTION_SCOPE_SEPARATOR_PATTERN.finditer(segment):
         if position_is_quoted(match.start(), quoted_ranges):
-            continue
-        if match.group(0).startswith("が") and not japanese_ga_is_concessive(
-            segment, match.start()
-        ):
             continue
         left_range = trimmed_range(segment, cursor, match.start())
         right_range = trimmed_range(segment, match.end(), len(segment))
@@ -2139,14 +1842,6 @@ def predicate_clause_ranges(segment: str) -> list[tuple[int, int]]:
     if final_range is not None:
         ranges.append(final_range)
     return ranges
-
-
-def detect_span_language(text: str) -> str:
-    if JAPANESE_SCRIPT_PATTERN.search(text):
-        return "ja"
-    if CJK_SCRIPT_PATTERN.search(text):
-        return "zh_hant"
-    return "en"
 
 
 def classify_predicate_scope(text: str) -> DiscourseMode:
@@ -2211,7 +1906,6 @@ def extract_assertion_spans(
                 text=clause,
                 start=absolute_start,
                 end=absolute_end,
-                language=detect_span_language(clause),
                 predicate_kind=predicate_kind,
                 discourse_scope=classify_predicate_scope(clause),
                 structure_id=structure_id,
@@ -2290,9 +1984,7 @@ def portal_assertion_span_is_unsafe(
 
 PORTAL_DOMAIN_GATE_PATTERN = re.compile(
     r"\bhuman\s+(?:review|verification)\s+is\s+required\b|"
-    r"\b(?:must|needs?\s+to|required\s+to)\s+(?:determine|verify|check|confirm)\b|"
-    r"(?:人間が確認|確認が必要|確認する必要|確認中|状態は不明)|"
-    r"(?:人工確認|需要查核|仍須查核|仍待確認|尚未確認)",
+    r"\b(?:must|needs?\s+to|required\s+to)\s+(?:determine|verify|check|confirm)\b",
     re.IGNORECASE,
 )
 
@@ -2317,8 +2009,8 @@ def portal_state_component_source_offset(span: AssertionSpan) -> int:
     relative_offsets = [
         match.start()
         for patterns in (
-            *PORTAL_STATE_OBJECT_PATTERNS.values(),
-            *PORTAL_STATE_PREDICATE_PATTERNS.values(),
+            PORTAL_STATE_OBJECT_PATTERNS,
+            PORTAL_STATE_PREDICATE_PATTERNS,
             PORTAL_SELF_STATE_PATTERNS,
         )
         for pattern in patterns
@@ -2560,8 +2252,9 @@ def validate_status_claims(root: Path, errors: list[str]) -> None:
     masked out first, and every positive claim left anywhere in the remaining
     text fails. A negation earlier in the sentence therefore never licenses a
     later claim — "No submission has occurred — this Plugin is published."
-    fails on its second span, in any of English, Japanese, or Traditional
-    Chinese, across em dashes, commas, and contrastive connectors.
+    fails on its second canonical English span across em dashes, commas, and
+    contrastive connectors. This bounded policy does not interpret localized
+    prose or prove arbitrary natural-language equivalence.
     """
     for relative in CLAIM_SCAN_FILES:
         path = root / relative
@@ -2818,12 +2511,8 @@ def cli() -> int:
     """Fail closed on unexpected defects without exposing a raw traceback."""
     try:
         return main()
-    except Exception as exc:
-        print(
-            "ERROR: Unexpected Plugin submission validator failure: "
-            f"{type(exc).__name__}: {exc}",
-            file=sys.stderr,
-        )
+    except Exception:
+        print("ERROR: Unexpected Plugin submission validator failure.", file=sys.stderr)
         return 1
 
 
