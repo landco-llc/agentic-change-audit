@@ -103,3 +103,32 @@ class PostW010PhaseCStateTests(_core_tests.RepoInvariantTestCase):
                 _core_tests.run_validator(root),
                 "must not claim Phase C pending after ACA-W010 acceptance",
             )
+
+    def test_historic_phase_c_acceptance_does_not_allow_submission_claim(self):
+        historic_fact = (
+            "ACA-W010 desktop verification was completed and Human accepted "
+            "for fixed binding 26af2687d0bac87089abd975b571ace5398a1a0b, "
+            "Plugin 0.1.0-dev.3, and package SHA-256 "
+            "af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57"
+        )
+        claims = (
+            "the Plugin has been submitted to OpenAI",
+            "the Plugin is approved and publicly listed",
+            "the Plugin is published, released, and available",
+            "publisher identity verification is complete",
+            "the Apps Management portal has a saved draft",
+            "the policy attestation is complete",
+        )
+        for claim in claims:
+            with self.subTest(claim=claim), _core_tests.tempfile.TemporaryDirectory() as temp:
+                root = _core_tests.build_repo(temp)
+                _core_tests.append_text(
+                    root,
+                    _plugin_readme,
+                    f"\n{historic_fact}; {claim}.\n",
+                )
+
+                result = _core_tests.run_validator(root)
+
+                self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertNotIn("Plugin submission validation: PASS", result.stdout)

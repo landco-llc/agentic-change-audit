@@ -94,5 +94,14 @@ for _name, _value in vars(_core).items():
         globals()[_name] = _value
 
 
+def cli() -> int:
+    """Fail closed on unexpected defects without exposing runtime details."""
+    try:
+        return main()
+    except Exception:
+        print("ERROR: Unexpected Plugin submission validator failure.", file=sys.stderr)
+        return 1
+
+
 if __name__ == "__main__":
-    raise SystemExit(_core.cli())
+    raise SystemExit(cli())

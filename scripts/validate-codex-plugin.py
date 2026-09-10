@@ -27,9 +27,13 @@ POST_W010_ALLOWED_PHASE_C_CLAUSES = frozenset(
         "pre-reconciliation candidate at 26af2687d0bac87089abd975b571ace5398a1a0b, "
         "Plugin 0.1.0-dev.3, and package SHA-256 "
         "af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57",
-        "ACA-W010 completed this verification for its fixed candidate",
         "ACA-W010 completed Phase C for its fixed source identity",
     }
+)
+POST_W010_FIXED_BINDING = (
+    "26af2687d0bac87089abd975b571ace5398a1a0b",
+    "Plugin `0.1.0-dev.3`",
+    "af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57",
 )
 POST_W010_PHASE_C_PENDING_PATTERN = re.compile(
     r"Phase\s+C\s+desktop\s+(?:evidence|verification).{0,48}"
@@ -62,16 +66,34 @@ _core.REQUIRED_README_MARKERS = tuple(
 _core_validate_readmes = _core.validate_readmes
 
 
-def _is_allowed_phase_c_error(error: str) -> bool:
-    return error.startswith("Plugin README Phase C identity contradiction:") and any(
-        repr(clause) in error for clause in POST_W010_ALLOWED_PHASE_C_CLAUSES
+def _is_allowed_phase_c_error(error: str, has_fixed_binding: bool) -> bool:
+    """Allow only the three literal clauses that record the fixed W010 result.
+
+    The preserved validator reports an entire Markdown clause in its diagnostic.
+    Requiring that exact clause (rather than a substring) keeps a completion word
+    from exempting an added external-state claim in the same clause.
+    """
+    return has_fixed_binding and error.startswith(
+        "Plugin README Phase C identity contradiction:"
+    ) and any(
+        error.endswith(f"{clause!r}.")
+        for clause in POST_W010_ALLOWED_PHASE_C_CLAUSES
     )
 
 
 def validate_readmes(root: Path, errors: list[str]) -> None:
     start = len(errors)
     _core_validate_readmes(root, errors)
-    errors[start:] = [error for error in errors[start:] if not _is_allowed_phase_c_error(error)]
+    plugin_readme = root / _core.PLUGIN_RELATIVE / "README.md"
+    has_fixed_binding = plugin_readme.is_file() and all(
+        value in plugin_readme.read_text(encoding="utf-8")
+        for value in POST_W010_FIXED_BINDING
+    )
+    errors[start:] = [
+        error
+        for error in errors[start:]
+        if not _is_allowed_phase_c_error(error, has_fixed_binding)
+    ]
 
     for name in _core.README_NAMES:
         candidate = root / _core.PLUGIN_RELATIVE / name
@@ -93,4 +115,7 @@ for _name, _value in vars(_core).items():
 
 
 if __name__ == "__main__":
-    raise SystemExit(_core.main())
+    # Preserve the pre-W012 CLI facade. Calling ``main`` directly bypasses the
+    # fail-closed boundary that turns malformed README bytes into a stable
+    # validation failure instead of a traceback.
+    raise SystemExit(_core.cli())

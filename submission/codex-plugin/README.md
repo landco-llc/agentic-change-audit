@@ -77,10 +77,8 @@ to prove arbitrary natural-language meaning or establish translation parity.
 This change adds no new third-party dependency; use the existing
 `requirements-validation.txt` validation environment.
 
-The post-W010 validator boundary requires the repository to state that Phase C
-desktop verification is complete and accepted while keeping release,
-submission, availability, logo, developer/business verification, portal, and
-attestation gates fail-closed.
+The post-W010 validator boundary preserves the documented, candidate-bound
+historical verification while retaining its non-authorization boundary.
 
 ## Human prerequisites
 

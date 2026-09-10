@@ -48,6 +48,24 @@ for _name, _value in vars(_core_tests).items():
 class PostW010PhaseCStateTests(_core_tests.unittest.TestCase):
     """Fail closed if the accepted Phase C record regresses to pending."""
 
+    def test_phase_c_exception_requires_the_fixed_w010_binding(self):
+        with _core_tests.tempfile.TemporaryDirectory() as temp:
+            root = _core_tests.build_plugin_repo(temp)
+            readme = root / _core_tests.validate_module.PLUGIN_RELATIVE / "README.md"
+            readme.write_text(
+                readme.read_text(encoding="utf-8").replace(
+                    "26af2687d0bac87089abd975b571ace5398a1a0b",
+                    "0" * 40,
+                ),
+                encoding="utf-8",
+            )
+
+            result = _core_tests.run_validator(root)
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("Phase C identity contradiction", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
     def test_reintroduced_phase_c_pending_claim_fails(self):
         with _core_tests.tempfile.TemporaryDirectory() as temp:
             root = _core_tests.build_plugin_repo(temp)
