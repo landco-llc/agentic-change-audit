@@ -118,7 +118,7 @@ def replace_text(relative: str, text: str) -> Mutation:
             "Agentic Change Audit marketplace\n\n"
             "0.1.0-dev.3\n\n"
             "Development preview\n\n"
-            "Phase C desktop evidence is pending. Earlier desktop evidence is "
+            "Phase C desktop verification is complete and accepted. Earlier desktop evidence is "
             "historical, superseded, and non-transferable.\n\n"
             "English is the sole canonical language for machine semantics and exact tokens.\n\n"
             f"{body}\n"
@@ -1449,7 +1449,7 @@ install_invalid_regression_cases(
             "plugin",
             replace_bytes(
                 PLUGIN_READMES[0],
-                "Phase C desktop evidence is pending.".encode(),
+                "Phase C desktop verification is complete and accepted.".encode(),
                 (
                     "Phase C desktop evidence is complete for the "
                     "Agentic Change Audit marketplace; ACA-FRESH-RDM-039"
