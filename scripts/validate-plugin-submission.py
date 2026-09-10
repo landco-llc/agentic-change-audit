@@ -9,6 +9,7 @@ and must reject reintroduction of a current "pending" Phase C claim.
 
 All other listing, privacy, support, capability, human-prerequisite, secret,
 path, version, and portal-state checks remain owned by the preserved core.
+This remains a bounded validator, not a general natural-language theorem prover.
 """
 
 from __future__ import annotations
