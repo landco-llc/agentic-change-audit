@@ -9,16 +9,19 @@ identity and Plugin version `0.1.0-dev.3`.
 
 ## Development status
 
-- **Phase C desktop evidence is pending.** Earlier desktop evidence is
-  historical, superseded, and non-transferable: it covered a previous
-  marketplace identity and Plugin version. The pending Phase C evidence set
-  covers marketplace registration, discovery, installation, explicit
-  invocation, and Git working-tree non-mutation for the neutral identity and
-  `0.1.0-dev.3`.
+- **Phase C desktop verification is complete and accepted.** ACA-W010 verified
+  marketplace discovery, installation, explicit invocation, and Git working-tree
+  non-mutation for the fixed pre-reconciliation candidate at
+  `26af2687d0bac87089abd975b571ace5398a1a0b`, Plugin `0.1.0-dev.3`, and package
+  SHA-256 `af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57`.
+- Earlier desktop evidence for the previous marketplace identity/version remains
+  historical, superseded, and non-transferable. ACA-W010 evidence is likewise
+  fixed to its recorded candidate and does not automatically transfer to a later
+  repository/package identity.
 - This Plugin has not been submitted to or approved for OpenAI's public Plugins
   Directory, is not listed there, and is not available from it.
-- Publisher identity verification, logo approval, and other human decisions
-  remain pending. All human prerequisites remain pending.
+- Publisher identity verification, logo approval, and other protected human
+  decisions remain pending. **All human prerequisites remain pending.**
 - [Support](https://github.com/landco-llc/agentic-change-audit/blob/main/SUPPORT.md)
   and [Privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)
   document the repository boundaries.
@@ -66,7 +69,9 @@ The `codex plugin marketplace add .` command registers the current repository's 
 4. Install **Agentic Change Audit**.
 5. Start a new task and invoke the Plugin to test it.
 
-A full ChatGPT desktop UI installation walkthrough is a **PENDING HUMAN CHECK** for anyone reproducing these steps; it is not something this repository can execute or attest to automatically.
+ACA-W010 completed this verification for its fixed candidate. These steps remain
+reproduction guidance only; if the repository/package identity changes, the old
+result is not evidence for the new final candidate.
 
 ## Registering from GitHub
 
@@ -79,8 +84,8 @@ codex plugin marketplace add \
   --ref main
 ```
 
-Phase C desktop evidence is still pending; this command is an instruction for
-that separate check, not evidence that the check has occurred.
+ACA-W010 completed Phase C for its fixed source identity. A later changed `main`
+requires a new fixed-candidate evaluation rather than reuse of the old evidence.
 
 ## Invocation examples
 

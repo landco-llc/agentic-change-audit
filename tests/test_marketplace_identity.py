@@ -118,8 +118,15 @@ def replace_text(relative: str, text: str) -> Mutation:
             "Agentic Change Audit marketplace\n\n"
             "0.1.0-dev.3\n\n"
             "Development preview\n\n"
-            "Phase C desktop evidence is pending. Earlier desktop evidence is "
-            "historical, superseded, and non-transferable.\n\n"
+            "Phase C desktop verification is complete and accepted. ACA-W010 verified\n"
+            "marketplace discovery, installation, explicit invocation, and Git working-tree\n"
+            "non-mutation for the fixed pre-reconciliation candidate at\n"
+            "`26af2687d0bac87089abd975b571ace5398a1a0b`, Plugin `0.1.0-dev.3`, and package\n"
+            "SHA-256 `af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57`.\n"
+            "Earlier desktop evidence for the previous marketplace identity/version remains\n"
+            "historical, superseded, and non-transferable. ACA-W010 evidence is likewise\n"
+            "fixed to its recorded candidate and does not automatically transfer to a later\n"
+            "repository/package identity.\n\n"
             "English is the sole canonical language for machine semantics and exact tokens.\n\n"
             f"{body}\n"
         )
@@ -1449,7 +1456,7 @@ install_invalid_regression_cases(
             "plugin",
             replace_bytes(
                 PLUGIN_READMES[0],
-                "Phase C desktop evidence is pending.".encode(),
+                "Phase C desktop verification is complete and accepted.".encode(),
                 (
                     "Phase C desktop evidence is complete for the "
                     "Agentic Change Audit marketplace; ACA-FRESH-RDM-039"
