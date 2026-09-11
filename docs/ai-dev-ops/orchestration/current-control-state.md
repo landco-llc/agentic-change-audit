@@ -18,12 +18,14 @@ deployment status.
 | ACA-W008 canonical-English runtime reconciliation | `COMPLETED` | Pull request #25 final accepted correction head `c6f753a74db8799aeae1e3ba5a462fd8fbd77497` received `PASS / VALID / blocking 0` and merged as `26af2687d0bac87089abd975b571ace5398a1a0b`; post-merge Validate run `34313884183` and Package run `34313884165` succeeded. |
 | ACA-W009 Phase C repository preflight | `COMPLETED` | Repository-only preflight fixed `main` at `26af2687d0bac87089abd975b571ace5398a1a0b`, confirmed exact-main validation/package evidence, reproduced the development package boundary, and stopped at the Human desktop gate. |
 | ACA-W010 Phase C desktop verification | `COMPLETED / HUMAN ACCEPTED` | The fixed candidate `26af2687d0bac87089abd975b571ace5398a1a0b`, Plugin `agentic-change-audit` `0.1.0-dev.3`, and package SHA-256 `af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57` passed marketplace discovery, installation, explicit invocation, and repository non-mutation verification. This is not release or submission authority. |
+| ACA-W012 post-W010 canonical reconciliation | `COMPLETED` | Pull request #26 accepted fixed candidate `b1440012e2e09717c6c1bc90a94a7f87cf561445`, tree `4931a35b4030fb4c7475c5ad3dd58eccd39742fe`, with `PASS WITH COMMENTS / VALID / blocking 0 / non-blocking 0`, Validate #84 and Package #81 success, and merged as `5b96b64a7c7bb0d97c4a15ddab055c0c87018a8f` without tree drift. |
+| ACA-W013 display-name reconciliation | `AUTHORIZED / IN PROGRESS` | Fixed base is `main@5b96b64a7c7bb0d97c4a15ddab055c0c87018a8f`. Scope is limited to reconciling the user-facing display name to `ACA - Agentic Change Audit` while preserving `agentic-change-audit`, Plugin version `0.1.0-dev.3`, `L&Co.LLC` legal identity where required, `Read` capability, and all release/submission Human gates. |
 | Legacy pull request #17 | `BLOCKED` | Non-mutated legacy condition; details are intentionally not reproduced here. |
 
 ## Control reminders
 
 - A correction changes the target head and requires a new independent re-audit.
 - Fast Track remains a bounded standing human delegation and requires expected-head checks immediately before Ready and merge.
-- ACA-W010 evidence is fixed to its recorded source/package identity. A later repository change creates a new candidate; W010 remains valid historical evidence but is not automatically final-candidate evidence.
+- ACA-W010 evidence is fixed to its recorded source/package identity. ACA-W013 changes user-facing display metadata, so W010 remains valid historical evidence but is not final-candidate evidence for W013.
 - Active private ledger detail is not stored here; durable history remains public-safe and append-only.
 - A snapshot records control state only; it cannot grant audit, Ready, merge, release, submission, publication, or deployment authority.

@@ -2,24 +2,30 @@
 
 Plugin: `agentic-change-audit`
 Version: `0.1.0-dev.3` (development package)
-Identity: `Agentic Change Audit marketplace`
+Display name: `ACA - Agentic Change Audit`
 
 ## Summary
 
 This records repository-side preparation material for the skills-only Agentic
-Change Audit Codex Plugin. It changes nothing about the Plugin runtime and does
-not itself create a release or submission.
+Change Audit Codex Plugin. ACA-W013 reconciles only the user-facing Plugin /
+marketplace / submission listing display name. It does not create a release or
+submission.
 
 ## What this package contains
 
-- The first skills-only Plugin submission package: listing details, starter prompts, positive and negative test cases, an availability recommendation, and these notes.
-- The bundled canonical Agentic Change Audit Skill, unchanged: the Plugin ships the same evidence-first, agent-neutral audit workflow as the repository-root Skill sources.
+- The skills-only Plugin submission package: listing details, starter prompts,
+  positive and negative test cases, an availability recommendation, and these
+  notes.
+- The bundled canonical Agentic Change Audit Skill, unchanged: the Plugin ships
+  the same evidence-first, agent-neutral audit workflow as the repository-root
+  Skill sources.
 - English is the sole canonical language for machine semantics and exact
   tokens. Runtime narrative follows the user's conversation language.
 - Public support and privacy policies for the Plugin.
 
 ## Runtime boundary
 
+- Technical Plugin/Skill identifier: `agentic-change-audit`.
 - Declared capability: `Read` only.
 - No MCP server.
 - No ChatGPT app and no connector.
@@ -35,11 +41,10 @@ not itself create a release or submission.
 - The Human-operated verification covered marketplace discovery, installation,
   explicit invocation, absence of unexpected MCP/connector/auth/write requests,
   and Git working-tree non-mutation.
-- Earlier desktop evidence for a previous marketplace identity/version remains
-  historical, superseded, and non-transferable.
-- ACA-W010 evidence is also fixed to its exact candidate. A later repository or
-  package identity requires a new fixed-candidate evaluation before it can be
-  used as final submission evidence.
+- That evidence predates the ACA-W013 display-name change and remains historical,
+  candidate-bound, and non-transferable to the W013 final candidate.
+- A new fixed-candidate evaluation is required before the changed display name
+  can be used as final submission evidence.
 
 ## Status
 
@@ -52,7 +57,6 @@ not itself create a release or submission.
 
 ## Not included
 
-- No final-candidate post-reconciliation desktop evaluation is claimed by these
-  notes.
+- No final-candidate post-W013 desktop evaluation is claimed by these notes.
 - No external submission, public listing, tag, GitHub Release, final ZIP upload,
   or directory publication is performed.

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-"""Compatibility test entry point for the post-W010 submission state.
+"""Compatibility test entry point for post-W010/W013 submission state.
 
 The prior test body is preserved byte-for-byte in
-``plugin_submission_core_tests.py``. Only assertions whose purpose was to keep
-Phase C in a pending state are rebound to the accepted ACA-W010 completion
-marker. All other regression tests remain unchanged, and explicit post-W010
-regressions are added below.
+``plugin_submission_core_tests.py``. ACA-W010 pending-state fixtures remain
+rebound to the accepted completion marker, and ACA-W013 rebinds only the
+Human-approved user-facing listing name.
 """
 
 import importlib.util
@@ -16,6 +15,7 @@ from pathlib import Path
 
 CORE_TEST_PATH = Path(__file__).with_name("plugin_submission_core_tests.py")
 CORE_TEST_MODULE_NAME = "_aca_plugin_submission_core_tests"
+POST_W013_DISPLAY_NAME = "ACA - Agentic Change Audit"
 
 
 def _load_core_tests():
@@ -44,7 +44,44 @@ def _post_w010_plugin_readme_boundary_removal_fails(self):
         self.assert_rejected(_core_tests.run_validator(root), "must state the boundary")
 
 
-# Patch only test fixtures that explicitly encoded the superseded pending state.
+def _post_w013_listing_contract(self):
+    listing = _core_tests.load_json(
+        _core_tests.ROOT / _core_tests.submission_module.LISTING_RELATIVE
+    )
+
+    self.assertEqual(set(listing), _core_tests.submission_module.EXPECTED_LISTING_KEYS)
+    self.assertEqual(listing["submissionType"], "skills-only")
+    self.assertEqual(listing["pluginName"], POST_W013_DISPLAY_NAME)
+    self.assertEqual(listing["publisher"], "L&Co.LLC")
+    self.assertEqual(listing["category"], "Productivity")
+    self.assertEqual(listing["releaseStatus"], "draft-materials-only")
+    self.assertEqual(listing["publicDirectoryStatus"], "not-submitted")
+    self.assertEqual(listing["logoStatus"], "PENDING APPROVED ASSET")
+    self.assertEqual(
+        listing["developerIdentity"],
+        {
+            "type": "business",
+            "name": "L&Co.LLC",
+            "verificationStatus": "PENDING HUMAN CHECK",
+        },
+    )
+    self.assertEqual(
+        listing["skills"],
+        [
+            {
+                "name": "agentic-change-audit",
+                "path": "plugins/agentic-change-audit/skills/agentic-change-audit",
+            }
+        ],
+    )
+
+    for key in _core_tests.submission_module.URL_LISTING_KEYS:
+        self.assertTrue(
+            listing[key].startswith("https://"),
+            f"{key} must be an HTTPS URL",
+        )
+
+
 for _value in vars(_core_tests).values():
     if not isinstance(_value, type):
         continue
@@ -68,10 +105,8 @@ for _value in vars(_core_tests).values():
         _copy[_plugin_readme] = tuple(_updated)
         setattr(_value, "SAFE_BOUNDARIES", _copy)
 
+_core_tests.SubmissionPackageTests.test_listing_contract = _post_w013_listing_contract
 
-# Unittest discovery can discover the preserved TestCase classes through these
-# bindings; their methods still execute the original core test body except for
-# the two Phase C fixtures patched above.
 for _name, _value in vars(_core_tests).items():
     if not _name.startswith("__"):
         globals()[_name] = _value
@@ -132,3 +167,17 @@ class PostW010PhaseCStateTests(_core_tests.RepoInvariantTestCase):
 
                 self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
                 self.assertNotIn("Plugin submission validation: PASS", result.stdout)
+
+
+class PostW013DisplayNameStateTests(_core_tests.RepoInvariantTestCase):
+    """Bind only the public listing name changed by ACA-W013."""
+
+    def test_listing_name_matches_w013_without_runtime_identity_drift(self):
+        listing = _core_tests.load_json(
+            _core_tests.ROOT / _core_tests.submission_module.LISTING_RELATIVE
+        )
+        manifest = _core_tests.load_json(_core_tests.MANIFEST_PATH)
+        self.assertEqual(POST_W013_DISPLAY_NAME, listing["pluginName"])
+        self.assertEqual("agentic-change-audit", manifest["name"])
+        self.assertEqual("0.1.0-dev.3", manifest["version"])
+        self.assertEqual(["Read"], manifest["interface"]["capabilities"])
