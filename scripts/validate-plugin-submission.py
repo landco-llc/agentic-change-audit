@@ -4,10 +4,11 @@
 The validated implementation body is preserved byte-for-byte in
 ``validate-plugin-submission-core.py``. This adapter retains the accepted
 ACA-W010 Phase C contract and rebinds only the Human-approved ACA-W013
-user-facing listing name.
+user-facing listing name and its canonical repository-status markers.
 
-All other listing, privacy, support, capability, human-prerequisite, secret,
-path, version, and portal-state checks remain owned by the preserved core.
+This adapter is not a general natural-language semantic layer. All other
+listing, privacy, support, capability, human-prerequisite, secret, path,
+version, and portal-state checks remain owned by the preserved core.
 """
 
 from __future__ import annotations
@@ -48,6 +49,32 @@ _phase_c_replacements = {
     "Phase C desktop evidence is pending": POST_W010_PHASE_C_MARKER,
 }
 
+_canonical_status_replacements = {
+    _core.SUBMISSION_README_RELATIVE: {
+        "Marketplace identity: neutral `Agentic Change Audit marketplace`": (
+            POST_W013_DISPLAY_NAME
+        ),
+        "Earlier desktop evidence is historical, superseded, and non-transferable": (
+            "That result is immutable historical evidence for its exact candidate."
+        ),
+        "Translation parity is not a machine validation gate": (
+            "English is the sole canonical language for specifications, machine fields, and\n"
+            "exact tokens."
+        ),
+    },
+    _core.RELEASE_NOTES_RELATIVE: {
+        "historical, superseded, and non-transferable": (
+            "candidate-bound, and non-transferable to the W013 final candidate."
+        ),
+    },
+}
+
+
+def _rebind_status_marker(relative: str, marker: str) -> str:
+    marker = _phase_c_replacements.get(marker, marker)
+    return _canonical_status_replacements.get(relative, {}).get(marker, marker)
+
+
 _plugin_boundaries = []
 for _label, _wordings in _core.PLUGIN_README_REQUIRED_BOUNDARIES[
     _core.PLUGIN_README_RELATIVE
@@ -61,7 +88,7 @@ _core.PLUGIN_README_REQUIRED_BOUNDARIES[_core.PLUGIN_README_RELATIVE] = tuple(
 )
 
 _core.CANONICAL_STATUS_MARKERS = {
-    relative: tuple(_phase_c_replacements.get(marker, marker) for marker in markers)
+    relative: tuple(_rebind_status_marker(relative, marker) for marker in markers)
     for relative, markers in _core.CANONICAL_STATUS_MARKERS.items()
 }
 

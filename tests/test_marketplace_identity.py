@@ -45,6 +45,17 @@ def _marketplace_01_exact_w013_identity_is_accepted(self):
     )
 
 
+def _allowed_09_w013(self):
+    self.assert_accepted(
+        "submission",
+        _core_tests.json_assertion(
+            "submission/codex-plugin/listing.json",
+            ("pluginName",),
+            POST_W013_DISPLAY_NAME,
+        ),
+    )
+
+
 def _duplicate_02_w013(self):
     before = f'    "displayName": "{POST_W013_DISPLAY_NAME}"'.encode()
     self.assert_rejected_with_family(
@@ -99,6 +110,9 @@ def _prior_b31_w013(self):
 
 _core_tests.MarketplaceExactIdentityTests.test_marketplace_01_exact_neutral_identity_is_accepted = (
     _marketplace_01_exact_w013_identity_is_accepted
+)
+_core_tests.AllowedLegalAndTechnicalIdentityTests.test_allowed_09_neutral_submission_app_name_is_accepted = (
+    _allowed_09_w013
 )
 _core_tests.AdditionalDuplicateJSONKeyRegressionTests.test_duplicate_02 = _duplicate_02_w013
 _core_tests.AdditionalDuplicateJSONKeyRegressionTests.test_duplicate_09 = _duplicate_09_w013
