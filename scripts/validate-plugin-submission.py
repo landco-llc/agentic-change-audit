@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Post-W010 entry point for the Codex Plugin submission validator.
+"""Post-W010/W013 entry point for the Codex Plugin submission validator.
 
 The validated implementation body is preserved byte-for-byte in
-``validate-plugin-submission-core.py``. This adapter changes only the Phase C
-current-state contract after the accepted ACA-W010 desktop verification:
-current public surfaces must now record that Phase C is complete and accepted,
-and must reject reintroduction of a current "pending" Phase C claim.
+``validate-plugin-submission-core.py``. This adapter retains the accepted
+ACA-W010 Phase C contract and rebinds only the Human-approved ACA-W013
+user-facing listing name and its canonical repository-status markers.
 
-All other listing, privacy, support, capability, human-prerequisite, secret,
-path, version, and portal-state checks remain owned by the preserved core.
-This remains a bounded validator, not a general natural-language theorem prover.
+This adapter is not a general natural-language semantic layer. All other
+listing, privacy, support, capability, human-prerequisite, secret, path,
+version, and portal-state checks remain owned by the preserved core.
 """
 
 from __future__ import annotations
@@ -23,6 +22,7 @@ from pathlib import Path
 CORE_PATH = Path(__file__).with_name("validate-plugin-submission-core.py")
 CORE_MODULE_NAME = "_aca_validate_plugin_submission_core"
 POST_W010_PHASE_C_MARKER = "Phase C desktop verification is complete and accepted"
+POST_W013_DISPLAY_NAME = "ACA - Agentic Change Audit"
 
 
 def _load_core():
@@ -41,12 +41,39 @@ def _load_core():
 
 _core = _load_core()
 
-# Replace only the three Phase C current-state markers that existed before
-# ACA-W010. The surrounding validator contract remains unchanged.
+# ACA-W013 changes only the public Plugin/listing display name.
+_core.EXPECTED_PLUGIN_NAME = POST_W013_DISPLAY_NAME
+
 _phase_c_replacements = {
     "Phase C desktop evidence remains pending": POST_W010_PHASE_C_MARKER,
     "Phase C desktop evidence is pending": POST_W010_PHASE_C_MARKER,
 }
+
+_canonical_status_replacements = {
+    _core.SUBMISSION_README_RELATIVE: {
+        "Marketplace identity: neutral `Agentic Change Audit marketplace`": (
+            POST_W013_DISPLAY_NAME
+        ),
+        "Earlier desktop evidence is historical, superseded, and non-transferable": (
+            "That result is immutable historical evidence for its exact candidate."
+        ),
+        "Translation parity is not a machine validation gate": (
+            "English is the sole canonical language for specifications, machine fields, and\n"
+            "exact tokens."
+        ),
+    },
+    _core.RELEASE_NOTES_RELATIVE: {
+        "historical, superseded, and non-transferable": (
+            "candidate-bound, and non-transferable to the W013 final candidate."
+        ),
+    },
+}
+
+
+def _rebind_status_marker(relative: str, marker: str) -> str:
+    marker = _phase_c_replacements.get(marker, marker)
+    return _canonical_status_replacements.get(relative, {}).get(marker, marker)
+
 
 _plugin_boundaries = []
 for _label, _wordings in _core.PLUGIN_README_REQUIRED_BOUNDARIES[
@@ -61,13 +88,10 @@ _core.PLUGIN_README_REQUIRED_BOUNDARIES[_core.PLUGIN_README_RELATIVE] = tuple(
 )
 
 _core.CANONICAL_STATUS_MARKERS = {
-    relative: tuple(_phase_c_replacements.get(marker, marker) for marker in markers)
+    relative: tuple(_rebind_status_marker(relative, marker) for marker in markers)
     for relative, markers in _core.CANONICAL_STATUS_MARKERS.items()
 }
 
-# The pre-W010 validator rejected any Phase C completion claim. Remove only that
-# obsolete rule, then add the inverse fail-closed rule: current public status may
-# not regress to Phase C pending/outstanding after the accepted W010 result.
 _core.FORBIDDEN_CURRENT_STATUS_PATTERNS = tuple(
     item
     for item in _core.FORBIDDEN_CURRENT_STATUS_PATTERNS
@@ -87,8 +111,6 @@ _core.FORBIDDEN_CURRENT_STATUS_PATTERNS = tuple(
     ),
 )
 
-# Re-export the preserved validator API. Existing tests and callers import this
-# path, while function globals continue to resolve against the patched core.
 for _name, _value in vars(_core).items():
     if not _name.startswith("__"):
         globals()[_name] = _value

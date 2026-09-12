@@ -19,7 +19,7 @@
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Agentic Change Audit",
+    "displayName": "ACA - Agentic Change Audit",
     "shortDescription": "Audit software changes with evidence before merge or release.",
     "longDescription": "Review fixed software changes, verification evidence, remaining risks, and required human checks before merge, release, or deployment.",
     "developerName": "L&Co.LLC",

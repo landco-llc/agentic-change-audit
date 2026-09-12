@@ -1,6 +1,6 @@
 {
   "submissionType": "skills-only",
-  "pluginName": "Agentic Change Audit",
+  "pluginName": "ACA - Agentic Change Audit",
   "publisher": "L&Co.LLC",
   "shortDescription": "Audit software changes with evidence before merge or release.",
   "longDescription": "Agentic Change Audit reviews a fixed software change, records the checks and evidence actually available, identifies findings and required human checks, and returns one structured Verdict before merge, release, or deployment. It is evidence-first, agent-neutral, and read-only by default.",

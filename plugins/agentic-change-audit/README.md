@@ -1,11 +1,12 @@
-# Agentic Change Audit — Codex Plugin (development preview)
+# ACA - Agentic Change Audit — Codex Plugin (development preview)
 
 ## Status
 
 **Development preview.** This is the first installable Codex Plugin foundation for Agentic Change Audit. It is a **skills-only Plugin**: it bundles the existing Agentic Change Audit Skill so it can be installed through a repository-scoped local marketplace instead of only a direct Skill folder.
 
-This development preview uses the neutral **Agentic Change Audit marketplace**
-identity and Plugin version `0.1.0-dev.3`.
+The current user-facing Plugin and marketplace display name is
+**ACA - Agentic Change Audit**. The technical Plugin/marketplace identifier
+remains `agentic-change-audit`, and the Plugin version remains `0.1.0-dev.3`.
 
 ## Development status
 
@@ -18,6 +19,8 @@ identity and Plugin version `0.1.0-dev.3`.
   historical, superseded, and non-transferable. ACA-W010 evidence is likewise
   fixed to its recorded candidate and does not automatically transfer to a later
   repository/package identity.
+- The earlier phrase **Agentic Change Audit marketplace** is retained here only
+  as historical ACA-W010-era wording; it is not the current display name.
 - This Plugin has not been submitted to or approved for OpenAI's public Plugins
   Directory, is not listed there, and is not available from it.
 - Publisher identity verification, logo approval, and other protected human
@@ -65,13 +68,13 @@ The `codex plugin marketplace add .` command registers the current repository's 
 
 1. Restart the ChatGPT desktop app after adding or updating the marketplace, so it picks up the new source.
 2. Open **Plugins**.
-3. Select the **Agentic Change Audit marketplace**.
-4. Install **Agentic Change Audit**.
+3. Select the marketplace displayed as **ACA - Agentic Change Audit**.
+4. Install **ACA - Agentic Change Audit**.
 5. Start a new task and invoke the Plugin to test it.
 
-ACA-W010 completed this verification for its fixed candidate. These steps remain
-reproduction guidance only; if the repository/package identity changes, the old
-result is not evidence for the new final candidate.
+ACA-W010 completed desktop verification only for its exact pre-W013 binding.
+These steps remain reproduction guidance; the display-name change creates a new
+candidate and the old desktop evidence is not final-candidate evidence for it.
 
 ## Registering from GitHub
 

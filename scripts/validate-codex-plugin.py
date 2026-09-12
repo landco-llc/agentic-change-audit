@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Post-W010 entry point for the Codex Plugin validator.
+"""Post-W010/W013 entry point for the Codex Plugin validator.
 
 The validated implementation body is preserved byte-for-byte in
-``validate-codex-plugin-core.py``. This adapter changes only the obsolete
-Phase C current-state boundary after the accepted ACA-W010 desktop verification.
+``validate-codex-plugin-core.py``. This adapter keeps the accepted ACA-W010
+Phase C evidence contract and rebinds only the Human-approved ACA-W013
+user-facing display name.
+
 All manifest, Skill, capability, identity, and fail-closed submission controls
 remain owned by the preserved core.
 """
@@ -19,6 +21,7 @@ from pathlib import Path
 CORE_PATH = Path(__file__).with_name("validate-codex-plugin-core.py")
 CORE_MODULE_NAME = "_aca_validate_codex_plugin_core"
 POST_W010_PHASE_C_MARKER = "Phase C desktop verification is complete and accepted"
+POST_W013_DISPLAY_NAME = "ACA - Agentic Change Audit"
 POST_W010_ALLOWED_PHASE_C_CLAUSES = frozenset(
     {
         POST_W010_PHASE_C_MARKER,
@@ -57,6 +60,12 @@ def _load_core():
 
 
 _core = _load_core()
+
+# ACA-W013 changes only user-facing display identity. Technical slug, Skill
+# name, version, legal identity, capabilities, and policy boundaries are fixed.
+_core.EXPECTED_DISPLAY_NAME = POST_W013_DISPLAY_NAME
+_core.EXPECTED_MARKETPLACE_DISPLAY_NAME = POST_W013_DISPLAY_NAME
+
 _core.REQUIRED_README_MARKERS = tuple(
     POST_W010_PHASE_C_MARKER
     if marker == "Phase C desktop evidence is pending"
@@ -67,12 +76,7 @@ _core_validate_readmes = _core.validate_readmes
 
 
 def _is_allowed_phase_c_error(error: str, has_fixed_binding: bool) -> bool:
-    """Allow only the three literal clauses that record the fixed W010 result.
-
-    The preserved validator reports an entire Markdown clause in its diagnostic.
-    Requiring that exact clause (rather than a substring) keeps a completion word
-    from exempting an added external-state claim in the same clause.
-    """
+    """Allow only the literal clauses that record the fixed W010 result."""
     return has_fixed_binding and error.startswith(
         "Plugin README Phase C identity contradiction:"
     ) and any(
@@ -115,7 +119,5 @@ for _name, _value in vars(_core).items():
 
 
 if __name__ == "__main__":
-    # Preserve the pre-W012 CLI facade. Calling ``main`` directly bypasses the
-    # fail-closed boundary that turns malformed README bytes into a stable
-    # validation failure instead of a traceback.
+    # Preserve the pre-W012 CLI facade.
     raise SystemExit(_core.cli())
