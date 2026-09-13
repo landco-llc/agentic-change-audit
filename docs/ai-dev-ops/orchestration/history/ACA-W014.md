@@ -53,7 +53,68 @@ for the fixed identity above. The gate packet is only actionable after the
 ACA-W014 repository change itself has passed its required validation/audit cycle
 and any separately required Ready/merge gate.
 
-State in this candidate: `AUTHORIZED / PREFLIGHT`.
+The repository preflight was accepted and merged through pull request #28:
 
-No Human desktop execution, Ready, or merge is authorized by this history
-record.
+- Accepted implementation candidate:
+  `155070d435e21ad66ad5adcca423fa456c36e2a5`.
+- Independent FULL audit: `PASS WITH COMMENTS / VALID`.
+- Blocking findings: `0`.
+- Non-blocking findings: `0`.
+- Audit dependency blockers: `0`.
+- Resulting main: `863add9baf28677ce51409bb8f2032ecba1b6a7a`.
+- Resulting main tree: `3eb5786022f2884d889a88a78b6c0a158b09695a`.
+- Post-merge Validate #91: `SUCCESS`.
+- Post-merge Package #88: `SUCCESS`.
+
+The exact-main development artifact used for the separately authorized desktop
+verification was:
+
+- artifact: `agentic-change-audit-0.0.0-dev.863add9baf28`;
+- SHA-256:
+  `81754d82fbf3d0a2f4901233b7f20d41619a31b86f1437612f6334ffb0ff6d00`.
+
+## Human desktop verification
+
+The first explicit invocation returned `NOT AUDITABLE` because it ran in the
+wrong repository context. That result is retained as fail-closed historical
+evidence only; it is not the accepted desktop result.
+
+The corrected invocation Fresh Read the exact disposable documentation-only
+repository, its clean state, and its fixed audit range before running:
+
+- Base: `72da67c6260aa63985ebbf821a89dabcdc1310f1`.
+- Target: `e2fb7d84c90ef1252d3331dad99d4b3de0825e68`.
+- Verdict: `PASS`.
+- Audit mode: `DOCS_ONLY`.
+- Audit validity: `VALID`.
+- Blocking findings: `0`.
+- Non-blocking findings: `0`.
+- Reviewed path: `README.md`.
+- Effective diff: one modified file, two insertions, zero deletions.
+- `git diff --check`: `PASS`.
+- Human verification for the disposable docs-only audit: `NOT REQUIRED`.
+
+Immediately before invocation, repository HEAD was
+`e2fb7d84c90ef1252d3331dad99d4b3de0825e68` and
+`git status --porcelain` was empty. Immediately after invocation, HEAD was the
+same commit and `git status --porcelain` was still empty. Repository mutation
+was `NONE`.
+
+Human-observed desktop presentation matched `ACA - Agentic Change Audit`,
+version `0.1.0-dev.3`, developer `L&Co.LLC`, capability `Read`, and category
+`Productivity`. Source reconciliation bound the enabled Plugin to the exact
+current main candidate and removed the stale development instance before the
+accepted invocation.
+
+## Final disposition
+
+`CURRENT-IDENTITY DESKTOP VERIFICATION = PASS / HUMAN ACCEPTED`.
+
+`ACA-W014 = COMPLETED`.
+
+Issue #12 remains open for separately protected later prerequisites. This
+completion does not authorize or perform Plugin version mutation, logo or
+availability decisions, developer/business identity verification, Apps
+Management or OpenAI portal mutation, tag or GitHub Release, final ZIP
+publication/upload, policy attestation, submission, public listing, directory
+publication, or public release.
