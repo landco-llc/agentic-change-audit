@@ -69,7 +69,6 @@ capability. The accepted disposition was
 This reconciliation changes only:
 
 - `docs/ai-dev-ops/orchestration/current-control-state.md`;
-- `docs/ai-dev-ops/orchestration/history/ACA-W014.md`;
 - `docs/ai-dev-ops/orchestration/history/ACA-W015.md`.
 
 It does not change Plugin, runtime, manifest, marketplace, submission, or
