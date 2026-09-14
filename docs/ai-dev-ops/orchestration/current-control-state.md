@@ -21,7 +21,8 @@ deployment status.
 | ACA-W012 post-W010 canonical reconciliation | `COMPLETED` | Pull request #26 accepted fixed candidate `b1440012e2e09717c6c1bc90a94a7f87cf561445`, tree `4931a35b4030fb4c7475c5ad3dd58eccd39742fe`, with `PASS WITH COMMENTS / VALID / blocking 0 / non-blocking 0`, Validate #84 and Package #81 success, and merged as `5b96b64a7c7bb0d97c4a15ddab055c0c87018a8f` without tree drift. |
 | ACA-W013 display-name reconciliation | `COMPLETED` | Pull request #27 accepted candidate `e9670287c118ada272f6ff1f3c6a7107bff55542`, tree `2f7345e83201cfefb67d26853f3ffb2c4655adde`, with `PASS WITH COMMENTS / VALID / blocking 0 / non-blocking 0`; Human-authorized merge produced `main@ef88c0e8669e639b06428e5ac55d88b580e14659` with the same tree, followed by successful Validate #88 and Package #85. No current-identity desktop rerun was performed. |
 | ACA-W014 current-identity desktop verification | `COMPLETED / HUMAN ACCEPTED` | Pull request #28 accepted candidate `155070d435e21ad66ad5adcca423fa456c36e2a5` and merged as `863add9baf28677ce51409bb8f2032ecba1b6a7a`, tree `3eb5786022f2884d889a88a78b6c0a158b09695a`. The rebound exact-main artifact passed current-identity Human desktop verification with `PASS / VALID`, zero findings, and verified repository non-mutation. The earlier wrong-context `NOT AUDITABLE` attempt remains fail-closed historical evidence only. |
-| ACA-W015 post-desktop canonical reconciliation | `IMPLEMENTED / AWAITING INDEPENDENT AUDIT` | Fixed base is `main@863add9baf28677ce51409bb8f2032ecba1b6a7a`, tree `3eb5786022f2884d889a88a78b6c0a158b09695a`. Scope is the two-path, docs-only reconciliation of accepted ACA-W014 evidence. This candidate grants no Ready, merge, release, submission, publication, or deployment authority. |
+| ACA-W015 post-desktop canonical reconciliation | `COMPLETED / MERGED / POST-MERGE VALIDATED` | Pull request #30 accepted candidate `0d3cd2b0f0fd7962149e1972cb86eb8d4b808436`, tree `09ddbaf82cf4029b8cc2c9fda361eec24f54d57f`, after `PASS / VALID`, blocking 0, and exact-head Validate #93 / Package #90 success; it merged as `efd4f002df77e99edfdfd00449e3f7bf322ed2a3` without tree drift, followed by successful exact-main Validate #94 / Package #91. |
+| ACA-W016 protected release/submission prerequisite inventory | `IMPLEMENTED / AWAITING INDEPENDENT AUDIT` | Fixed base is `main@efd4f002df77e99edfdfd00449e3f7bf322ed2a3`, tree `09ddbaf82cf4029b8cc2c9fda361eec24f54d57f`. The repository-only inventory stops at the single recommended `OPENAI_PORTAL_READ_ONLY_PREREQUISITE_VERIFICATION` gate. No protected decision or external effect is authorized or performed. |
 | Legacy pull request #17 | `BLOCKED` | Non-mutated legacy condition; details are intentionally not reproduced here. |
 
 ## Control reminders
@@ -30,7 +31,14 @@ deployment status.
 - Fast Track remains a bounded standing human delegation and requires expected-head checks immediately before Ready and merge.
 - ACA-W010 evidence remains fixed to its recorded pre-W013 source/package identity. ACA-W014 separately records current-identity desktop evidence for its exact rebound candidate.
 - ACA-W014 completion proves bounded current-identity presentation, source binding, discovery/install availability, explicit invocation, and read-only non-mutation only. It does not authorize Ready, merge, release, submission, publication, or deployment.
-- ACA-W015 remains subject to fresh independent fixed-head audit and the applicable Human Ready/merge gate.
+- ACA-W015 is complete. Its exact-main Package #91 development preview,
+  `agentic-change-audit-0.0.0-dev.efd4f002df77`, with SHA-256
+  `4c9cd5adfe06bdf802d8bd5e9ba931dfb549dac86a09c69ee71fb46608a05d33`,
+  is reproducibility evidence only, not a final ZIP, release artifact, or
+  submission artifact.
+- ACA-W016 remains subject to exact-head validation, separate independent
+  fixed-head audit, and the applicable Ready/merge gate. Its inventory does
+  not establish completion of any Human or external prerequisite.
 - Issue #12 remains open for separately protected release and submission prerequisites.
 - Active private ledger detail is not stored here; durable history remains public-safe and append-only.
 - A snapshot records control state only; it cannot grant audit, Ready, merge, release, submission, publication, or deployment authority.
