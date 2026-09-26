@@ -27,6 +27,7 @@
     "scope_envelope": ["docs/ai-dev-ops/orchestration"],
     "validity_condition": "Standing delegation remains valid.",
     "standing_delegation_reference": {"reference":"issues/37#campaign-authority","proves":"delegation","observed_at":"2026-09-27T00:00:00Z"},
+    "correction_history": {"dispatches":0,"repeated_material_finding":false,"unresolved_findings":false,"evidence_reference":{"reference":"issues/37#correction-history","proves":"history","observed_at":"2026-09-27T00:00:00Z"}},
     "active_work_exclusivity": 1,
     "active_work_ids": ["ACA-GOV-001", "ACA-GOV-002"]
   },

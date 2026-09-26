@@ -66,16 +66,11 @@
     "completed_work_id": "ACA-GOV-001",
     "proposed_id": "ACA-GOV-002",
     "sequence_position": 2,
-    "authorized_work_ids": [
-      "ACA-GOV-001",
-      "ACA-GOV-002",
-      "ACA-W017"
-    ],
-    "finite_work_limit": 3,
+    "campaign_record_sha256": "3f31e860d7e17d2bf38b292b23fdbecfb8d897fdbfe42883a22302687f640457",
     "terminal_human_gate": "HUMAN_GATE_RELEASE_SUBMISSION_DECISION_BUNDLE",
     "campaign_authorization_reference": {
       "reference": "issues/37#campaign-authority",
-      "proves": "The finite campaign order and standing Human delegation.",
+      "proves": "Standing Human delegation for the finite campaign envelope.",
       "observed_at": "2026-09-27T00:00:00Z"
     },
     "correction_history": {

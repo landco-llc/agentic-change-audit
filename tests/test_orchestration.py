@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -56,6 +57,9 @@ class OrchestrationValidatorTests(unittest.TestCase):
         cls.campaign_record = validator_module.load_json(
             FIXTURES / "records/valid/campaign-active.json"
         )
+        cls.campaign_record_bytes = (
+            FIXTURES / "records/valid/campaign-active.json"
+        ).read_bytes()
         cls.campaign_result = validator_module.load_json(
             FIXTURES / "results/valid/campaign-continuation.json"
         )
@@ -71,6 +75,83 @@ class OrchestrationValidatorTests(unittest.TestCase):
             issue.code
             for issue in validator_module.result_semantic_issues(document, self.transitions)
         }
+
+    def delegation_binding(self, work_id, target_sha):
+        return {
+            "authority_source": "HUMAN_STANDING_DELEGATION",
+            "authority_state": "ACCEPTED_CURRENT",
+            "work_id": work_id,
+            "target_sha": target_sha,
+            "executor_role": "CONTROLLER",
+            "authorized_transitions": ["READY", "MERGED"],
+            "evidence_reference": {
+                "reference": "issues/37#standing-delegation",
+                "proves": "Accepted/current Human standing delegation for this exact Work and head.",
+                "observed_at": "2026-09-27T00:00:00Z",
+            },
+        }
+
+    def controller_lifecycle_record(self, to_state):
+        from_state = "FAST_TRACK_ELIGIBLE" if to_state == "READY" else "READY"
+        document = copy.deepcopy(self.auditing_record)
+        document["state"] = to_state
+        binding = self.delegation_binding(document["id"], document["target_sha"])
+        document["delegation_binding"] = binding
+        document["state_history"] = [
+            {
+                **document["state_history"][0],
+                "actor_role": "CONTROLLER",
+                "from_state": from_state,
+                "to_state": to_state,
+                "delegation_binding": copy.deepcopy(binding),
+            }
+        ]
+        return document
+
+    def controller_lifecycle_result(self, to_state):
+        from_state = "FAST_TRACK_ELIGIBLE" if to_state == "READY" else "READY"
+        document = self.controller_completed_result()
+        document["result_state"] = to_state
+        document["next_work"] = {"action": "NONE", "rule": "bounded lifecycle"}
+        document["transition"].update(
+            {
+                "from_state": from_state,
+                "to_state": to_state,
+                "delegation_binding": self.delegation_binding(
+                    document["work_id"], document["target_sha"]
+                ),
+            }
+        )
+        return document
+
+    def paired_result_issues(self, result, record=None, record_bytes=None):
+        record = copy.deepcopy(record if record is not None else self.campaign_record)
+        if record_bytes is None:
+            if record == self.campaign_record:
+                record_bytes = self.campaign_record_bytes
+            else:
+                record_bytes = (json.dumps(record, indent=2) + "\n").encode("utf-8")
+        return validator_module.validate_document(
+            result,
+            self.result_validator,
+            kind="result",
+            transitions=self.transitions,
+            campaign_record=record,
+            campaign_record_sha256=hashlib.sha256(record_bytes).hexdigest(),
+            campaign_record_validator=self.record_validator,
+        )
+
+    def paired_campaign_documents(self, record=None):
+        record = copy.deepcopy(record if record is not None else self.campaign_record)
+        if record == self.campaign_record:
+            record_bytes = self.campaign_record_bytes
+        else:
+            record_bytes = (json.dumps(record, indent=2) + "\n").encode("utf-8")
+        result = copy.deepcopy(self.campaign_result)
+        result["next_work"]["campaign_record_sha256"] = hashlib.sha256(
+            record_bytes
+        ).hexdigest()
+        return record, result, record_bytes
 
     def controller_completed_record(self):
         document = copy.deepcopy(self.auditing_record)
@@ -250,17 +331,15 @@ class OrchestrationValidatorTests(unittest.TestCase):
     def test_controller_ready_transition_requires_delegation_evidence(self):
         document = copy.deepcopy(self.auditing_record)
         document["state"] = "READY"
+        binding = self.delegation_binding(document["id"], document["target_sha"])
+        document["delegation_binding"] = binding
         document["state_history"] = [
             {
                 **document["state_history"][0],
                 "actor_role": "CONTROLLER",
                 "from_state": "FAST_TRACK_ELIGIBLE",
                 "to_state": "READY",
-                "delegation_reference": {
-                    "reference": "issues/37#standing-delegation",
-                    "proves": "Accepted/current exact-Work and exact-head Ready authority.",
-                    "observed_at": "2026-09-27T00:00:00Z",
-                },
+                "delegation_binding": copy.deepcopy(binding),
             }
         ]
         self.assertEqual(
@@ -273,8 +352,173 @@ class OrchestrationValidatorTests(unittest.TestCase):
             ),
         )
 
-        document["state_history"][0].pop("delegation_reference")
+        document["state_history"][0].pop("delegation_binding")
         self.assertIn("WR-09", self.record_codes(document))
+
+    def test_controller_ready_rejects_candidate_delegation_evidence(self):
+        document = copy.deepcopy(self.auditing_record)
+        document["state"] = "READY"
+        binding = self.delegation_binding(document["id"], document["target_sha"])
+        binding["evidence_reference"] = {
+            "reference": "policies/unaccepted-candidate",
+            "proves": "Candidate only; not accepted/current authority.",
+            "observed_at": "2026-09-27T00:00:00Z",
+        }
+        document["delegation_binding"] = binding
+        document["state_history"] = [
+            {
+                **document["state_history"][0],
+                "actor_role": "CONTROLLER",
+                "from_state": "FAST_TRACK_ELIGIBLE",
+                "to_state": "READY",
+                "delegation_binding": copy.deepcopy(binding),
+            }
+        ]
+        self.assertIn("WR-09", self.record_codes(document))
+
+    def test_f01_structured_delegation_binding_covers_ready_and_merge(self):
+        for to_state, from_state in (("READY", "FAST_TRACK_ELIGIBLE"), ("MERGED", "READY")):
+            with self.subTest(kind="record", to_state=to_state):
+                record = copy.deepcopy(self.auditing_record)
+                record["state"] = to_state
+                binding = self.delegation_binding(record["id"], record["target_sha"])
+                record["delegation_binding"] = binding
+                record["state_history"] = [
+                    {
+                        **record["state_history"][0],
+                        "actor_role": "CONTROLLER",
+                        "from_state": from_state,
+                        "to_state": to_state,
+                        "delegation_binding": copy.deepcopy(binding),
+                    }
+                ]
+                self.assertEqual(
+                    [],
+                    validator_module.validate_document(
+                        record,
+                        self.record_validator,
+                        kind="record",
+                        transitions=self.transitions,
+                    ),
+                )
+
+            with self.subTest(kind="result", to_state=to_state):
+                result = self.controller_completed_result()
+                result["result_state"] = to_state
+                result["next_work"] = {"action": "NONE", "rule": "bounded lifecycle"}
+                result["transition"].update(
+                    {
+                        "from_state": from_state,
+                        "to_state": to_state,
+                        "delegation_binding": self.delegation_binding(
+                            result["work_id"], result["target_sha"]
+                        ),
+                    }
+                )
+                self.assertEqual(
+                    [],
+                    validator_module.validate_document(
+                        result,
+                        self.result_validator,
+                        kind="result",
+                        transitions=self.transitions,
+                    ),
+                )
+
+    def test_f01_rejects_malformed_or_negative_supplied_bindings(self):
+        base = self.controller_completed_result()
+        base["result_state"] = "READY"
+        base["next_work"] = {"action": "NONE", "rule": "bounded lifecycle"}
+        base["transition"].update(
+            {
+                "from_state": "FAST_TRACK_ELIGIBLE",
+                "to_state": "READY",
+                "delegation_binding": self.delegation_binding(
+                    base["work_id"], base["target_sha"]
+                ),
+            }
+        )
+        cases = {}
+        mutations = {
+            "source": ("authority_source", "EXTERNAL_MECHANISM"),
+            "state": ("authority_state", "CANDIDATE"),
+            "executor": ("executor_role", "EXTERNAL_SYSTEM"),
+            "work": ("work_id", "OTHER-WORK"),
+            "head": ("target_sha", "d" * 40),
+            "coverage": ("authorized_transitions", ["MERGED"]),
+        }
+        for name, (field, value) in mutations.items():
+            document = copy.deepcopy(base)
+            document["transition"]["delegation_binding"][field] = value
+            cases[name] = document
+        for wording in (
+            "candidate only",
+            "shadow policy",
+            "successor material",
+            "proposed policy",
+            "non-active authority",
+            "unaccepted authority",
+            "not accepted authority",
+            "not current authority",
+            "revoked authority",
+            "expired authority",
+            "superseded authority",
+            "rejected authority",
+        ):
+            document = copy.deepcopy(base)
+            document["transition"]["delegation_binding"]["evidence_reference"][
+                "proves"
+            ] = wording
+            cases[f"wording_{wording}"] = document
+
+        for name, document in cases.items():
+            with self.subTest(name=name):
+                issues = validator_module.validate_document(
+                    document,
+                    self.result_validator,
+                    kind="result",
+                    transitions=self.transitions,
+                )
+                self.assertTrue(issues)
+                self.assertIn("RES-08", {issue.code for issue in issues})
+
+    def test_f01_candidate_example_rejected_for_record_and_result_ready_merge(self):
+        for to_state, from_state in (("READY", "FAST_TRACK_ELIGIBLE"), ("MERGED", "READY")):
+            record = copy.deepcopy(self.auditing_record)
+            record["state"] = to_state
+            binding = self.delegation_binding(record["id"], record["target_sha"])
+            binding["evidence_reference"].update(
+                {
+                    "reference": "policies/unaccepted-candidate",
+                    "proves": "Candidate only; not accepted/current authority.",
+                }
+            )
+            record["delegation_binding"] = binding
+            record["state_history"] = [
+                {
+                    **record["state_history"][0],
+                    "actor_role": "CONTROLLER",
+                    "from_state": from_state,
+                    "to_state": to_state,
+                    "delegation_binding": copy.deepcopy(binding),
+                }
+            ]
+            with self.subTest(kind="record", to_state=to_state):
+                self.assertIn("WR-09", self.record_codes(record))
+
+            result = self.controller_completed_result()
+            result["result_state"] = to_state
+            result["next_work"] = {"action": "NONE", "rule": "bounded lifecycle"}
+            result["transition"].update(
+                {
+                    "from_state": from_state,
+                    "to_state": to_state,
+                    "delegation_binding": copy.deepcopy(binding),
+                }
+            )
+            result["transition"]["delegation_binding"]["work_id"] = result["work_id"]
+            with self.subTest(kind="result", to_state=to_state):
+                self.assertIn("RES-08", self.result_codes(result))
 
     def test_valid_finite_campaign_record(self):
         self.assertEqual(
@@ -306,7 +550,7 @@ class OrchestrationValidatorTests(unittest.TestCase):
         cases["multiple_active"] = multiple_active
 
         active_identity_drift = copy.deepcopy(self.campaign_record)
-        active_identity_drift["campaign"]["active_work_ids"] = ["ACA-GOV-001"]
+        active_identity_drift["campaign"]["active_work_ids"] = ["ACA-GOV-002"]
         cases["active_identity_drift"] = active_identity_drift
 
         for name, document in cases.items():
@@ -409,14 +653,218 @@ class OrchestrationValidatorTests(unittest.TestCase):
         )
 
     def test_valid_controller_campaign_continuation(self):
+        record, result, record_bytes = self.paired_campaign_documents()
         self.assertEqual(
             [],
-            validator_module.validate_document(
-                self.campaign_result,
-                self.result_validator,
-                kind="result",
-                transitions=self.transitions,
-            ),
+            self.paired_result_issues(result, record, record_bytes),
+        )
+
+    def test_campaign_continuation_rejects_result_created_order_and_history(self):
+        record, unlisted, record_bytes = self.paired_campaign_documents()
+        unlisted["next_work"]["proposed_id"] = "UNLISTED-WORK"
+        self.assertIn(
+            "RES-09",
+            {issue.code for issue in self.paired_result_issues(unlisted, record, record_bytes)},
+        )
+
+        rollback = copy.deepcopy(unlisted)
+        rollback["next_work"]["proposed_id"] = "ACA-GOV-002"
+        rollback["next_work"]["correction_history"]["dispatches"] = 0
+        self.assertIn(
+            "RES-09",
+            {issue.code for issue in self.paired_result_issues(rollback, record, record_bytes)},
+        )
+
+    def test_f02_continuation_requires_valid_exact_paired_record(self):
+        record, result, record_bytes = self.paired_campaign_documents()
+
+        absent = validator_module.validate_document(
+            result,
+            self.result_validator,
+            kind="result",
+            transitions=self.transitions,
+        )
+        self.assertIn("RES-09", {issue.code for issue in absent})
+
+        digest_mismatch = copy.deepcopy(result)
+        digest_mismatch["next_work"]["campaign_record_sha256"] = "0" * 64
+        self.assertIn(
+            "RES-09",
+            {
+                issue.code
+                for issue in self.paired_result_issues(
+                    digest_mismatch, record, record_bytes
+                )
+            },
+        )
+
+        for name, field, value in (
+            ("repository", "repository", "other/repository"),
+            ("target", "target_sha", "d" * 40),
+        ):
+            document = copy.deepcopy(result)
+            document[field] = value
+            document["transition"][field] = value
+            with self.subTest(name=name):
+                self.assertIn(
+                    "RES-09",
+                    {
+                        issue.code
+                        for issue in self.paired_result_issues(
+                            document, record, record_bytes
+                        )
+                    },
+                )
+
+        invalid_record = copy.deepcopy(record)
+        invalid_record.pop("objective")
+        invalid_record, paired_result, invalid_bytes = self.paired_campaign_documents(
+            invalid_record
+        )
+        self.assertIn(
+            "RES-09",
+            {
+                issue.code
+                for issue in self.paired_result_issues(
+                    paired_result, invalid_record, invalid_bytes
+                )
+            },
+        )
+
+        current_mismatch = copy.deepcopy(record)
+        current_mismatch["campaign"]["current_work_id"] = "ACA-GOV-002"
+        current_mismatch, paired_result, mismatch_bytes = self.paired_campaign_documents(
+            current_mismatch
+        )
+        self.assertIn(
+            "RES-09",
+            {
+                issue.code
+                for issue in self.paired_result_issues(
+                    paired_result, current_mismatch, mismatch_bytes
+                )
+            },
+        )
+
+    def test_f02_continuation_derives_order_gate_and_history_from_record(self):
+        record, result, record_bytes = self.paired_campaign_documents()
+        cases = {}
+
+        unlisted = copy.deepcopy(result)
+        unlisted["next_work"]["proposed_id"] = "UNLISTED-WORK"
+        cases["unlisted"] = unlisted
+
+        wrong_position = copy.deepcopy(result)
+        wrong_position["next_work"]["sequence_position"] = 3
+        cases["wrong_position"] = wrong_position
+
+        wrong_gate = copy.deepcopy(result)
+        wrong_gate["next_work"]["terminal_human_gate"] = "HUMAN_GATE_OTHER"
+        cases["wrong_gate"] = wrong_gate
+
+        wrong_completed = copy.deepcopy(result)
+        wrong_completed["next_work"]["completed_work_id"] = "ACA-GOV-002"
+        cases["wrong_completed"] = wrong_completed
+
+        rollback = copy.deepcopy(result)
+        rollback["next_work"]["correction_history"]["dispatches"] = 0
+        cases["dispatch_rollback"] = rollback
+
+        for name, document in cases.items():
+            with self.subTest(name=name):
+                issues = self.paired_result_issues(document, record, record_bytes)
+                self.assertIn("RES-09", {issue.code for issue in issues})
+
+        result_created_order = copy.deepcopy(result)
+        result_created_order["next_work"]["authorized_work_ids"] = [
+            "ACA-GOV-001",
+            "UNLISTED-WORK",
+        ]
+        result_created_order["next_work"]["finite_work_limit"] = 2
+        schema_codes = {
+            issue.code
+            for issue in validator_module.schema_issues(
+                result_created_order, self.result_validator
+            )
+        }
+        self.assertIn("SCHEMA_ADDITIONALPROPERTIES", schema_codes)
+
+    def test_f02_record_history_and_open_findings_fail_closed(self):
+        mismatch = copy.deepcopy(self.campaign_record)
+        mismatch["campaign"]["correction_history"]["dispatches"] = 0
+        self.assertIn("WR-10", self.record_codes(mismatch))
+
+        for flag in ("repeated_material_finding", "unresolved_findings"):
+            record = copy.deepcopy(self.campaign_record)
+            record["campaign"]["correction_history"][flag] = True
+            record, result, record_bytes = self.paired_campaign_documents(record)
+            result["next_work"]["correction_history"] = copy.deepcopy(
+                record["campaign"]["correction_history"]
+            )
+            with self.subTest(flag=flag):
+                self.assertIn(
+                    "RES-09",
+                    {
+                        issue.code
+                        for issue in self.paired_result_issues(
+                            result, record, record_bytes
+                        )
+                    },
+                )
+
+    def test_f02_limit_campaign_requires_record_authorized_successor(self):
+        limit_record = copy.deepcopy(self.campaign_record)
+        limit_record["campaign"].pop("work_ids")
+        limit_record["campaign"]["work_limit"] = 3
+        limit_record["campaign"]["authorized_next_work_id"] = "ACA-GOV-002"
+        limit_record, limit_result, limit_bytes = self.paired_campaign_documents(
+            limit_record
+        )
+        self.assertEqual(
+            [], self.paired_result_issues(limit_result, limit_record, limit_bytes)
+        )
+
+        no_successor = copy.deepcopy(limit_record)
+        no_successor["campaign"].pop("authorized_next_work_id")
+        no_successor, no_successor_result, no_successor_bytes = (
+            self.paired_campaign_documents(no_successor)
+        )
+        self.assertIn(
+            "RES-09",
+            {
+                issue.code
+                for issue in self.paired_result_issues(
+                    no_successor_result, no_successor, no_successor_bytes
+                )
+            },
+        )
+
+        exhausted = copy.deepcopy(limit_record)
+        exhausted["campaign"]["current_work_position"] = 3
+        exhausted, exhausted_result, exhausted_bytes = self.paired_campaign_documents(
+            exhausted
+        )
+        exhausted_result["next_work"]["sequence_position"] = 4
+        self.assertIn(
+            "RES-09",
+            {
+                issue.code
+                for issue in self.paired_result_issues(
+                    exhausted_result, exhausted, exhausted_bytes
+                )
+            },
+        )
+
+        wrong_next = copy.deepcopy(limit_result)
+        wrong_next["next_work"]["proposed_id"] = "ACA-W017"
+        self.assertIn(
+            "RES-09",
+            {
+                issue.code
+                for issue in self.paired_result_issues(
+                    wrong_next, limit_record, limit_bytes
+                )
+            },
         )
 
     def test_controller_merge_transition_requires_delegation_evidence(self):
@@ -427,11 +875,9 @@ class OrchestrationValidatorTests(unittest.TestCase):
             {
                 "from_state": "READY",
                 "to_state": "MERGED",
-                "delegation_reference": {
-                    "reference": "issues/37#standing-delegation",
-                    "proves": "Accepted/current exact-Work and exact-head merge authority.",
-                    "observed_at": "2026-09-27T00:00:00Z",
-                },
+                "delegation_binding": self.delegation_binding(
+                    document["work_id"], document["target_sha"]
+                ),
             }
         )
         self.assertEqual(
@@ -444,7 +890,7 @@ class OrchestrationValidatorTests(unittest.TestCase):
             ),
         )
 
-        document["transition"].pop("delegation_reference")
+        document["transition"].pop("delegation_binding")
         self.assertIn("RES-08", self.result_codes(document))
 
     def test_res_07_campaign_continuation_fails_closed(self):
@@ -499,7 +945,12 @@ class OrchestrationValidatorTests(unittest.TestCase):
 
         for name, document in cases.items():
             with self.subTest(name=name):
-                self.assertIn("RES-07", self.result_codes(document))
+                issues = self.paired_result_issues(document)
+                self.assertTrue(
+                    {"RES-07", "RES-09", "SCHEMA_ADDITIONALPROPERTIES"}
+                    & {issue.code for issue in issues},
+                    [issue.render() for issue in issues],
+                )
 
     def test_res_05_successor_chaining_fails_closed(self):
         for role in (
@@ -576,12 +1027,250 @@ class OrchestrationValidatorTests(unittest.TestCase):
         document["requirements_basis"]["observed_at"] = "not-a-date"
         self.assertIn("SCHEMA_FORMAT", {issue.code for issue in validator_module.schema_issues(document, self.record_validator)})
 
+    def test_cli_f01_rejects_candidate_and_malformed_delegation_bindings(self):
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            cases = []
+            for kind, factory, code in (
+                ("record", self.controller_lifecycle_record, "WR-09"),
+                ("result", self.controller_lifecycle_result, "RES-08"),
+            ):
+                for to_state in ("READY", "MERGED"):
+                    positive = factory(to_state)
+                    cases.append((kind, f"positive-{kind}-{to_state}.json", positive, 0, code))
+
+                    candidate = factory(to_state)
+                    binding = (
+                        candidate["delegation_binding"]
+                        if kind == "record"
+                        else candidate["transition"]["delegation_binding"]
+                    )
+                    binding["evidence_reference"].update(
+                        {
+                            "reference": "policies/unaccepted-candidate",
+                            "proves": "Candidate only; not accepted/current authority.",
+                        }
+                    )
+                    if kind == "record":
+                        candidate["state_history"][0]["delegation_binding"] = copy.deepcopy(
+                            binding
+                        )
+                    cases.append((kind, f"candidate-{kind}-{to_state}.json", candidate, 1, code))
+
+            malformed_base = self.controller_lifecycle_result("READY")
+            for name, field, value in (
+                ("source", "authority_source", "EXTERNAL_MECHANISM"),
+                ("state", "authority_state", "CANDIDATE"),
+                ("executor", "executor_role", "EXTERNAL_SYSTEM"),
+                ("work", "work_id", "OTHER-WORK"),
+                ("head", "target_sha", "d" * 40),
+                ("coverage", "authorized_transitions", ["MERGED"]),
+            ):
+                document = copy.deepcopy(malformed_base)
+                document["transition"]["delegation_binding"][field] = value
+                cases.append(("result", f"malformed-{name}.json", document, 1, "RES-08"))
+
+            for kind, name, document, expected_returncode, code in cases:
+                with self.subTest(name=name):
+                    path = directory_path / name
+                    path.write_text(json.dumps(document), encoding="utf-8")
+                    process = subprocess.run(
+                        [sys.executable, str(SCRIPT), "--kind", kind, str(path)],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        env=env,
+                    )
+                    observed = process.stdout + process.stderr
+                    self.assertEqual(expected_returncode, process.returncode, observed)
+                    if expected_returncode:
+                        self.assertIn(code, observed)
+                        self.assertNotIn("Orchestration validation: PASS", observed)
+                    else:
+                        self.assertIn("Orchestration validation: PASS", process.stdout)
+
+    def test_cli_f02_enforces_paired_campaign_authority(self):
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+
+        def serialized_pair(record, result):
+            record_bytes = (json.dumps(record, indent=2) + "\n").encode("utf-8")
+            result = copy.deepcopy(result)
+            result["next_work"]["campaign_record_sha256"] = hashlib.sha256(
+                record_bytes
+            ).hexdigest()
+            return record_bytes, result
+
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+
+            def run_pair(name, record, result, expected_returncode=1):
+                record_bytes, bound_result = serialized_pair(record, result)
+                record_path = directory_path / f"{name}-record.json"
+                result_path = directory_path / f"{name}-result.json"
+                record_path.write_bytes(record_bytes)
+                result_path.write_text(json.dumps(bound_result), encoding="utf-8")
+                process = subprocess.run(
+                    [
+                        sys.executable,
+                        str(SCRIPT),
+                        "--kind",
+                        "result",
+                        "--campaign-record",
+                        str(record_path),
+                        str(result_path),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env=env,
+                )
+                observed = process.stdout + process.stderr
+                self.assertEqual(expected_returncode, process.returncode, observed)
+                if expected_returncode:
+                    self.assertNotIn("Orchestration validation: PASS", observed)
+                else:
+                    self.assertIn("Orchestration validation: PASS", process.stdout)
+                return observed
+
+            record = copy.deepcopy(self.campaign_record)
+            result = copy.deepcopy(self.campaign_result)
+            self.assertIn("PASS", run_pair("valid", record, result, 0))
+
+            result_path = directory_path / "missing-pair-result.json"
+            result_path.write_text(json.dumps(result), encoding="utf-8")
+            missing = subprocess.run(
+                [sys.executable, str(SCRIPT), "--kind", "result", str(result_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=env,
+            )
+            self.assertEqual(1, missing.returncode, missing.stdout + missing.stderr)
+            self.assertIn("RES-09", missing.stderr)
+
+            unreadable = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--kind",
+                    "result",
+                    "--campaign-record",
+                    str(directory_path / "absent-record.json"),
+                    str(result_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=env,
+            )
+            self.assertEqual(1, unreadable.returncode, unreadable.stdout + unreadable.stderr)
+            self.assertIn("RES-09", unreadable.stderr)
+
+            digest_record_bytes, digest_result = serialized_pair(record, result)
+            digest_result["next_work"]["campaign_record_sha256"] = "0" * 64
+            digest_record_path = directory_path / "digest-record.json"
+            digest_result_path = directory_path / "digest-result.json"
+            digest_record_path.write_bytes(digest_record_bytes)
+            digest_result_path.write_text(json.dumps(digest_result), encoding="utf-8")
+            digest_process = subprocess.run(
+                [sys.executable, str(SCRIPT), "--kind", "result", "--campaign-record", str(digest_record_path), str(digest_result_path)],
+                capture_output=True, text=True, check=False, env=env,
+            )
+            self.assertEqual(1, digest_process.returncode, digest_process.stdout + digest_process.stderr)
+            self.assertIn("RES-09", digest_process.stderr)
+
+            adversarial_results = {}
+            unlisted = copy.deepcopy(result)
+            unlisted["next_work"]["proposed_id"] = "UNLISTED-WORK"
+            adversarial_results["unlisted"] = (record, unlisted)
+            replaced = copy.deepcopy(result)
+            replaced["next_work"]["authorized_work_ids"] = ["ACA-GOV-001", "UNLISTED-WORK"]
+            replaced["next_work"]["finite_work_limit"] = 2
+            adversarial_results["result-order"] = (record, replaced)
+            wrong_position = copy.deepcopy(result)
+            wrong_position["next_work"]["sequence_position"] = 3
+            adversarial_results["position"] = (record, wrong_position)
+            wrong_gate = copy.deepcopy(result)
+            wrong_gate["next_work"]["terminal_human_gate"] = "HUMAN_GATE_OTHER"
+            adversarial_results["gate"] = (record, wrong_gate)
+            wrong_completed = copy.deepcopy(result)
+            wrong_completed["next_work"]["completed_work_id"] = "ACA-GOV-002"
+            adversarial_results["completed"] = (record, wrong_completed)
+            rollback = copy.deepcopy(result)
+            rollback["next_work"]["correction_history"]["dispatches"] = 0
+            adversarial_results["rollback"] = (record, rollback)
+            repo_mismatch = copy.deepcopy(result)
+            repo_mismatch["repository"] = "other/repository"
+            repo_mismatch["transition"]["repository"] = "other/repository"
+            adversarial_results["repository"] = (record, repo_mismatch)
+            branch_mismatch = copy.deepcopy(result)
+            branch_mismatch["branch"] = "other/branch"
+            branch_mismatch["transition"]["branch"] = "other/branch"
+            adversarial_results["branch"] = (record, branch_mismatch)
+            target_mismatch = copy.deepcopy(result)
+            target_mismatch["target_sha"] = "d" * 40
+            target_mismatch["transition"]["target_sha"] = "d" * 40
+            adversarial_results["target"] = (record, target_mismatch)
+
+            invalid_record = copy.deepcopy(record)
+            invalid_record.pop("objective")
+            adversarial_results["record-schema"] = (invalid_record, result)
+            current_mismatch = copy.deepcopy(record)
+            current_mismatch["campaign"]["current_work_id"] = "ACA-GOV-002"
+            adversarial_results["current-work"] = (current_mismatch, result)
+            history_mismatch = copy.deepcopy(record)
+            history_mismatch["campaign"]["correction_history"]["dispatches"] = 0
+            adversarial_results["history"] = (history_mismatch, result)
+            for flag in ("repeated_material_finding", "unresolved_findings"):
+                flagged_record = copy.deepcopy(record)
+                flagged_record["campaign"]["correction_history"][flag] = True
+                flagged_result = copy.deepcopy(result)
+                flagged_result["next_work"]["correction_history"] = copy.deepcopy(
+                    flagged_record["campaign"]["correction_history"]
+                )
+                adversarial_results[flag] = (flagged_record, flagged_result)
+
+            limit_record = copy.deepcopy(record)
+            limit_record["campaign"].pop("work_ids")
+            limit_record["campaign"]["work_limit"] = 3
+            limit_record["campaign"]["authorized_next_work_id"] = "ACA-GOV-002"
+            self.assertIn("PASS", run_pair("limit-valid", limit_record, result, 0))
+            no_next = copy.deepcopy(limit_record)
+            no_next["campaign"].pop("authorized_next_work_id")
+            adversarial_results["limit-no-next"] = (no_next, result)
+            exhausted = copy.deepcopy(limit_record)
+            exhausted["campaign"]["current_work_position"] = 3
+            exhausted_result = copy.deepcopy(result)
+            exhausted_result["next_work"]["sequence_position"] = 4
+            adversarial_results["limit-exhausted"] = (exhausted, exhausted_result)
+            wrong_next = copy.deepcopy(result)
+            wrong_next["next_work"]["proposed_id"] = "ACA-W017"
+            adversarial_results["limit-wrong-next"] = (limit_record, wrong_next)
+
+            for name, (case_record, case_result) in adversarial_results.items():
+                with self.subTest(name=name):
+                    observed = run_pair(name, case_record, case_result)
+                    self.assertTrue(
+                        "RES-09" in observed or "SCHEMA_ADDITIONALPROPERTIES" in observed,
+                        observed,
+                    )
+
     def test_core_cli_valid_campaign(self):
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
         for kind, directory in (("record", "records/valid"), ("result", "results/valid")):
             with self.subTest(kind=kind):
+                command = [sys.executable, str(SCRIPT), "--kind", kind]
+                if kind == "result":
+                    command.extend(
+                        [
+                            "--campaign-record",
+                            str(FIXTURES / "records/valid/campaign-active.json"),
+                        ]
+                    )
+                command.extend(map(str, sorted((FIXTURES / directory).glob("*.json"))))
                 result = subprocess.run(
-                    [sys.executable, str(SCRIPT), "--kind", kind, *map(str, sorted((FIXTURES / directory).glob("*.json")))],
+                    command,
                     capture_output=True, text=True, check=False, env=env,
                 )
                 self.assertEqual(0, result.returncode, result.stdout + result.stderr)

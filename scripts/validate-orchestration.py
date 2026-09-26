@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -203,12 +204,84 @@ def role_transitions(role: Any) -> frozenset[tuple[str, str]]:
     return ROLE_TRANSITIONS.get(role, frozenset())
 
 
-def has_delegation_reference(value: Any) -> bool:
-    """Require a complete public-safe authority reference for Controller lifecycle execution."""
-    return isinstance(value, dict) and all(
-        isinstance(value.get(field), str) and bool(value[field].strip())
+NEGATIVE_AUTHORITY_WORDING = re.compile(
+    r"\b(?:candidate|shadow|successor|proposed|experimental|inactive|"
+    r"unaccepted|non[- ]?active|not\s+accepted|not\s+current|"
+    r"revoked|expired|superseded|rejected)\b",
+    re.IGNORECASE,
+)
+
+
+def delegation_binding_issues(
+    value: Any,
+    *,
+    work_id: Any,
+    target_sha: Any,
+    requested_transition: Any,
+    code: str,
+    path: str,
+) -> list[ValidationIssue]:
+    """Validate only the supplied exact-Work/head Human delegation binding."""
+    issues: list[ValidationIssue] = []
+    if not isinstance(value, dict):
+        return [
+            ValidationIssue(
+                code,
+                path,
+                "Controller Ready or merge requires a structured supplied delegation binding.",
+            )
+        ]
+
+    expected = {
+        "authority_source": "HUMAN_STANDING_DELEGATION",
+        "authority_state": "ACCEPTED_CURRENT",
+        "work_id": work_id,
+        "target_sha": target_sha,
+        "executor_role": "CONTROLLER",
+    }
+    for field, expected_value in expected.items():
+        if value.get(field) != expected_value:
+            issues.append(
+                ValidationIssue(
+                    code,
+                    f"{path}.{field}",
+                    f"Delegation {field} must equal the supplied exact-Work/head Controller authority binding.",
+                )
+            )
+
+    coverage = value.get("authorized_transitions")
+    if not isinstance(coverage, list) or requested_transition not in coverage:
+        issues.append(
+            ValidationIssue(
+                code,
+                f"{path}.authorized_transitions",
+                "The supplied delegation binding does not cover the requested transition.",
+            )
+        )
+
+    evidence = value.get("evidence_reference")
+    if not isinstance(evidence, dict) or not all(
+        isinstance(evidence.get(field), str) and bool(evidence[field].strip())
         for field in ("reference", "proves", "observed_at")
-    )
+    ):
+        issues.append(
+            ValidationIssue(
+                code,
+                f"{path}.evidence_reference",
+                "The supplied delegation binding requires a complete public-safe evidence reference.",
+            )
+        )
+    elif NEGATIVE_AUTHORITY_WORDING.search(
+        f"{evidence.get('reference', '')} {evidence.get('proves', '')}"
+    ):
+        issues.append(
+            ValidationIssue(
+                code,
+                f"{path}.evidence_reference",
+                "Supplied delegation evidence expressly identifies non-current or non-authoritative material.",
+            )
+        )
+    return issues
 
 
 def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[str]]) -> list[ValidationIssue]:
@@ -219,6 +292,7 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
         current_position = campaign.get("current_work_position")
         work_ids = campaign.get("work_ids")
         work_limit = campaign.get("work_limit")
+        authorized_next_work_id = campaign.get("authorized_next_work_id")
         active_work_ids = campaign.get("active_work_ids")
 
         if current_work_id != document.get("id"):
@@ -238,6 +312,14 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
                 )
             )
         if isinstance(work_ids, list):
+            if authorized_next_work_id is not None:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.authorized_next_work_id",
+                        "An ordered campaign derives its successor from work_ids and must not add a separate successor.",
+                    )
+                )
             if current_work_id not in work_ids:
                 issues.append(
                     ValidationIssue(
@@ -327,31 +409,34 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
         if (from_state, to_state) not in role_transitions(role):
             issues.append(ValidationIssue("WR-07", f"{prefix}.actor_role", "Actor role is not permitted to record this target state."))
         if role == "CONTROLLER" and to_state in {"READY", "MERGED"}:
-            delegation_reference = transition.get("delegation_reference")
-            if not has_delegation_reference(delegation_reference):
-                issues.append(
-                    ValidationIssue(
-                        "WR-09",
-                        f"{prefix}.delegation_reference",
-                        "A Controller Ready or merge transition requires accepted/current delegation evidence.",
-                    )
+            record_binding = document.get("delegation_binding")
+            transition_binding = transition.get("delegation_binding")
+            issues.extend(
+                delegation_binding_issues(
+                    record_binding,
+                    work_id=document.get("id"),
+                    target_sha=document.get("target_sha"),
+                    requested_transition=to_state,
+                    code="WR-09",
+                    path="$.delegation_binding",
                 )
-            campaign_delegation = (
-                campaign.get("standing_delegation_reference")
-                if isinstance(campaign, dict)
-                else None
             )
-            if (
-                isinstance(campaign_delegation, dict)
-                and has_delegation_reference(delegation_reference)
-                and delegation_reference.get("reference")
-                != campaign_delegation.get("reference")
-            ):
+            issues.extend(
+                delegation_binding_issues(
+                    transition_binding,
+                    work_id=document.get("id"),
+                    target_sha=document.get("target_sha"),
+                    requested_transition=to_state,
+                    code="WR-09",
+                    path=f"{prefix}.delegation_binding",
+                )
+            )
+            if isinstance(record_binding, dict) and transition_binding != record_binding:
                 issues.append(
                     ValidationIssue(
                         "WR-09",
-                        f"{prefix}.delegation_reference",
-                        "Controller lifecycle authority must match the campaign standing-delegation reference.",
+                        f"{prefix}.delegation_binding",
+                        "Controller transition delegation binding must exactly match the record-level binding.",
                     )
                 )
 
@@ -372,6 +457,18 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
 
     if len(correction_cycles) > 3:
         issues.append(ValidationIssue("WR-06", "$.state_history", "At most three correction cycles are permitted."))
+    if isinstance(campaign, dict):
+        correction_history = campaign.get("correction_history")
+        if isinstance(correction_history, dict) and correction_history.get("dispatches") != len(
+            correction_cycles
+        ):
+            issues.append(
+                ValidationIssue(
+                    "WR-10",
+                    "$.campaign.correction_history.dispatches",
+                    "Campaign correction dispatch count must equal append-only CORRECTING transitions.",
+                )
+            )
     final = history[-1]
     if isinstance(final, dict) and document.get("state") != final.get("to_state"):
         issues.append(ValidationIssue("WR-02", "$.state", "The record state must equal the final transition to_state."))
@@ -379,7 +476,12 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
 
 
 def result_semantic_issues(
-    document: dict[str, Any], transitions: dict[str, set[str]]
+    document: dict[str, Any],
+    transitions: dict[str, set[str]],
+    *,
+    campaign_record: Any = None,
+    campaign_record_sha256: str | None = None,
+    campaign_record_valid: bool | None = None,
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     transition = document.get("transition")
@@ -427,14 +529,15 @@ def result_semantic_issues(
         issues.append(ValidationIssue("RES-06", "$.transition.to_state", "Transition is not allowed by the immutable schema vocabulary."))
     if (from_state, to_state) not in role_transitions(role):
         issues.append(ValidationIssue("RES-06", "$.transition.actor_role", "Role is not permitted to record this transition."))
-    if role == "CONTROLLER" and to_state in {"READY", "MERGED"} and not has_delegation_reference(
-        transition.get("delegation_reference")
-    ):
-        issues.append(
-            ValidationIssue(
-                "RES-08",
-                "$.transition.delegation_reference",
-                "A Controller Ready or merge result requires accepted/current delegation evidence.",
+    if role == "CONTROLLER" and to_state in {"READY", "MERGED"}:
+        issues.extend(
+            delegation_binding_issues(
+                transition.get("delegation_binding"),
+                work_id=document.get("work_id"),
+                target_sha=document.get("target_sha"),
+                requested_transition=to_state,
+                code="RES-08",
+                path="$.transition.delegation_binding",
             )
         )
     scope = document.get("scope_observation")
@@ -499,53 +602,6 @@ def result_semantic_issues(
                         "Campaign continuation requires a different proposed next Work.",
                     )
                 )
-            authorized_work_ids = next_work.get("authorized_work_ids")
-            sequence_position = next_work.get("sequence_position")
-            finite_work_limit = next_work.get("finite_work_limit")
-            if isinstance(authorized_work_ids, list):
-                completed_position = (
-                    authorized_work_ids.index(completed_work_id) + 1
-                    if completed_work_id in authorized_work_ids
-                    else None
-                )
-                proposed_position = (
-                    authorized_work_ids.index(proposed_id) + 1
-                    if proposed_id in authorized_work_ids
-                    else None
-                )
-                if (
-                    completed_position is None
-                    or proposed_position is None
-                    or proposed_position != completed_position + 1
-                    or sequence_position != proposed_position
-                ):
-                    issues.append(
-                        ValidationIssue(
-                            "RES-07",
-                            "$.next_work.sequence_position",
-                            "Campaign continuation must select the immediately next Work in its finite authorized order.",
-                        )
-                    )
-                if finite_work_limit != len(authorized_work_ids):
-                    issues.append(
-                        ValidationIssue(
-                            "RES-07",
-                            "$.next_work.finite_work_limit",
-                            "Campaign finite_work_limit must match its complete authorized work order.",
-                        )
-                    )
-            if (
-                not isinstance(sequence_position, int)
-                or not isinstance(finite_work_limit, int)
-                or sequence_position > finite_work_limit
-            ):
-                issues.append(
-                    ValidationIssue(
-                        "RES-07",
-                        "$.next_work.sequence_position",
-                        "Campaign continuation must remain within its finite bound.",
-                    )
-                )
             if not isinstance(next_work.get("terminal_human_gate"), str) or not next_work[
                 "terminal_human_gate"
             ].strip():
@@ -568,6 +624,14 @@ def result_semantic_issues(
                         "Campaign continuation cannot reset or bypass repeated or unresolved findings.",
                     )
                 )
+            issues.extend(
+                paired_campaign_issues(
+                    document,
+                    campaign_record=campaign_record,
+                    campaign_record_sha256=campaign_record_sha256,
+                    campaign_record_valid=campaign_record_valid,
+                )
+            )
         if result_state == "COMPLETED" and action == "HUMAN_GATE":
             issues.append(ValidationIssue("RES-05", "$.next_work.action", "A completed result cannot retain a pending Human Gate."))
     limitations = document.get("limitations")
@@ -576,13 +640,197 @@ def result_semantic_issues(
     return issues
 
 
-def validate_document(document: Any, validator: Draft202012Validator, *, kind: str, transitions: dict[str, set[str]]) -> list[ValidationIssue]:
+def paired_campaign_issues(
+    result: dict[str, Any],
+    *,
+    campaign_record: Any,
+    campaign_record_sha256: str | None,
+    campaign_record_valid: bool | None,
+) -> list[ValidationIssue]:
+    next_work = result.get("next_work")
+    if not isinstance(next_work, dict) or next_work.get("action") != "CONTINUE_CAMPAIGN":
+        return []
+    if not isinstance(campaign_record, dict) or campaign_record_valid is not True:
+        return [
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.campaign_record_sha256",
+                "CONTINUE_CAMPAIGN requires a readable, schema-valid, semantically valid paired Work record.",
+            )
+        ]
+
+    issues: list[ValidationIssue] = []
+    if next_work.get("campaign_record_sha256") != campaign_record_sha256:
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.campaign_record_sha256",
+                "Campaign record SHA-256 must match the exact supplied record bytes.",
+            )
+        )
+
+    campaign = campaign_record.get("campaign")
+    if not isinstance(campaign, dict):
+        return issues + [
+            ValidationIssue("RES-09", "$.next_work", "Paired Work record has no campaign binding.")
+        ]
+
+    transition = result.get("transition") if isinstance(result.get("transition"), dict) else {}
+    identity_pairs = (
+        ("repository", result.get("repository"), campaign_record.get("repository")),
+        ("branch", result.get("branch"), campaign_record.get("branch")),
+        ("base_sha", result.get("base_sha"), campaign_record.get("base_sha")),
+        ("work_id", result.get("work_id"), campaign_record.get("id")),
+        ("target_applicable", transition.get("target_applicable"), campaign_record.get("target_applicable")),
+        ("pr_applicable", result.get("pr_applicable"), campaign_record.get("pr_applicable")),
+    )
+    for field, observed, expected in identity_pairs:
+        if observed != expected:
+            issues.append(
+                ValidationIssue(
+                    "RES-09",
+                    f"$.{field}",
+                    f"Continuation {field} must match the paired Work record.",
+                )
+            )
+    if campaign_record.get("target_applicable") is True and result.get("target_sha") != campaign_record.get(
+        "target_sha"
+    ):
+        issues.append(
+            ValidationIssue("RES-09", "$.target_sha", "Continuation target SHA must match the paired Work record.")
+        )
+    if campaign_record.get("pr_applicable") is True and result.get("pr_number") != campaign_record.get(
+        "pr_number"
+    ):
+        issues.append(
+            ValidationIssue("RES-09", "$.pr_number", "Continuation PR number must match the paired Work record.")
+        )
+    if campaign_record.get("state") != "COMPLETED":
+        issues.append(
+            ValidationIssue("RES-09", "$.next_work", "Paired current Work must be COMPLETED before continuation.")
+        )
+
+    expected_fields = {
+        "campaign_id": campaign.get("campaign_id"),
+        "completed_work_id": campaign_record.get("id"),
+        "terminal_human_gate": campaign.get("terminal_human_gate"),
+        "campaign_authorization_reference": campaign.get("standing_delegation_reference"),
+        "correction_history": campaign.get("correction_history"),
+    }
+    for field, expected in expected_fields.items():
+        if next_work.get(field) != expected:
+            issues.append(
+                ValidationIssue(
+                    "RES-09",
+                    f"$.next_work.{field}",
+                    f"Continuation {field} must equal the paired campaign record.",
+                )
+            )
+    if campaign.get("current_work_id") != campaign_record.get("id"):
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.completed_work_id",
+                "Paired campaign current Work must equal the completed Work record.",
+            )
+        )
+
+    current_position = campaign.get("current_work_position")
+    expected_position = current_position + 1 if isinstance(current_position, int) else None
+    work_ids = campaign.get("work_ids")
+    if isinstance(work_ids, list):
+        expected_next = (
+            work_ids[current_position]
+            if isinstance(current_position, int) and 0 < current_position < len(work_ids)
+            else None
+        )
+        if expected_next is None:
+            issues.append(
+                ValidationIssue("RES-09", "$.next_work.proposed_id", "Ordered campaign has no immediate successor.")
+            )
+    else:
+        work_limit = campaign.get("work_limit")
+        expected_next = campaign.get("authorized_next_work_id")
+        if (
+            not isinstance(current_position, int)
+            or not isinstance(work_limit, int)
+            or expected_position is None
+            or expected_position > work_limit
+        ):
+            issues.append(
+                ValidationIssue("RES-09", "$.next_work.sequence_position", "Campaign work_limit is exhausted.")
+            )
+        if not isinstance(expected_next, str):
+            issues.append(
+                ValidationIssue(
+                    "RES-09",
+                    "$.next_work.proposed_id",
+                    "Limit-form campaign must name its immediate authorized successor in the paired record.",
+                )
+            )
+    if next_work.get("proposed_id") != expected_next:
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.proposed_id",
+                "Proposed Work must equal the paired record's immediate authorized successor.",
+            )
+        )
+    if next_work.get("sequence_position") != expected_position:
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.sequence_position",
+                "Continuation position must be exactly one after the paired current Work.",
+            )
+        )
+    correction_history = campaign.get("correction_history")
+    if isinstance(correction_history, dict) and (
+        correction_history.get("repeated_material_finding") is not False
+        or correction_history.get("unresolved_findings") is not False
+    ):
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.correction_history",
+                "Paired campaign record has repeated or unresolved findings and cannot continue.",
+            )
+        )
+    return issues
+
+
+def validate_document(
+    document: Any,
+    validator: Draft202012Validator,
+    *,
+    kind: str,
+    transitions: dict[str, set[str]],
+    campaign_record: Any = None,
+    campaign_record_sha256: str | None = None,
+    campaign_record_validator: Draft202012Validator | None = None,
+    campaign_record_valid: bool | None = None,
+) -> list[ValidationIssue]:
     issues = schema_issues(document, validator)
     if isinstance(document, dict):
         if kind == "record":
             issues.extend(record_semantic_issues(document, transitions))
         else:
-            issues.extend(result_semantic_issues(document, transitions))
+            if campaign_record_valid is None and isinstance(campaign_record, dict) and campaign_record_validator:
+                campaign_record_valid = not validate_document(
+                    campaign_record,
+                    campaign_record_validator,
+                    kind="record",
+                    transitions=transitions,
+                )
+            issues.extend(
+                result_semantic_issues(
+                    document,
+                    transitions,
+                    campaign_record=campaign_record,
+                    campaign_record_sha256=campaign_record_sha256,
+                    campaign_record_valid=campaign_record_valid,
+                )
+            )
     return list(dict.fromkeys(issues))
 
 
@@ -591,6 +839,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("documents", nargs="+", help="JSON record or result files to validate.")
     parser.add_argument("--kind", choices=("record", "result"), required=True, help="Document contract to apply.")
     parser.add_argument("--schema", help="Override the schema path for the selected --kind.")
+    parser.add_argument(
+        "--campaign-record",
+        help="Exact paired Work record required for CONTINUE_CAMPAIGN result validation.",
+    )
     return parser.parse_args()
 
 
@@ -606,6 +858,30 @@ def main() -> int:
         print(f"ERROR: Unable to initialize validation: {exc}", file=sys.stderr)
         return 2
 
+    campaign_record: Any = None
+    campaign_record_sha256: str | None = None
+    campaign_record_valid: bool | None = None
+    campaign_record_validator: Draft202012Validator | None = None
+    if args.campaign_record:
+        campaign_path = Path(args.campaign_record)
+        try:
+            campaign_bytes = campaign_path.read_bytes()
+            campaign_record_sha256 = hashlib.sha256(campaign_bytes).hexdigest()
+            campaign_record = json.loads(
+                campaign_bytes.decode("utf-8"), object_pairs_hook=reject_duplicate_keys
+            )
+            record_schema = load_json(ORCHESTRATION_ROOT / "work-record.schema.json")
+            campaign_record_validator = build_validator(record_schema)
+            record_issues = validate_document(
+                campaign_record,
+                campaign_record_validator,
+                kind="record",
+                transitions=allowed_transitions(record_schema),
+            )
+            campaign_record_valid = not record_issues
+        except (OSError, UnicodeError, ValueError, json.JSONDecodeError, SchemaError, RuntimeError):
+            campaign_record_valid = False
+
     failed = False
     for name in args.documents:
         path = Path(name)
@@ -617,7 +893,16 @@ def main() -> int:
             print(f"Orchestration validation: FAIL ({display_path(path)})", file=sys.stderr)
             print(f"ERROR: {code} $: {exc}", file=sys.stderr)
             continue
-        issues = validate_document(document, validator, kind=args.kind, transitions=transitions)
+        issues = validate_document(
+            document,
+            validator,
+            kind=args.kind,
+            transitions=transitions,
+            campaign_record=campaign_record,
+            campaign_record_sha256=campaign_record_sha256,
+            campaign_record_validator=campaign_record_validator,
+            campaign_record_valid=campaign_record_valid,
+        )
         if issues:
             failed = True
             print(f"Orchestration validation: FAIL ({display_path(path)})", file=sys.stderr)
