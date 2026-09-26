@@ -1,0 +1,92 @@
+{
+  "work_id": "ACA-GOV-001",
+  "role": "CONTROLLER",
+  "result_state": "COMPLETED",
+  "repository": "landco-llc/agentic-change-audit",
+  "branch": "codex/aca-gov-001",
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "target_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "pr_applicable": true,
+  "pr_number": 38,
+  "scope_observation": {
+    "allowed_scope_only": true,
+    "changed_files": [
+      "docs/ai-dev-ops/orchestration/orchestrator-contract.md"
+    ]
+  },
+  "checks": [
+    {
+      "name": "post-merge validation",
+      "status": "PASSED",
+      "evidence_ref": {
+        "reference": "pull/38#checks",
+        "proves": "Post-merge validation completed for this Work.",
+        "observed_at": "2026-09-27T00:00:00Z"
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "reference": "pull/38#merge",
+      "proves": "The exact-head Work completed through post-merge synchronization.",
+      "observed_at": "2026-09-27T00:00:00Z"
+    }
+  ],
+  "transition": {
+    "work_id": "ACA-GOV-001",
+    "recorded_at": "2026-09-27T00:00:00Z",
+    "actor_role": "CONTROLLER",
+    "repository": "landco-llc/agentic-change-audit",
+    "branch": "codex/aca-gov-001",
+    "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target_applicable": true,
+    "target_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "pr_applicable": true,
+    "pr_number": 38,
+    "from_state": "POST_MERGE_SYNC",
+    "to_state": "COMPLETED",
+    "reason": "Post-merge checks and durable history are complete.",
+    "evidence_refs": [
+      {
+        "reference": "pull/38#post-merge",
+        "proves": "Completed post-merge reconciliation for the exact Work head.",
+        "observed_at": "2026-09-27T00:00:00Z"
+      }
+    ],
+    "evidence_hashes": [
+      "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    ],
+    "next_permitted_action": "Create only the next authorized campaign shell."
+  },
+  "limitations": [],
+  "next_work": {
+    "action": "CONTINUE_CAMPAIGN",
+    "rule": "Continue only to the next finite authorized Work; this result is not its substantive instruction.",
+    "campaign_id": "ACA-RS-CAMPAIGN-01",
+    "completed_work_id": "ACA-GOV-001",
+    "proposed_id": "ACA-GOV-002",
+    "sequence_position": 2,
+    "authorized_work_ids": [
+      "ACA-GOV-001",
+      "ACA-GOV-002",
+      "ACA-W017"
+    ],
+    "finite_work_limit": 3,
+    "terminal_human_gate": "HUMAN_GATE_RELEASE_SUBMISSION_DECISION_BUNDLE",
+    "campaign_authorization_reference": {
+      "reference": "issues/37#campaign-authority",
+      "proves": "The finite campaign order and standing Human delegation.",
+      "observed_at": "2026-09-27T00:00:00Z"
+    },
+    "correction_history": {
+      "dispatches": 1,
+      "repeated_material_finding": false,
+      "unresolved_findings": false,
+      "evidence_reference": {
+        "reference": "issues/37#correction-history",
+        "proves": "Cumulative correction history and resolution state for this Work.",
+        "observed_at": "2026-09-27T00:00:00Z"
+      }
+    }
+  }
+}

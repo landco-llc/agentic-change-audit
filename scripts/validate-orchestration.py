@@ -48,15 +48,20 @@ ROLE_TRANSITIONS = {
             ("PASS", "FAST_TRACK_ELIGIBLE"), ("PASS", "HARD_GATE"), ("PASS", "ABANDONED"),
             ("PASS_WITH_COMMENTS", "FAST_TRACK_ELIGIBLE"), ("PASS_WITH_COMMENTS", "HARD_GATE"),
             ("PASS_WITH_COMMENTS", "ABANDONED"),
-            ("FAST_TRACK_ELIGIBLE", "HARD_GATE"), ("FAST_TRACK_ELIGIBLE", "BLOCKED"),
+            ("FAST_TRACK_ELIGIBLE", "READY"), ("FAST_TRACK_ELIGIBLE", "HARD_GATE"),
+            ("FAST_TRACK_ELIGIBLE", "BLOCKED"),
             ("FAST_TRACK_ELIGIBLE", "NOT_AUDITABLE"),
             ("HARD_GATE", "PREFLIGHT"), ("HARD_GATE", "IMPLEMENTING"),
             ("HARD_GATE", "AUDITING"), ("HARD_GATE", "CORRECTING"),
             ("HARD_GATE", "BLOCKED"), ("HARD_GATE", "ABANDONED"),
-            ("READY", "HARD_GATE"), ("READY", "BLOCKED"), ("READY", "NOT_AUDITABLE"),
+            ("READY", "MERGED"), ("READY", "HARD_GATE"), ("READY", "BLOCKED"),
+            ("READY", "NOT_AUDITABLE"),
             ("MERGED", "POST_MERGE_SYNC"), ("MERGED", "BLOCKED"),
             ("POST_MERGE_SYNC", "COMPLETED"), ("POST_MERGE_SYNC", "BLOCKED"),
         }
+    ),
+    "INSTRUCTION_EVIDENCE_AUTHOR": frozenset(
+        {("PLANNED", "PREFLIGHT"), ("PLANNED", "HARD_GATE"), ("PLANNED", "BLOCKED")}
     ),
     "IMPLEMENTATION": frozenset(
         {("IMPLEMENTING", "IMPLEMENTED_DRAFT_PR"), ("IMPLEMENTING", "HARD_GATE"), ("IMPLEMENTING", "BLOCKED")}
@@ -198,8 +203,94 @@ def role_transitions(role: Any) -> frozenset[tuple[str, str]]:
     return ROLE_TRANSITIONS.get(role, frozenset())
 
 
+def has_delegation_reference(value: Any) -> bool:
+    """Require a complete public-safe authority reference for Controller lifecycle execution."""
+    return isinstance(value, dict) and all(
+        isinstance(value.get(field), str) and bool(value[field].strip())
+        for field in ("reference", "proves", "observed_at")
+    )
+
+
 def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[str]]) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
+    campaign = document.get("campaign")
+    if isinstance(campaign, dict):
+        current_work_id = campaign.get("current_work_id")
+        current_position = campaign.get("current_work_position")
+        work_ids = campaign.get("work_ids")
+        work_limit = campaign.get("work_limit")
+        active_work_ids = campaign.get("active_work_ids")
+
+        if current_work_id != document.get("id"):
+            issues.append(
+                ValidationIssue(
+                    "WR-08",
+                    "$.campaign.current_work_id",
+                    "Campaign current_work_id must match the work record id.",
+                )
+            )
+        if campaign.get("campaign_id") == current_work_id:
+            issues.append(
+                ValidationIssue(
+                    "WR-08",
+                    "$.campaign.campaign_id",
+                    "Campaign and current Work identifiers must be distinct.",
+                )
+            )
+        if isinstance(work_ids, list):
+            if current_work_id not in work_ids:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.current_work_id",
+                        "Campaign current Work must belong to its finite ordered work_ids.",
+                    )
+                )
+            elif current_position != work_ids.index(current_work_id) + 1:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.current_work_position",
+                        "Campaign current_work_position must match the ordered work_ids position.",
+                    )
+                )
+        elif isinstance(work_limit, int) and (
+            not isinstance(current_position, int) or current_position > work_limit
+        ):
+            issues.append(
+                ValidationIssue(
+                    "WR-08",
+                    "$.campaign.current_work_position",
+                    "Campaign current Work must not exceed its finite work_limit.",
+                )
+            )
+        if isinstance(active_work_ids, list):
+            if len(active_work_ids) > 1:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.active_work_ids",
+                        "A campaign may represent at most one ACTIVE Work.",
+                    )
+                )
+            if active_work_ids and active_work_ids != [current_work_id]:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.active_work_ids",
+                        "The represented ACTIVE Work must be the current Work.",
+                    )
+                )
+            if isinstance(work_ids, list) and any(
+                work_id not in work_ids for work_id in active_work_ids
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.active_work_ids",
+                        "Every represented ACTIVE Work must belong to the finite campaign.",
+                    )
+                )
     history = document.get("state_history")
     if not isinstance(history, list) or not history:
         return issues
@@ -235,6 +326,34 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
         role = transition.get("actor_role")
         if (from_state, to_state) not in role_transitions(role):
             issues.append(ValidationIssue("WR-07", f"{prefix}.actor_role", "Actor role is not permitted to record this target state."))
+        if role == "CONTROLLER" and to_state in {"READY", "MERGED"}:
+            delegation_reference = transition.get("delegation_reference")
+            if not has_delegation_reference(delegation_reference):
+                issues.append(
+                    ValidationIssue(
+                        "WR-09",
+                        f"{prefix}.delegation_reference",
+                        "A Controller Ready or merge transition requires accepted/current delegation evidence.",
+                    )
+                )
+            campaign_delegation = (
+                campaign.get("standing_delegation_reference")
+                if isinstance(campaign, dict)
+                else None
+            )
+            if (
+                isinstance(campaign_delegation, dict)
+                and has_delegation_reference(delegation_reference)
+                and delegation_reference.get("reference")
+                != campaign_delegation.get("reference")
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "WR-09",
+                        f"{prefix}.delegation_reference",
+                        "Controller lifecycle authority must match the campaign standing-delegation reference.",
+                    )
+                )
 
         cycle = transition.get("correction_cycle")
         if to_state != "CORRECTING" and cycle is not None:
@@ -308,6 +427,16 @@ def result_semantic_issues(
         issues.append(ValidationIssue("RES-06", "$.transition.to_state", "Transition is not allowed by the immutable schema vocabulary."))
     if (from_state, to_state) not in role_transitions(role):
         issues.append(ValidationIssue("RES-06", "$.transition.actor_role", "Role is not permitted to record this transition."))
+    if role == "CONTROLLER" and to_state in {"READY", "MERGED"} and not has_delegation_reference(
+        transition.get("delegation_reference")
+    ):
+        issues.append(
+            ValidationIssue(
+                "RES-08",
+                "$.transition.delegation_reference",
+                "A Controller Ready or merge result requires accepted/current delegation evidence.",
+            )
+        )
     scope = document.get("scope_observation")
     if isinstance(scope, dict) and scope.get("allowed_scope_only") is not True:
         issues.append(ValidationIssue("RES-05", "$.scope_observation.allowed_scope_only", "Result progression requires allowed_scope_only=true."))
@@ -326,12 +455,119 @@ def result_semantic_issues(
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "PROPOSE_ONE_NEW_WORK requires exactly one proposed_id."))
         elif action == "PROPOSE_ONE_NEW_WORK" and proposed_id == document.get("work_id"):
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "PROPOSE_ONE_NEW_WORK requires a new proposed_id."))
-        elif action != "PROPOSE_ONE_NEW_WORK" and proposed_id is not None:
-            issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "Only PROPOSE_ONE_NEW_WORK may include proposed_id."))
+        elif action not in {"PROPOSE_ONE_NEW_WORK", "CONTINUE_CAMPAIGN"} and proposed_id is not None:
+            issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "Only a bounded successor action may include proposed_id."))
         if action == "PROPOSE_ONE_NEW_WORK" and role != "CONTROLLER":
             issues.append(ValidationIssue("RES-05", "$.next_work.action", "Only a CONTROLLER result may propose a new Work."))
         elif action == "PROPOSE_ONE_NEW_WORK" and result_state not in NEXT_WORK_ELIGIBLE_RESULT_STATES:
             issues.append(ValidationIssue("RES-05", "$.next_work.action", "A new Work proposal requires a completed Controller result."))
+        if action == "CONTINUE_CAMPAIGN":
+            if role != "CONTROLLER":
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.action",
+                        "Only a CONTROLLER result may record campaign continuation.",
+                    )
+                )
+            if (
+                result_state != "COMPLETED"
+                or transition.get("from_state") != "POST_MERGE_SYNC"
+                or transition.get("to_state") != "COMPLETED"
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.action",
+                        "Campaign continuation requires this Work's completed post-merge transition.",
+                    )
+                )
+            completed_work_id = next_work.get("completed_work_id")
+            if completed_work_id != document.get("work_id"):
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.completed_work_id",
+                        "Campaign continuation must bind the completed Work result.",
+                    )
+                )
+            if proposed_id == document.get("work_id"):
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.proposed_id",
+                        "Campaign continuation requires a different proposed next Work.",
+                    )
+                )
+            authorized_work_ids = next_work.get("authorized_work_ids")
+            sequence_position = next_work.get("sequence_position")
+            finite_work_limit = next_work.get("finite_work_limit")
+            if isinstance(authorized_work_ids, list):
+                completed_position = (
+                    authorized_work_ids.index(completed_work_id) + 1
+                    if completed_work_id in authorized_work_ids
+                    else None
+                )
+                proposed_position = (
+                    authorized_work_ids.index(proposed_id) + 1
+                    if proposed_id in authorized_work_ids
+                    else None
+                )
+                if (
+                    completed_position is None
+                    or proposed_position is None
+                    or proposed_position != completed_position + 1
+                    or sequence_position != proposed_position
+                ):
+                    issues.append(
+                        ValidationIssue(
+                            "RES-07",
+                            "$.next_work.sequence_position",
+                            "Campaign continuation must select the immediately next Work in its finite authorized order.",
+                        )
+                    )
+                if finite_work_limit != len(authorized_work_ids):
+                    issues.append(
+                        ValidationIssue(
+                            "RES-07",
+                            "$.next_work.finite_work_limit",
+                            "Campaign finite_work_limit must match its complete authorized work order.",
+                        )
+                    )
+            if (
+                not isinstance(sequence_position, int)
+                or not isinstance(finite_work_limit, int)
+                or sequence_position > finite_work_limit
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.sequence_position",
+                        "Campaign continuation must remain within its finite bound.",
+                    )
+                )
+            if not isinstance(next_work.get("terminal_human_gate"), str) or not next_work[
+                "terminal_human_gate"
+            ].strip():
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.terminal_human_gate",
+                        "Campaign continuation requires a named terminal Human Gate.",
+                    )
+                )
+            correction_history = next_work.get("correction_history")
+            if isinstance(correction_history, dict) and (
+                correction_history.get("repeated_material_finding") is not False
+                or correction_history.get("unresolved_findings") is not False
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.correction_history",
+                        "Campaign continuation cannot reset or bypass repeated or unresolved findings.",
+                    )
+                )
         if result_state == "COMPLETED" and action == "HUMAN_GATE":
             issues.append(ValidationIssue("RES-05", "$.next_work.action", "A completed result cannot retain a pending Human Gate."))
     limitations = document.get("limitations")

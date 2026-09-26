@@ -53,6 +53,12 @@ class OrchestrationValidatorTests(unittest.TestCase):
         cls.result = validator_module.load_json(
             FIXTURES / "results/valid/audit-pass.json"
         )
+        cls.campaign_record = validator_module.load_json(
+            FIXTURES / "records/valid/campaign-active.json"
+        )
+        cls.campaign_result = validator_module.load_json(
+            FIXTURES / "results/valid/campaign-continuation.json"
+        )
 
     def record_codes(self, document):
         return {
@@ -241,6 +247,72 @@ class OrchestrationValidatorTests(unittest.TestCase):
                     )
                 self.assertIn("WR-07", self.record_codes(document))
 
+    def test_controller_ready_transition_requires_delegation_evidence(self):
+        document = copy.deepcopy(self.auditing_record)
+        document["state"] = "READY"
+        document["state_history"] = [
+            {
+                **document["state_history"][0],
+                "actor_role": "CONTROLLER",
+                "from_state": "FAST_TRACK_ELIGIBLE",
+                "to_state": "READY",
+                "delegation_reference": {
+                    "reference": "issues/37#standing-delegation",
+                    "proves": "Accepted/current exact-Work and exact-head Ready authority.",
+                    "observed_at": "2026-09-27T00:00:00Z",
+                },
+            }
+        ]
+        self.assertEqual(
+            [],
+            validator_module.validate_document(
+                document,
+                self.record_validator,
+                kind="record",
+                transitions=self.transitions,
+            ),
+        )
+
+        document["state_history"][0].pop("delegation_reference")
+        self.assertIn("WR-09", self.record_codes(document))
+
+    def test_valid_finite_campaign_record(self):
+        self.assertEqual(
+            [],
+            validator_module.validate_document(
+                self.campaign_record,
+                self.record_validator,
+                kind="record",
+                transitions=self.transitions,
+            ),
+        )
+
+    def test_wr_08_campaign_binding_fails_closed(self):
+        cases = {}
+
+        missing_current = copy.deepcopy(self.campaign_record)
+        missing_current["campaign"]["current_work_id"] = "ACA-GOV-099"
+        cases["missing_current"] = missing_current
+
+        wrong_position = copy.deepcopy(self.campaign_record)
+        wrong_position["campaign"]["current_work_position"] = 3
+        cases["wrong_position"] = wrong_position
+
+        multiple_active = copy.deepcopy(self.campaign_record)
+        multiple_active["campaign"]["active_work_ids"] = [
+            "ACA-GOV-001",
+            "ACA-GOV-002",
+        ]
+        cases["multiple_active"] = multiple_active
+
+        active_identity_drift = copy.deepcopy(self.campaign_record)
+        active_identity_drift["campaign"]["active_work_ids"] = ["ACA-GOV-001"]
+        cases["active_identity_drift"] = active_identity_drift
+
+        for name, document in cases.items():
+            with self.subTest(name=name):
+                self.assertIn("WR-08", self.record_codes(document))
+
     def test_res_01_identity(self):
         document = copy.deepcopy(self.result)
         document["repository"] = "other/repository"
@@ -335,6 +407,99 @@ class OrchestrationValidatorTests(unittest.TestCase):
                 transitions=self.transitions,
             ),
         )
+
+    def test_valid_controller_campaign_continuation(self):
+        self.assertEqual(
+            [],
+            validator_module.validate_document(
+                self.campaign_result,
+                self.result_validator,
+                kind="result",
+                transitions=self.transitions,
+            ),
+        )
+
+    def test_controller_merge_transition_requires_delegation_evidence(self):
+        document = self.controller_completed_result()
+        document["result_state"] = "MERGED"
+        document["next_work"] = {"action": "NONE", "rule": "post-merge sync next"}
+        document["transition"].update(
+            {
+                "from_state": "READY",
+                "to_state": "MERGED",
+                "delegation_reference": {
+                    "reference": "issues/37#standing-delegation",
+                    "proves": "Accepted/current exact-Work and exact-head merge authority.",
+                    "observed_at": "2026-09-27T00:00:00Z",
+                },
+            }
+        )
+        self.assertEqual(
+            [],
+            validator_module.validate_document(
+                document,
+                self.result_validator,
+                kind="result",
+                transitions=self.transitions,
+            ),
+        )
+
+        document["transition"].pop("delegation_reference")
+        self.assertIn("RES-08", self.result_codes(document))
+
+    def test_res_07_campaign_continuation_fails_closed(self):
+        cases = {}
+
+        for role in (
+            "INSTRUCTION_EVIDENCE_AUTHOR",
+            "IMPLEMENTATION",
+            "INDEPENDENT_AUDIT",
+            "CORRECTION",
+            "FRESH_REAUDIT",
+        ):
+            non_controller = copy.deepcopy(self.campaign_result)
+            non_controller["role"] = role
+            non_controller["transition"]["actor_role"] = role
+            cases[f"non_controller_{role.lower()}"] = non_controller
+
+        nonterminal = copy.deepcopy(self.campaign_result)
+        nonterminal["result_state"] = "IMPLEMENTED_DRAFT_PR"
+        nonterminal["transition"].update(
+            {"from_state": "IMPLEMENTING", "to_state": "IMPLEMENTED_DRAFT_PR"}
+        )
+        cases["nonterminal"] = nonterminal
+
+        self_referential = copy.deepcopy(self.campaign_result)
+        self_referential["next_work"]["proposed_id"] = self_referential["work_id"]
+        cases["self_referential"] = self_referential
+
+        unordered = copy.deepcopy(self.campaign_result)
+        unordered["next_work"]["sequence_position"] = 3
+        cases["unordered"] = unordered
+
+        exhausted = copy.deepcopy(self.campaign_result)
+        exhausted["next_work"]["finite_work_limit"] = 1
+        cases["exhausted"] = exhausted
+
+        missing_gate = copy.deepcopy(self.campaign_result)
+        missing_gate["next_work"]["terminal_human_gate"] = ""
+        cases["missing_gate"] = missing_gate
+
+        repeated_finding = copy.deepcopy(self.campaign_result)
+        repeated_finding["next_work"]["correction_history"][
+            "repeated_material_finding"
+        ] = True
+        cases["repeated_finding"] = repeated_finding
+
+        unresolved_finding = copy.deepcopy(self.campaign_result)
+        unresolved_finding["next_work"]["correction_history"][
+            "unresolved_findings"
+        ] = True
+        cases["unresolved_finding"] = unresolved_finding
+
+        for name, document in cases.items():
+            with self.subTest(name=name):
+                self.assertIn("RES-07", self.result_codes(document))
 
     def test_res_05_successor_chaining_fails_closed(self):
         for role in (
