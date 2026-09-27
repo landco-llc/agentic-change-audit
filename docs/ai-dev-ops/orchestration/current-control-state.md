@@ -25,7 +25,8 @@ deployment status.
 | ACA-W016 protected release/submission prerequisite inventory | `COMPLETED / MERGED / POST-MERGE VALIDATED` | Pull request #33 accepted HEAD `6c88dfd87450be2f7509a77439df7ecb92774f28`, tree `aeeff352c83076067821d4c7092568de06a3022c`, and merged to `main` as `c59bd59a7e7f37d26fa58702fc8489cfd446a98d` with the same tree. Independent audit was `PASS / VALID`, blocking 0; exact-main Validate #96 and Package #93 succeeded. The inventory remains repository preparation only and does not establish any Human or external prerequisite. |
 | ACA-GOV-001 architecture/governance reconciliation | `COMPLETED / MERGED / POST-MERGE VALIDATED` | Pull request #38 exact-head delegation accepted `a2c6f3d8a40550f31d9b3996eb4364bc82f398f2`; independent AR01 re-audit comment `5855502731` was `PASS / VALID`, blocking 0, F01 resolved, F02 resolved with no regression. It merged as `57a1d52b82d130d25309657f76e126540df5a068`, tree `5050853b14882b8ac253327837b47e51ff2dd532`; five exact-main hosted checks succeeded. No release, submission, portal, or other protected effect was authorized. |
 | ACA-W017 read-only portal prerequisite observation | `COMPLETED / OBSERVED / NO PORTAL MUTATION` | Public-safe packet was durably recorded on Issue #35 comment `5855872049`, observed `2026-09-27 12:24 UTC` against main `57a1d52b82d130d25309657f76e126540df5a068` / tree `5050853b14882b8ac253327837b47e51ff2dd532`, packet SHA-256 `1f8fb85b04e71a127db99b84cdc71145dad599288baebbc60b18bc58c30e5530`. It records selected L&Co. LLC organization, displayed Owner and Apps Management Write preset, Business verification displayed Start, and an empty Default project Plugins view. These are bounded read-only observations; no draft, verification, submission, or other external completion is claimed. |
-| ACA-W018 portal evidence reconciliation | `IMPLEMENTED / AWAITING INDEPENDENT AUDIT` | This candidate reconciles the durable W017 observation and ACA-W016 prerequisite classifications in exactly two documentation paths. Repository-side gaps and Human/external-only gaps remain explicit; no `human-prerequisites.md` row is completed. The candidate requires exact-head hosted checks and a separate fixed-head independent audit before any lifecycle transition. |
+| ACA-W018 portal evidence reconciliation | `COMPLETED / MERGED / POST-MERGE VALIDATED` | PR #39 audited HEAD `558134a25424a86d43b7e8838308205d75f179b0` merged to main `8373f7ae79ecabd42953b247ee385d938e0362b3`, tree `b75bd89d190e49cf2eb8e61becb4e22ffd64b6ff`; exact-main Validate run `36333780283` and Package run `36333780308` succeeded. Terminal evidence: Issue #36 comment `5857786987`. No protected effect was executed. |
+| ACA-W019 consolidated release/submission decision packet | `IMPLEMENTED / AWAITING INDEPENDENT AUDIT` | The public-safe Human decision bundle is recorded in [ACA-W019 history](history/ACA-W019.md) on branch `codex/aca-w019-decision-packet`, based on main `8373f7ae79ecabd42953b247ee385d938e0362b3` / tree `b75bd89d190e49cf2eb8e61becb4e22ffd64b6ff`. This candidate uses exactly two documentation paths; W019 remains pending its own exact-head checks, independent audit, and subsequent authorized lifecycle evidence. No Human choice or protected effect is established. |
 | Legacy pull request #17 | `BLOCKED` | Non-mutated legacy condition; details are intentionally not reproduced here. |
 
 ## Control reminders
@@ -50,9 +51,14 @@ deployment status.
   time-, account-, organization-, and project-bound observations; they do not
   prove effective permission across all contexts, business verification,
   submission readiness, or draft absence outside the observed project.
-- ACA-W018 is an implementation candidate. It records repository-side
-  reconciliation only and remains subject to exact-head checks and a separate
-  independent fixed-head audit.
+- ACA-W018 completed through PR #39 merge and successful exact-main checks
+  recorded above. It records repository-side reconciliation only; the W018
+  result does not establish portal completion or submission readiness.
+- ACA-W019 is a public-safe decision packet candidate for the single
+  `HUMAN_GATE / RELEASE_SUBMISSION_DECISION_BUNDLE`. Its recommendations do
+  not select for the Human, close a prerequisite, or authorize an external
+  action. It remains subject to its own exact-head checks and independent
+  fixed-head audit.
 - Issue #12 remains open for separately protected release and submission prerequisites.
 - Active private ledger detail is not stored here; durable history remains public-safe and append-only.
 - A snapshot records control state only; it cannot grant audit, Ready, merge, release, submission, publication, or deployment authority.
