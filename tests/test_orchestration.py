@@ -31,6 +31,9 @@ validator_module = load_module("validate_orchestration", SCRIPT)
 
 
 class OrchestrationValidatorTests(unittest.TestCase):
+    AUTHORITY_SOURCE_BYTES = b"Human standing delegation source for ACA-GOV-001.\n"
+    AUTHORITY_EVALUATION_TIME = "2026-09-27T00:00:00Z"
+
     @classmethod
     def setUpClass(cls):
         cls.record_schema = validator_module.load_json(
@@ -76,34 +79,106 @@ class OrchestrationValidatorTests(unittest.TestCase):
             for issue in validator_module.result_semantic_issues(document, self.transitions)
         }
 
-    def delegation_binding(self, work_id, target_sha):
+    def authority_proof(self, work_id, target_sha, *, transitions=None, validity=None):
         return {
-            "authority_source": "HUMAN_STANDING_DELEGATION",
-            "authority_state": "ACCEPTED_CURRENT",
+            "schema_id": "ACA_AUTHORITY_PROOF",
+            "version": "1.0",
+            "authority_kind": "HUMAN_STANDING_DELEGATION",
+            "human_decision": "GRANT",
+            "lifecycle_state": "ACCEPTED_CURRENT",
+            "repository": "landco-llc/agentic-change-audit",
             "work_id": work_id,
             "target_sha": target_sha,
             "executor_role": "CONTROLLER",
-            "authorized_transitions": ["READY", "MERGED"],
-            "evidence_reference": {
-                "reference": "issues/37#standing-delegation",
-                "proves": "Accepted/current Human standing delegation for this exact Work and head.",
-                "observed_at": "2026-09-27T00:00:00Z",
+            "covered_transitions": transitions
+            or ["READY", "MERGED", "CONTINUE_CAMPAIGN"],
+            "source": {
+                "kind": "HUMAN_GITHUB_ISSUE_COMMENT",
+                "immutable_id": "github:landco-llc/agentic-change-audit:issue:37:comment:5855064936",
+                "sha256": hashlib.sha256(self.AUTHORITY_SOURCE_BYTES).hexdigest(),
             },
+            "validity": validity
+            or {"kind": "EXPIRES_AT", "expires_at": "2026-12-31T00:00:00Z"},
         }
+
+    def authority_proof_bytes(self, proof=None):
+        proof = proof or self.authority_proof("ACA-GOV-001", "b" * 40)
+        return json.dumps(proof, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+    def authority_validation_kwargs(self, proof=None, source_bytes=None, evaluation_time=None):
+        proof = proof or self.authority_proof("ACA-GOV-001", "b" * 40)
+        proof_bytes = self.authority_proof_bytes(proof)
+        source_bytes = source_bytes if source_bytes is not None else self.AUTHORITY_SOURCE_BYTES
+        return {
+            "authority_proof": proof,
+            "authority_proof_sha256": hashlib.sha256(proof_bytes).hexdigest(),
+            "authority_source_sha256": hashlib.sha256(source_bytes).hexdigest(),
+            "authority_evaluation_time": evaluation_time or self.AUTHORITY_EVALUATION_TIME,
+            "authority_proof_valid": True,
+        }
+
+    def run_authority_cli(
+        self,
+        directory_path,
+        name,
+        kind,
+        document,
+        *,
+        proof_bytes=None,
+        source_bytes=None,
+        evaluation_time=AUTHORITY_EVALUATION_TIME,
+        include_proof=True,
+        include_source=True,
+        campaign_record=None,
+    ):
+        document_path = directory_path / f"{name}-{kind}.json"
+        document_path.write_text(json.dumps(document), encoding="utf-8")
+        command = [sys.executable, str(SCRIPT), "--kind", kind]
+        if include_proof:
+            proof_path = directory_path / f"{name}-proof.json"
+            proof_path.write_bytes(
+                proof_bytes if proof_bytes is not None else self.authority_proof_bytes()
+            )
+            command.extend(["--authority-proof", str(proof_path)])
+        if include_source:
+            source_path = directory_path / f"{name}-source.txt"
+            source_path.write_bytes(
+                source_bytes if source_bytes is not None else self.AUTHORITY_SOURCE_BYTES
+            )
+            command.extend(["--authority-source", str(source_path)])
+        if evaluation_time is not None:
+            command.extend(["--evaluation-time", evaluation_time])
+        if campaign_record is not None:
+            record_path = directory_path / f"{name}-campaign-record.json"
+            record_bytes = (json.dumps(campaign_record, indent=2) + "\n").encode("utf-8")
+            record_path.write_bytes(record_bytes)
+            document["next_work"]["campaign_record_sha256"] = hashlib.sha256(
+                record_bytes
+            ).hexdigest()
+            document_path.write_text(json.dumps(document), encoding="utf-8")
+            command.extend(["--campaign-record", str(record_path)])
+        command.append(str(document_path))
+        return subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"),
+        )
 
     def controller_lifecycle_record(self, to_state):
         from_state = "FAST_TRACK_ELIGIBLE" if to_state == "READY" else "READY"
         document = copy.deepcopy(self.auditing_record)
         document["state"] = to_state
-        binding = self.delegation_binding(document["id"], document["target_sha"])
-        document["delegation_binding"] = binding
+        proof = self.authority_proof(document["id"], document["target_sha"])
+        digest = hashlib.sha256(self.authority_proof_bytes(proof)).hexdigest()
         document["state_history"] = [
             {
                 **document["state_history"][0],
                 "actor_role": "CONTROLLER",
                 "from_state": from_state,
                 "to_state": to_state,
-                "delegation_binding": copy.deepcopy(binding),
+                "authority_proof_sha256": digest,
             }
         ]
         return document
@@ -117,9 +192,11 @@ class OrchestrationValidatorTests(unittest.TestCase):
             {
                 "from_state": from_state,
                 "to_state": to_state,
-                "delegation_binding": self.delegation_binding(
-                    document["work_id"], document["target_sha"]
-                ),
+                "authority_proof_sha256": hashlib.sha256(
+                    self.authority_proof_bytes(
+                        self.authority_proof(document["work_id"], document["target_sha"])
+                    )
+                ).hexdigest(),
             }
         )
         return document
@@ -139,6 +216,7 @@ class OrchestrationValidatorTests(unittest.TestCase):
             campaign_record=record,
             campaign_record_sha256=hashlib.sha256(record_bytes).hexdigest(),
             campaign_record_validator=self.record_validator,
+            **self.authority_validation_kwargs(),
         )
 
     def paired_campaign_documents(self, record=None):
@@ -328,197 +406,66 @@ class OrchestrationValidatorTests(unittest.TestCase):
                     )
                 self.assertIn("WR-07", self.record_codes(document))
 
-    def test_controller_ready_transition_requires_delegation_evidence(self):
-        document = copy.deepcopy(self.auditing_record)
-        document["state"] = "READY"
-        binding = self.delegation_binding(document["id"], document["target_sha"])
-        document["delegation_binding"] = binding
-        document["state_history"] = [
-            {
-                **document["state_history"][0],
-                "actor_role": "CONTROLLER",
-                "from_state": "FAST_TRACK_ELIGIBLE",
-                "to_state": "READY",
-                "delegation_binding": copy.deepcopy(binding),
-            }
-        ]
-        self.assertEqual(
-            [],
-            validator_module.validate_document(
-                document,
-                self.record_validator,
-                kind="record",
-                transitions=self.transitions,
-            ),
-        )
-
-        document["state_history"][0].pop("delegation_binding")
-        self.assertIn("WR-09", self.record_codes(document))
-
-    def test_controller_ready_rejects_candidate_delegation_evidence(self):
-        document = copy.deepcopy(self.auditing_record)
-        document["state"] = "READY"
-        binding = self.delegation_binding(document["id"], document["target_sha"])
-        binding["evidence_reference"] = {
-            "reference": "policies/unaccepted-candidate",
-            "proves": "Candidate only; not accepted/current authority.",
-            "observed_at": "2026-09-27T00:00:00Z",
-        }
-        document["delegation_binding"] = binding
-        document["state_history"] = [
-            {
-                **document["state_history"][0],
-                "actor_role": "CONTROLLER",
-                "from_state": "FAST_TRACK_ELIGIBLE",
-                "to_state": "READY",
-                "delegation_binding": copy.deepcopy(binding),
-            }
-        ]
-        self.assertIn("WR-09", self.record_codes(document))
-
-    def test_f01_structured_delegation_binding_covers_ready_and_merge(self):
-        for to_state, from_state in (("READY", "FAST_TRACK_ELIGIBLE"), ("MERGED", "READY")):
-            with self.subTest(kind="record", to_state=to_state):
-                record = copy.deepcopy(self.auditing_record)
-                record["state"] = to_state
-                binding = self.delegation_binding(record["id"], record["target_sha"])
-                record["delegation_binding"] = binding
-                record["state_history"] = [
-                    {
-                        **record["state_history"][0],
-                        "actor_role": "CONTROLLER",
-                        "from_state": from_state,
-                        "to_state": to_state,
-                        "delegation_binding": copy.deepcopy(binding),
-                    }
-                ]
-                self.assertEqual(
-                    [],
-                    validator_module.validate_document(
-                        record,
-                        self.record_validator,
-                        kind="record",
-                        transitions=self.transitions,
-                    ),
-                )
-
-            with self.subTest(kind="result", to_state=to_state):
-                result = self.controller_completed_result()
-                result["result_state"] = to_state
-                result["next_work"] = {"action": "NONE", "rule": "bounded lifecycle"}
-                result["transition"].update(
-                    {
-                        "from_state": from_state,
-                        "to_state": to_state,
-                        "delegation_binding": self.delegation_binding(
-                            result["work_id"], result["target_sha"]
-                        ),
-                    }
-                )
-                self.assertEqual(
-                    [],
-                    validator_module.validate_document(
-                        result,
-                        self.result_validator,
-                        kind="result",
-                        transitions=self.transitions,
-                    ),
-                )
-
-    def test_f01_rejects_malformed_or_negative_supplied_bindings(self):
-        base = self.controller_completed_result()
-        base["result_state"] = "READY"
-        base["next_work"] = {"action": "NONE", "rule": "bounded lifecycle"}
-        base["transition"].update(
-            {
-                "from_state": "FAST_TRACK_ELIGIBLE",
-                "to_state": "READY",
-                "delegation_binding": self.delegation_binding(
-                    base["work_id"], base["target_sha"]
-                ),
-            }
-        )
-        cases = {}
-        mutations = {
-            "source": ("authority_source", "EXTERNAL_MECHANISM"),
-            "state": ("authority_state", "CANDIDATE"),
-            "executor": ("executor_role", "EXTERNAL_SYSTEM"),
-            "work": ("work_id", "OTHER-WORK"),
-            "head": ("target_sha", "d" * 40),
-            "coverage": ("authorized_transitions", ["MERGED"]),
-        }
-        for name, (field, value) in mutations.items():
-            document = copy.deepcopy(base)
-            document["transition"]["delegation_binding"][field] = value
-            cases[name] = document
-        for wording in (
-            "candidate only",
-            "shadow policy",
-            "successor material",
-            "proposed policy",
-            "non-active authority",
-            "unaccepted authority",
-            "not accepted authority",
-            "not current authority",
-            "revoked authority",
-            "expired authority",
-            "superseded authority",
-            "rejected authority",
+    def test_controller_ready_and_merge_require_closed_typed_proof(self):
+        for kind, factory, validator in (
+            ("record", self.controller_lifecycle_record, self.record_validator),
+            ("result", self.controller_lifecycle_result, self.result_validator),
         ):
-            document = copy.deepcopy(base)
-            document["transition"]["delegation_binding"]["evidence_reference"][
-                "proves"
-            ] = wording
-            cases[f"wording_{wording}"] = document
+            for to_state in ("READY", "MERGED"):
+                with self.subTest(kind=kind, to_state=to_state):
+                    document = factory(to_state)
+                    proof = self.authority_proof(
+                        document["id"] if kind == "record" else document["work_id"],
+                        document["target_sha"],
+                    )
+                    self.assertEqual(
+                        [],
+                        validator_module.validate_document(
+                            document,
+                            validator,
+                            kind=kind,
+                            transitions=self.transitions,
+                            **self.authority_validation_kwargs(proof),
+                        ),
+                    )
 
-        for name, document in cases.items():
-            with self.subTest(name=name):
-                issues = validator_module.validate_document(
-                    document,
-                    self.result_validator,
-                    kind="result",
-                    transitions=self.transitions,
+                    authority_location = (
+                        document["state_history"][0]
+                        if kind == "record"
+                        else document["transition"]
+                    )
+                    authority_location.pop("authority_proof_sha256")
+                    issues = validator_module.validate_document(
+                        document,
+                        validator,
+                        kind=kind,
+                        transitions=self.transitions,
+                        **self.authority_validation_kwargs(proof),
+                    )
+                    self.assertTrue(issues)
+
+    def test_legacy_self_asserted_authority_is_schema_rejected(self):
+        for kind, factory, validator in (
+            ("record", self.controller_lifecycle_record, self.record_validator),
+            ("result", self.controller_lifecycle_result, self.result_validator),
+        ):
+            document = factory("READY")
+            location = document if kind == "record" else document["transition"]
+            location["authority_state"] = "ACCEPTED_CURRENT"
+            location["delegation_binding"] = {
+                "authority_state": "ACCEPTED_CURRENT"
+            }
+            issues = validator_module.validate_document(
+                document,
+                validator,
+                kind=kind,
+                transitions=self.transitions,
+                **self.authority_validation_kwargs(),
+            )
+            with self.subTest(kind=kind):
+                self.assertIn(
+                    "SCHEMA_ADDITIONALPROPERTIES", {issue.code for issue in issues}
                 )
-                self.assertTrue(issues)
-                self.assertIn("RES-08", {issue.code for issue in issues})
-
-    def test_f01_candidate_example_rejected_for_record_and_result_ready_merge(self):
-        for to_state, from_state in (("READY", "FAST_TRACK_ELIGIBLE"), ("MERGED", "READY")):
-            record = copy.deepcopy(self.auditing_record)
-            record["state"] = to_state
-            binding = self.delegation_binding(record["id"], record["target_sha"])
-            binding["evidence_reference"].update(
-                {
-                    "reference": "policies/unaccepted-candidate",
-                    "proves": "Candidate only; not accepted/current authority.",
-                }
-            )
-            record["delegation_binding"] = binding
-            record["state_history"] = [
-                {
-                    **record["state_history"][0],
-                    "actor_role": "CONTROLLER",
-                    "from_state": from_state,
-                    "to_state": to_state,
-                    "delegation_binding": copy.deepcopy(binding),
-                }
-            ]
-            with self.subTest(kind="record", to_state=to_state):
-                self.assertIn("WR-09", self.record_codes(record))
-
-            result = self.controller_completed_result()
-            result["result_state"] = to_state
-            result["next_work"] = {"action": "NONE", "rule": "bounded lifecycle"}
-            result["transition"].update(
-                {
-                    "from_state": from_state,
-                    "to_state": to_state,
-                    "delegation_binding": copy.deepcopy(binding),
-                }
-            )
-            result["transition"]["delegation_binding"]["work_id"] = result["work_id"]
-            with self.subTest(kind="result", to_state=to_state):
-                self.assertIn("RES-08", self.result_codes(result))
 
     def test_valid_finite_campaign_record(self):
         self.assertEqual(
@@ -528,6 +475,7 @@ class OrchestrationValidatorTests(unittest.TestCase):
                 self.record_validator,
                 kind="record",
                 transitions=self.transitions,
+                **self.authority_validation_kwargs(),
             ),
         )
 
@@ -867,17 +815,18 @@ class OrchestrationValidatorTests(unittest.TestCase):
             },
         )
 
-    def test_controller_merge_transition_requires_delegation_evidence(self):
+    def test_controller_merge_transition_requires_authority_proof(self):
         document = self.controller_completed_result()
         document["result_state"] = "MERGED"
         document["next_work"] = {"action": "NONE", "rule": "post-merge sync next"}
+        proof = self.authority_proof(document["work_id"], document["target_sha"])
         document["transition"].update(
             {
                 "from_state": "READY",
                 "to_state": "MERGED",
-                "delegation_binding": self.delegation_binding(
-                    document["work_id"], document["target_sha"]
-                ),
+                "authority_proof_sha256": hashlib.sha256(
+                    self.authority_proof_bytes(proof)
+                ).hexdigest(),
             }
         )
         self.assertEqual(
@@ -887,11 +836,19 @@ class OrchestrationValidatorTests(unittest.TestCase):
                 self.result_validator,
                 kind="result",
                 transitions=self.transitions,
+                **self.authority_validation_kwargs(proof),
             ),
         )
 
-        document["transition"].pop("delegation_binding")
-        self.assertIn("RES-08", self.result_codes(document))
+        document["transition"].pop("authority_proof_sha256")
+        issues = validator_module.validate_document(
+            document,
+            self.result_validator,
+            kind="result",
+            transitions=self.transitions,
+            **self.authority_validation_kwargs(proof),
+        )
+        self.assertTrue(issues)
 
     def test_res_07_campaign_continuation_fails_closed(self):
         cases = {}
@@ -1027,68 +984,279 @@ class OrchestrationValidatorTests(unittest.TestCase):
         document["requirements_basis"]["observed_at"] = "not-a-date"
         self.assertIn("SCHEMA_FORMAT", {issue.code for issue in validator_module.schema_issues(document, self.record_validator)})
 
-    def test_cli_f01_rejects_candidate_and_malformed_delegation_bindings(self):
-        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+    def test_cli_ar01_accepts_exact_closed_proof_for_ready_merge_and_campaign(self):
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)
-            cases = []
-            for kind, factory, code in (
-                ("record", self.controller_lifecycle_record, "WR-09"),
-                ("result", self.controller_lifecycle_result, "RES-08"),
+            for kind, factory in (
+                ("record", self.controller_lifecycle_record),
+                ("result", self.controller_lifecycle_result),
             ):
                 for to_state in ("READY", "MERGED"):
-                    positive = factory(to_state)
-                    cases.append((kind, f"positive-{kind}-{to_state}.json", positive, 0, code))
-
-                    candidate = factory(to_state)
-                    binding = (
-                        candidate["delegation_binding"]
-                        if kind == "record"
-                        else candidate["transition"]["delegation_binding"]
+                    document = factory(to_state)
+                    work_id = document["id"] if kind == "record" else document["work_id"]
+                    proof = self.authority_proof(work_id, document["target_sha"])
+                    process = self.run_authority_cli(
+                        directory_path,
+                        f"valid-{kind}-{to_state}",
+                        kind,
+                        document,
+                        proof_bytes=self.authority_proof_bytes(proof),
                     )
-                    binding["evidence_reference"].update(
-                        {
-                            "reference": "policies/unaccepted-candidate",
-                            "proves": "Candidate only; not accepted/current authority.",
-                        }
-                    )
-                    if kind == "record":
-                        candidate["state_history"][0]["delegation_binding"] = copy.deepcopy(
-                            binding
-                        )
-                    cases.append((kind, f"candidate-{kind}-{to_state}.json", candidate, 1, code))
-
-            malformed_base = self.controller_lifecycle_result("READY")
-            for name, field, value in (
-                ("source", "authority_source", "EXTERNAL_MECHANISM"),
-                ("state", "authority_state", "CANDIDATE"),
-                ("executor", "executor_role", "EXTERNAL_SYSTEM"),
-                ("work", "work_id", "OTHER-WORK"),
-                ("head", "target_sha", "d" * 40),
-                ("coverage", "authorized_transitions", ["MERGED"]),
-            ):
-                document = copy.deepcopy(malformed_base)
-                document["transition"]["delegation_binding"][field] = value
-                cases.append(("result", f"malformed-{name}.json", document, 1, "RES-08"))
-
-            for kind, name, document, expected_returncode, code in cases:
-                with self.subTest(name=name):
-                    path = directory_path / name
-                    path.write_text(json.dumps(document), encoding="utf-8")
-                    process = subprocess.run(
-                        [sys.executable, str(SCRIPT), "--kind", kind, str(path)],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                        env=env,
-                    )
-                    observed = process.stdout + process.stderr
-                    self.assertEqual(expected_returncode, process.returncode, observed)
-                    if expected_returncode:
-                        self.assertIn(code, observed)
-                        self.assertNotIn("Orchestration validation: PASS", observed)
-                    else:
+                    with self.subTest(kind=kind, to_state=to_state):
+                        self.assertEqual(0, process.returncode, process.stdout + process.stderr)
                         self.assertIn("Orchestration validation: PASS", process.stdout)
+
+            proof_bytes = self.authority_proof_bytes()
+            proof_digest = hashlib.sha256(proof_bytes).hexdigest()
+            record = copy.deepcopy(self.campaign_record)
+            result = copy.deepcopy(self.campaign_result)
+            record["campaign"]["authority_proof_sha256"] = proof_digest
+            result["next_work"]["authority_proof_sha256"] = proof_digest
+            process = self.run_authority_cli(
+                directory_path,
+                "valid-campaign",
+                "result",
+                result,
+                proof_bytes=proof_bytes,
+                campaign_record=record,
+            )
+            self.assertEqual(0, process.returncode, process.stdout + process.stderr)
+            self.assertIn("Orchestration validation: PASS", process.stdout)
+
+            document = self.controller_lifecycle_result("READY")
+            non_expiring = self.authority_proof(
+                document["work_id"],
+                document["target_sha"],
+                validity={"kind": "NON_EXPIRING"},
+            )
+            document["transition"]["authority_proof_sha256"] = hashlib.sha256(
+                self.authority_proof_bytes(non_expiring)
+            ).hexdigest()
+            process = self.run_authority_cli(
+                directory_path,
+                "valid-non-expiring",
+                "result",
+                document,
+                proof_bytes=self.authority_proof_bytes(non_expiring),
+                evaluation_time=None,
+            )
+            self.assertEqual(0, process.returncode, process.stdout + process.stderr)
+
+    def test_cli_ar01_rejects_missing_malformed_mismatched_or_expired_proof(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            base = self.controller_lifecycle_result("READY")
+            base_proof = self.authority_proof(base["work_id"], base["target_sha"])
+            base_bytes = self.authority_proof_bytes(base_proof)
+
+            missing = self.run_authority_cli(
+                directory_path,
+                "missing-proof",
+                "result",
+                copy.deepcopy(base),
+                include_proof=False,
+            )
+            self.assertEqual(1, missing.returncode, missing.stdout + missing.stderr)
+
+            missing_source = self.run_authority_cli(
+                directory_path,
+                "missing-source",
+                "result",
+                copy.deepcopy(base),
+                proof_bytes=base_bytes,
+                include_source=False,
+            )
+            self.assertEqual(
+                1,
+                missing_source.returncode,
+                missing_source.stdout + missing_source.stderr,
+            )
+
+            unreadable_document = directory_path / "unreadable-result.json"
+            unreadable_source = directory_path / "unreadable-source.txt"
+            unreadable_document.write_text(json.dumps(base), encoding="utf-8")
+            unreadable_source.write_bytes(self.AUTHORITY_SOURCE_BYTES)
+            unreadable = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--kind",
+                    "result",
+                    "--authority-proof",
+                    str(directory_path / "absent-proof.json"),
+                    "--authority-source",
+                    str(unreadable_source),
+                    "--evaluation-time",
+                    self.AUTHORITY_EVALUATION_TIME,
+                    str(unreadable_document),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"),
+            )
+            self.assertEqual(1, unreadable.returncode, unreadable.stdout + unreadable.stderr)
+
+            raw_cases = {
+                "malformed-json": b"{",
+                "duplicate-key": b'{"schema_id":"ACA_AUTHORITY_PROOF","schema_id":"ACA_AUTHORITY_PROOF"}',
+            }
+            for name, proof_bytes in raw_cases.items():
+                process = self.run_authority_cli(
+                    directory_path,
+                    name,
+                    "result",
+                    copy.deepcopy(base),
+                    proof_bytes=proof_bytes,
+                )
+                with self.subTest(name=name):
+                    self.assertEqual(1, process.returncode, process.stdout + process.stderr)
+
+            proof_mutations = {
+                "unknown-property": ("extra", True),
+                "wrong-schema": ("schema_id", "OTHER"),
+                "wrong-version": ("version", "2.0"),
+                "wrong-kind": ("authority_kind", "SYSTEM_ASSERTION"),
+                "non-grant": ("human_decision", "DENY"),
+                "non-current": ("lifecycle_state", "CANDIDATE"),
+                "wrong-repository": ("repository", "other/repository"),
+                "wrong-work": ("work_id", "OTHER-WORK"),
+                "wrong-head": ("target_sha", "d" * 40),
+                "wrong-executor": ("executor_role", "EXTERNAL_SYSTEM"),
+                "wrong-transition": ("covered_transitions", ["MERGED"]),
+                "empty-coverage": ("covered_transitions", []),
+                "duplicate-coverage": ("covered_transitions", ["READY", "READY"]),
+                "unknown-coverage": ("covered_transitions", ["READY", "DEPLOY"]),
+            }
+            for name, (field, value) in proof_mutations.items():
+                proof = copy.deepcopy(base_proof)
+                proof[field] = value
+                proof_bytes = self.authority_proof_bytes(proof)
+                document = copy.deepcopy(base)
+                document["transition"]["authority_proof_sha256"] = hashlib.sha256(
+                    proof_bytes
+                ).hexdigest()
+                process = self.run_authority_cli(
+                    directory_path,
+                    name,
+                    "result",
+                    document,
+                    proof_bytes=proof_bytes,
+                )
+                with self.subTest(name=name):
+                    self.assertEqual(1, process.returncode, process.stdout + process.stderr)
+
+            non_human_source = copy.deepcopy(base_proof)
+            non_human_source["source"]["kind"] = "AUTOMATION_OUTPUT"
+            malformed_source_digest = copy.deepcopy(base_proof)
+            malformed_source_digest["source"]["sha256"] = "invalid"
+            for name, proof in (
+                ("non-human-source", non_human_source),
+                ("malformed-source-digest", malformed_source_digest),
+            ):
+                proof_bytes = self.authority_proof_bytes(proof)
+                document = copy.deepcopy(base)
+                document["transition"]["authority_proof_sha256"] = hashlib.sha256(
+                    proof_bytes
+                ).hexdigest()
+                process = self.run_authority_cli(
+                    directory_path, name, "result", document, proof_bytes=proof_bytes
+                )
+                with self.subTest(name=name):
+                    self.assertEqual(1, process.returncode, process.stdout + process.stderr)
+
+            digest_mismatch = copy.deepcopy(base)
+            digest_mismatch["transition"]["authority_proof_sha256"] = "0" * 64
+            process = self.run_authority_cli(
+                directory_path,
+                "proof-digest-mismatch",
+                "result",
+                digest_mismatch,
+                proof_bytes=base_bytes,
+            )
+            self.assertEqual(1, process.returncode, process.stdout + process.stderr)
+
+            source_mismatch = self.run_authority_cli(
+                directory_path,
+                "source-digest-mismatch",
+                "result",
+                copy.deepcopy(base),
+                proof_bytes=base_bytes,
+                source_bytes=b"different source bytes\n",
+            )
+            self.assertEqual(1, source_mismatch.returncode, source_mismatch.stdout + source_mismatch.stderr)
+
+            expired = self.run_authority_cli(
+                directory_path,
+                "expired",
+                "result",
+                copy.deepcopy(base),
+                proof_bytes=base_bytes,
+                evaluation_time="2026-12-31T00:00:00Z",
+            )
+            self.assertEqual(1, expired.returncode, expired.stdout + expired.stderr)
+
+            missing_evaluation_time = self.run_authority_cli(
+                directory_path,
+                "missing-evaluation-time",
+                "result",
+                copy.deepcopy(base),
+                proof_bytes=base_bytes,
+                evaluation_time=None,
+            )
+            self.assertEqual(
+                1,
+                missing_evaluation_time.returncode,
+                missing_evaluation_time.stdout + missing_evaluation_time.stderr,
+            )
+
+    def test_cli_ar01_generic_prose_neither_grants_nor_denies_authority(self):
+        phrases = (
+            "Approval is pending.",
+            "Awaiting Human acceptance.",
+            "Human acceptance has not yet been granted.",
+            "This authority is not yet effective.",
+            "Draft delegation.",
+            "This authority is disabled.",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            for index, phrase in enumerate(phrases):
+                document = self.controller_lifecycle_result("READY")
+                document["evidence"][0]["proves"] = phrase
+                proof = self.authority_proof(document["work_id"], document["target_sha"])
+                proof_bytes = self.authority_proof_bytes(proof)
+
+                without_proof = self.run_authority_cli(
+                    directory_path,
+                    f"phrase-{index}-absent",
+                    "result",
+                    copy.deepcopy(document),
+                    include_proof=False,
+                )
+                with_proof = self.run_authority_cli(
+                    directory_path,
+                    f"phrase-{index}-present",
+                    "result",
+                    copy.deepcopy(document),
+                    proof_bytes=proof_bytes,
+                )
+                with self.subTest(phrase=phrase):
+                    self.assertEqual(1, without_proof.returncode, without_proof.stdout + without_proof.stderr)
+                    self.assertEqual(0, with_proof.returncode, with_proof.stdout + with_proof.stderr)
+
+        self.assertFalse(hasattr(validator_module, "NEGATIVE_AUTHORITY_WORDING"))
+        predicate_code = validator_module.authority_proof_issues.__code__
+        self.assertNotIn("re", predicate_code.co_names)
+        self.assertNotIn("search", predicate_code.co_names)
+        predicate_constants = {
+            value for value in predicate_code.co_consts if isinstance(value, str)
+        }
+        self.assertTrue(
+            {"reference", "proves", "description", "notes", "reason"}.isdisjoint(
+                predicate_constants
+            )
+        )
 
     def test_cli_f02_enforces_paired_campaign_authority(self):
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
@@ -1103,6 +1271,10 @@ class OrchestrationValidatorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)
+            proof_path = directory_path / "campaign-proof.json"
+            source_path = directory_path / "campaign-source.txt"
+            proof_path.write_bytes(self.authority_proof_bytes())
+            source_path.write_bytes(self.AUTHORITY_SOURCE_BYTES)
 
             def run_pair(name, record, result, expected_returncode=1):
                 record_bytes, bound_result = serialized_pair(record, result)
@@ -1118,6 +1290,12 @@ class OrchestrationValidatorTests(unittest.TestCase):
                         "result",
                         "--campaign-record",
                         str(record_path),
+                        "--authority-proof",
+                        str(proof_path),
+                        "--authority-source",
+                        str(source_path),
+                        "--evaluation-time",
+                        self.AUTHORITY_EVALUATION_TIME,
                         str(result_path),
                     ],
                     capture_output=True,
@@ -1140,7 +1318,7 @@ class OrchestrationValidatorTests(unittest.TestCase):
             result_path = directory_path / "missing-pair-result.json"
             result_path.write_text(json.dumps(result), encoding="utf-8")
             missing = subprocess.run(
-                [sys.executable, str(SCRIPT), "--kind", "result", str(result_path)],
+                [sys.executable, str(SCRIPT), "--kind", "result", "--authority-proof", str(proof_path), "--authority-source", str(source_path), "--evaluation-time", self.AUTHORITY_EVALUATION_TIME, str(result_path)],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -1157,6 +1335,12 @@ class OrchestrationValidatorTests(unittest.TestCase):
                     "result",
                     "--campaign-record",
                     str(directory_path / "absent-record.json"),
+                    "--authority-proof",
+                    str(proof_path),
+                    "--authority-source",
+                    str(source_path),
+                    "--evaluation-time",
+                    self.AUTHORITY_EVALUATION_TIME,
                     str(result_path),
                 ],
                 capture_output=True,
@@ -1174,7 +1358,7 @@ class OrchestrationValidatorTests(unittest.TestCase):
             digest_record_path.write_bytes(digest_record_bytes)
             digest_result_path.write_text(json.dumps(digest_result), encoding="utf-8")
             digest_process = subprocess.run(
-                [sys.executable, str(SCRIPT), "--kind", "result", "--campaign-record", str(digest_record_path), str(digest_result_path)],
+                [sys.executable, str(SCRIPT), "--kind", "result", "--campaign-record", str(digest_record_path), "--authority-proof", str(proof_path), "--authority-source", str(source_path), "--evaluation-time", self.AUTHORITY_EVALUATION_TIME, str(digest_result_path)],
                 capture_output=True, text=True, check=False, env=env,
             )
             self.assertEqual(1, digest_process.returncode, digest_process.stdout + digest_process.stderr)
@@ -1258,23 +1442,40 @@ class OrchestrationValidatorTests(unittest.TestCase):
 
     def test_core_cli_valid_campaign(self):
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
-        for kind, directory in (("record", "records/valid"), ("result", "results/valid")):
-            with self.subTest(kind=kind):
-                command = [sys.executable, str(SCRIPT), "--kind", kind]
-                if kind == "result":
-                    command.extend(
-                        [
-                            "--campaign-record",
-                            str(FIXTURES / "records/valid/campaign-active.json"),
-                        ]
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_path = Path(temporary_directory)
+            proof_path = temporary_path / "authority-proof.json"
+            source_path = temporary_path / "authority-source.txt"
+            proof_path.write_bytes(self.authority_proof_bytes())
+            source_path.write_bytes(self.AUTHORITY_SOURCE_BYTES)
+            for kind, directory in (("record", "records/valid"), ("result", "results/valid")):
+                with self.subTest(kind=kind):
+                    command = [
+                        sys.executable,
+                        str(SCRIPT),
+                        "--kind",
+                        kind,
+                        "--authority-proof",
+                        str(proof_path),
+                        "--authority-source",
+                        str(source_path),
+                        "--evaluation-time",
+                        self.AUTHORITY_EVALUATION_TIME,
+                    ]
+                    if kind == "result":
+                        command.extend(
+                            [
+                                "--campaign-record",
+                                str(FIXTURES / "records/valid/campaign-active.json"),
+                            ]
+                        )
+                    command.extend(map(str, sorted((FIXTURES / directory).glob("*.json"))))
+                    result = subprocess.run(
+                        command,
+                        capture_output=True, text=True, check=False, env=env,
                     )
-                command.extend(map(str, sorted((FIXTURES / directory).glob("*.json"))))
-                result = subprocess.run(
-                    command,
-                    capture_output=True, text=True, check=False, env=env,
-                )
-                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-                self.assertIn("Orchestration validation: PASS", result.stdout)
+                    self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                    self.assertIn("Orchestration validation: PASS", result.stdout)
 
     def test_core_cli_reports_input_and_stable_code(self):
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")

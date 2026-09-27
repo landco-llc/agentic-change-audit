@@ -66,13 +66,9 @@
     "completed_work_id": "ACA-GOV-001",
     "proposed_id": "ACA-GOV-002",
     "sequence_position": 2,
-    "campaign_record_sha256": "3f31e860d7e17d2bf38b292b23fdbecfb8d897fdbfe42883a22302687f640457",
+    "campaign_record_sha256": "f6a9eecd8b33dea5c9d65acaec0919f10b5884aed156e8df6cc15063dfbdac3d",
     "terminal_human_gate": "HUMAN_GATE_RELEASE_SUBMISSION_DECISION_BUNDLE",
-    "campaign_authorization_reference": {
-      "reference": "issues/37#campaign-authority",
-      "proves": "Standing Human delegation for the finite campaign envelope.",
-      "observed_at": "2026-09-27T00:00:00Z"
-    },
+    "authority_proof_sha256": "03f5c8f20bbaefc466266c7454d67bac1e8e5db2cdce1f1dc7001f910bd65e9e",
     "correction_history": {
       "dispatches": 1,
       "repeated_material_finding": false,
