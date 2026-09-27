@@ -22,7 +22,10 @@ deployment status.
 | ACA-W013 display-name reconciliation | `COMPLETED` | Pull request #27 accepted candidate `e9670287c118ada272f6ff1f3c6a7107bff55542`, tree `2f7345e83201cfefb67d26853f3ffb2c4655adde`, with `PASS WITH COMMENTS / VALID / blocking 0 / non-blocking 0`; Human-authorized merge produced `main@ef88c0e8669e639b06428e5ac55d88b580e14659` with the same tree, followed by successful Validate #88 and Package #85. No current-identity desktop rerun was performed. |
 | ACA-W014 current-identity desktop verification | `COMPLETED / HUMAN ACCEPTED` | Pull request #28 accepted candidate `155070d435e21ad66ad5adcca423fa456c36e2a5` and merged as `863add9baf28677ce51409bb8f2032ecba1b6a7a`, tree `3eb5786022f2884d889a88a78b6c0a158b09695a`. The rebound exact-main artifact passed current-identity Human desktop verification with `PASS / VALID`, zero findings, and verified repository non-mutation. The earlier wrong-context `NOT AUDITABLE` attempt remains fail-closed historical evidence only. |
 | ACA-W015 post-desktop canonical reconciliation | `COMPLETED / MERGED / POST-MERGE VALIDATED` | Pull request #30 accepted candidate `0d3cd2b0f0fd7962149e1972cb86eb8d4b808436`, tree `09ddbaf82cf4029b8cc2c9fda361eec24f54d57f`, after `PASS / VALID`, blocking 0, and exact-head Validate #93 / Package #90 success; it merged as `efd4f002df77e99edfdfd00449e3f7bf322ed2a3` without tree drift, followed by successful exact-main Validate #94 / Package #91. |
-| ACA-W016 protected release/submission prerequisite inventory | `IMPLEMENTED / AWAITING INDEPENDENT AUDIT` | Fixed base is `main@efd4f002df77e99edfdfd00449e3f7bf322ed2a3`, tree `09ddbaf82cf4029b8cc2c9fda361eec24f54d57f`. The repository-only inventory stops at the single recommended `OPENAI_PORTAL_READ_ONLY_PREREQUISITE_VERIFICATION` gate. No protected decision or external effect is authorized or performed. |
+| ACA-W016 protected release/submission prerequisite inventory | `COMPLETED / MERGED / POST-MERGE VALIDATED` | Pull request #33 accepted HEAD `6c88dfd87450be2f7509a77439df7ecb92774f28`, tree `aeeff352c83076067821d4c7092568de06a3022c`, and merged to `main` as `c59bd59a7e7f37d26fa58702fc8489cfd446a98d` with the same tree. Independent audit was `PASS / VALID`, blocking 0; exact-main Validate #96 and Package #93 succeeded. The inventory remains repository preparation only and does not establish any Human or external prerequisite. |
+| ACA-GOV-001 architecture/governance reconciliation | `COMPLETED / MERGED / POST-MERGE VALIDATED` | Pull request #38 exact-head delegation accepted `a2c6f3d8a40550f31d9b3996eb4364bc82f398f2`; independent AR01 re-audit comment `5855502731` was `PASS / VALID`, blocking 0, F01 resolved, F02 resolved with no regression. It merged as `57a1d52b82d130d25309657f76e126540df5a068`, tree `5050853b14882b8ac253327837b47e51ff2dd532`; five exact-main hosted checks succeeded. No release, submission, portal, or other protected effect was authorized. |
+| ACA-W017 read-only portal prerequisite observation | `COMPLETED / OBSERVED / NO PORTAL MUTATION` | Public-safe packet was durably recorded on Issue #35 comment `5855872049`, observed `2026-09-27 12:24 UTC` against main `57a1d52b82d130d25309657f76e126540df5a068` / tree `5050853b14882b8ac253327837b47e51ff2dd532`, packet SHA-256 `1f8fb85b04e71a127db99b84cdc71145dad599288baebbc60b18bc58c30e5530`. It records selected L&Co. LLC organization, displayed Owner and Apps Management Write preset, Business verification displayed Start, and an empty Default project Plugins view. These are bounded read-only observations; no draft, verification, submission, or other external completion is claimed. |
+| ACA-W018 portal evidence reconciliation | `IMPLEMENTED / AWAITING INDEPENDENT AUDIT` | This candidate reconciles the durable W017 observation and ACA-W016 prerequisite classifications in exactly two documentation paths. Repository-side gaps and Human/external-only gaps remain explicit; no `human-prerequisites.md` row is completed. The candidate requires exact-head hosted checks and a separate fixed-head independent audit before any lifecycle transition. |
 | Legacy pull request #17 | `BLOCKED` | Non-mutated legacy condition; details are intentionally not reproduced here. |
 
 ## Control reminders
@@ -36,9 +39,20 @@ deployment status.
   `4c9cd5adfe06bdf802d8bd5e9ba931dfb549dac86a09c69ee71fb46608a05d33`,
   is reproducibility evidence only, not a final ZIP, release artifact, or
   submission artifact.
-- ACA-W016 remains subject to exact-head validation, separate independent
-  fixed-head audit, and the applicable Ready/merge gate. Its inventory does
-  not establish completion of any Human or external prerequisite.
+- ACA-W016 is complete as a merged and exact-main validated repository
+  inventory. Its classifications do not establish completion of any Human or
+  external prerequisite.
+- ACA-GOV-001 is complete as a merged and exact-main validated governance
+  reconciliation. Its audit and merge evidence applies only to its recorded
+  exact head and does not authorize this or any successor Work.
+- ACA-W017 is a durable, public-safe, read-only observation. Its displayed
+  organization, role preset, verification page, and empty project view remain
+  time-, account-, organization-, and project-bound observations; they do not
+  prove effective permission across all contexts, business verification,
+  submission readiness, or draft absence outside the observed project.
+- ACA-W018 is an implementation candidate. It records repository-side
+  reconciliation only and remains subject to exact-head checks and a separate
+  independent fixed-head audit.
 - Issue #12 remains open for separately protected release and submission prerequisites.
 - Active private ledger detail is not stored here; durable history remains public-safe and append-only.
 - A snapshot records control state only; it cannot grant audit, Ready, merge, release, submission, publication, or deployment authority.
