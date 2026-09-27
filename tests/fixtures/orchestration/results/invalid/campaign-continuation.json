@@ -1,0 +1,27 @@
+{
+  "work_id": "ACA-GOV-001",
+  "role": "CONTROLLER",
+  "result_state": "COMPLETED",
+  "repository": "landco-llc/agentic-change-audit",
+  "branch": "codex/aca-gov-001",
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "target_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "pr_applicable": true,
+  "pr_number": 38,
+  "scope_observation": {"allowed_scope_only":true,"changed_files":["docs/ai-dev-ops/orchestration/orchestrator-contract.md"]},
+  "checks": [{"name":"post-merge validation","status":"PASSED","evidence_ref":{"reference":"pull/38#checks","proves":"checks","observed_at":"2026-09-27T00:00:00Z"}}],
+  "evidence": [{"reference":"pull/38#merge","proves":"completion","observed_at":"2026-09-27T00:00:00Z"}],
+  "transition": {"work_id":"ACA-GOV-001","recorded_at":"2026-09-27T00:00:00Z","actor_role":"CONTROLLER","repository":"landco-llc/agentic-change-audit","branch":"codex/aca-gov-001","base_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","target_applicable":true,"target_sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","pr_applicable":true,"pr_number":38,"from_state":"POST_MERGE_SYNC","to_state":"COMPLETED","reason":"complete","evidence_refs":[{"reference":"pull/38#post-merge","proves":"post merge","observed_at":"2026-09-27T00:00:00Z"}],"evidence_hashes":["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],"next_permitted_action":"bounded continuation"},
+  "limitations": [],
+  "next_work": {
+    "action": "CONTINUE_CAMPAIGN",
+    "rule": "Invalid because the named terminal Human Gate is missing.",
+    "campaign_id": "ACA-RS-CAMPAIGN-01",
+    "completed_work_id": "ACA-GOV-001",
+    "proposed_id": "ACA-GOV-002",
+    "sequence_position": 2,
+    "campaign_record_sha256": "3f31e860d7e17d2bf38b292b23fdbecfb8d897fdbfe42883a22302687f640457",
+    "campaign_authorization_reference": {"reference":"issues/37#campaign-authority","proves":"Standing Human delegation for the finite campaign envelope.","observed_at":"2026-09-27T00:00:00Z"},
+    "correction_history": {"dispatches":1,"repeated_material_finding":false,"unresolved_findings":false,"evidence_reference":{"reference":"issues/37#correction-history","proves":"history","observed_at":"2026-09-27T00:00:00Z"}}
+  }
+}

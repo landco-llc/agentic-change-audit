@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -24,6 +26,79 @@ except ImportError as exc:  # pragma: no cover - depends on caller environment
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 ORCHESTRATION_ROOT = REPOSITORY_ROOT / "docs/ai-dev-ops/orchestration"
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
+AUTHORITY_PROOF_SCHEMA = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "aca-authority-proof-v1.schema.json",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schema_id",
+        "version",
+        "authority_kind",
+        "human_decision",
+        "lifecycle_state",
+        "repository",
+        "work_id",
+        "target_sha",
+        "executor_role",
+        "covered_transitions",
+        "source",
+        "validity",
+    ],
+    "properties": {
+        "schema_id": {"const": "ACA_AUTHORITY_PROOF"},
+        "version": {"const": "1.0"},
+        "authority_kind": {"const": "HUMAN_STANDING_DELEGATION"},
+        "human_decision": {"const": "GRANT"},
+        "lifecycle_state": {"const": "ACCEPTED_CURRENT"},
+        "repository": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": r"^(?!/)(?!.*://)(?!.*\.\.)[A-Za-z0-9._/-]+$",
+        },
+        "work_id": {"type": "string", "pattern": r"^[A-Z][A-Z0-9_-]{2,127}$"},
+        "target_sha": {"type": "string", "pattern": r"^[0-9a-f]{40}$"},
+        "executor_role": {"const": "CONTROLLER"},
+        "covered_transitions": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": True,
+            "items": {"enum": ["READY", "MERGED", "CONTINUE_CAMPAIGN"]},
+        },
+        "source": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["kind", "immutable_id", "sha256"],
+            "properties": {
+                "kind": {"const": "HUMAN_GITHUB_ISSUE_COMMENT"},
+                "immutable_id": {
+                    "type": "string",
+                    "pattern": r"^github:[A-Za-z0-9._/-]+:issue:[1-9][0-9]*:comment:[1-9][0-9]*$",
+                },
+                "sha256": {"type": "string", "pattern": r"^[0-9a-f]{64}$"},
+            },
+        },
+        "validity": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind"],
+                    "properties": {"kind": {"const": "NON_EXPIRING"}},
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind", "expires_at"],
+                    "properties": {
+                        "kind": {"const": "EXPIRES_AT"},
+                        "expires_at": {"type": "string", "format": "date-time"},
+                    },
+                },
+            ]
+        },
+    },
+}
 TARGET_REQUIRED_STATES = frozenset(
     {
         "AUDITING",
@@ -48,15 +123,20 @@ ROLE_TRANSITIONS = {
             ("PASS", "FAST_TRACK_ELIGIBLE"), ("PASS", "HARD_GATE"), ("PASS", "ABANDONED"),
             ("PASS_WITH_COMMENTS", "FAST_TRACK_ELIGIBLE"), ("PASS_WITH_COMMENTS", "HARD_GATE"),
             ("PASS_WITH_COMMENTS", "ABANDONED"),
-            ("FAST_TRACK_ELIGIBLE", "HARD_GATE"), ("FAST_TRACK_ELIGIBLE", "BLOCKED"),
+            ("FAST_TRACK_ELIGIBLE", "READY"), ("FAST_TRACK_ELIGIBLE", "HARD_GATE"),
+            ("FAST_TRACK_ELIGIBLE", "BLOCKED"),
             ("FAST_TRACK_ELIGIBLE", "NOT_AUDITABLE"),
             ("HARD_GATE", "PREFLIGHT"), ("HARD_GATE", "IMPLEMENTING"),
             ("HARD_GATE", "AUDITING"), ("HARD_GATE", "CORRECTING"),
             ("HARD_GATE", "BLOCKED"), ("HARD_GATE", "ABANDONED"),
-            ("READY", "HARD_GATE"), ("READY", "BLOCKED"), ("READY", "NOT_AUDITABLE"),
+            ("READY", "MERGED"), ("READY", "HARD_GATE"), ("READY", "BLOCKED"),
+            ("READY", "NOT_AUDITABLE"),
             ("MERGED", "POST_MERGE_SYNC"), ("MERGED", "BLOCKED"),
             ("POST_MERGE_SYNC", "COMPLETED"), ("POST_MERGE_SYNC", "BLOCKED"),
         }
+    ),
+    "INSTRUCTION_EVIDENCE_AUTHOR": frozenset(
+        {("PLANNED", "PREFLIGHT"), ("PLANNED", "HARD_GATE"), ("PLANNED", "BLOCKED")}
     ),
     "IMPLEMENTATION": frozenset(
         {("IMPLEMENTING", "IMPLEMENTED_DRAFT_PR"), ("IMPLEMENTING", "HARD_GATE"), ("IMPLEMENTING", "BLOCKED")}
@@ -198,8 +278,220 @@ def role_transitions(role: Any) -> frozenset[tuple[str, str]]:
     return ROLE_TRANSITIONS.get(role, frozenset())
 
 
-def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[str]]) -> list[ValidationIssue]:
+def parse_authority_time(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
+def authority_proof_issues(
+    bound_digest: Any,
+    *,
+    proof: Any,
+    proof_sha256: str | None,
+    source_sha256: str | None,
+    proof_valid: bool | None,
+    evaluation_time: Any,
+    repository: Any,
+    work_id: Any,
+    target_sha: Any,
+    requested_transition: Any,
+    code: str,
+    path: str,
+) -> list[ValidationIssue]:
+    """Validate a closed proof; generic record/result prose is never authority input.
+
+    This offline check does not authenticate GitHub, a Human, source currentness,
+    revocation, or external authority. The Parent must Fresh Read those live facts
+    immediately before any Ready or merge mutation.
+    """
     issues: list[ValidationIssue] = []
+    if proof_valid is not True or not isinstance(proof, dict):
+        return [
+            ValidationIssue(
+                code,
+                path,
+                "Authority-required progression needs a readable duplicate-free schema-valid closed proof.",
+            )
+        ]
+
+    if not isinstance(bound_digest, str) or bound_digest != proof_sha256:
+        issues.append(
+            ValidationIssue(
+                code,
+                path,
+                "authority_proof_sha256 must match the exact supplied proof bytes.",
+            )
+        )
+
+    expected = {
+        "schema_id": "ACA_AUTHORITY_PROOF",
+        "version": "1.0",
+        "authority_kind": "HUMAN_STANDING_DELEGATION",
+        "human_decision": "GRANT",
+        "lifecycle_state": "ACCEPTED_CURRENT",
+        "repository": repository,
+        "work_id": work_id,
+        "target_sha": target_sha,
+        "executor_role": "CONTROLLER",
+    }
+    for field, expected_value in expected.items():
+        if proof.get(field) != expected_value:
+            issues.append(
+                ValidationIssue(
+                    code,
+                    f"{path}.{field}",
+                    f"Authority proof {field} must equal the requested typed binding.",
+                )
+            )
+
+    coverage = proof.get("covered_transitions")
+    if not isinstance(coverage, list) or requested_transition not in coverage:
+        issues.append(
+            ValidationIssue(
+                code,
+                f"{path}.covered_transitions",
+                "The closed authority proof does not cover the requested typed transition.",
+            )
+        )
+
+    source = proof.get("source")
+    if not isinstance(source, dict) or source.get("sha256") != source_sha256:
+        issues.append(
+            ValidationIssue(
+                code,
+                f"{path}.source.sha256",
+                "Authority proof source SHA-256 must match the exact supplied source bytes.",
+            )
+        )
+
+    validity = proof.get("validity")
+    if isinstance(validity, dict) and validity.get("kind") == "EXPIRES_AT":
+        evaluated_at = parse_authority_time(evaluation_time)
+        expires_at = parse_authority_time(validity.get("expires_at"))
+        if evaluated_at is None:
+            issues.append(
+                ValidationIssue(
+                    code,
+                    f"{path}.validity",
+                    "Expiry-bearing authority proof requires a deterministic --evaluation-time.",
+                )
+            )
+        elif expires_at is None or evaluated_at >= expires_at:
+            issues.append(
+                ValidationIssue(
+                    code,
+                    f"{path}.validity.expires_at",
+                    "Authority proof is expired at the deterministic evaluation time.",
+                )
+            )
+    return issues
+
+
+def record_semantic_issues(
+    document: dict[str, Any],
+    transitions: dict[str, set[str]],
+    *,
+    authority_proof: Any = None,
+    authority_proof_sha256: str | None = None,
+    authority_source_sha256: str | None = None,
+    authority_proof_valid: bool | None = None,
+    authority_evaluation_time: Any = None,
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    campaign = document.get("campaign")
+    if isinstance(campaign, dict):
+        current_work_id = campaign.get("current_work_id")
+        current_position = campaign.get("current_work_position")
+        work_ids = campaign.get("work_ids")
+        work_limit = campaign.get("work_limit")
+        authorized_next_work_id = campaign.get("authorized_next_work_id")
+        active_work_ids = campaign.get("active_work_ids")
+
+        if current_work_id != document.get("id"):
+            issues.append(
+                ValidationIssue(
+                    "WR-08",
+                    "$.campaign.current_work_id",
+                    "Campaign current_work_id must match the work record id.",
+                )
+            )
+        if campaign.get("campaign_id") == current_work_id:
+            issues.append(
+                ValidationIssue(
+                    "WR-08",
+                    "$.campaign.campaign_id",
+                    "Campaign and current Work identifiers must be distinct.",
+                )
+            )
+        if isinstance(work_ids, list):
+            if authorized_next_work_id is not None:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.authorized_next_work_id",
+                        "An ordered campaign derives its successor from work_ids and must not add a separate successor.",
+                    )
+                )
+            if current_work_id not in work_ids:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.current_work_id",
+                        "Campaign current Work must belong to its finite ordered work_ids.",
+                    )
+                )
+            elif current_position != work_ids.index(current_work_id) + 1:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.current_work_position",
+                        "Campaign current_work_position must match the ordered work_ids position.",
+                    )
+                )
+        elif isinstance(work_limit, int) and (
+            not isinstance(current_position, int) or current_position > work_limit
+        ):
+            issues.append(
+                ValidationIssue(
+                    "WR-08",
+                    "$.campaign.current_work_position",
+                    "Campaign current Work must not exceed its finite work_limit.",
+                )
+            )
+        if isinstance(active_work_ids, list):
+            if len(active_work_ids) > 1:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.active_work_ids",
+                        "A campaign may represent at most one ACTIVE Work.",
+                    )
+                )
+            if active_work_ids and active_work_ids != [current_work_id]:
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.active_work_ids",
+                        "The represented ACTIVE Work must be the current Work.",
+                    )
+                )
+            if isinstance(work_ids, list) and any(
+                work_id not in work_ids for work_id in active_work_ids
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "WR-08",
+                        "$.campaign.active_work_ids",
+                        "Every represented ACTIVE Work must belong to the finite campaign.",
+                    )
+                )
     history = document.get("state_history")
     if not isinstance(history, list) or not history:
         return issues
@@ -235,6 +527,23 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
         role = transition.get("actor_role")
         if (from_state, to_state) not in role_transitions(role):
             issues.append(ValidationIssue("WR-07", f"{prefix}.actor_role", "Actor role is not permitted to record this target state."))
+        if role == "CONTROLLER" and to_state in {"READY", "MERGED"}:
+            issues.extend(
+                authority_proof_issues(
+                    transition.get("authority_proof_sha256"),
+                    proof=authority_proof,
+                    proof_sha256=authority_proof_sha256,
+                    source_sha256=authority_source_sha256,
+                    proof_valid=authority_proof_valid,
+                    evaluation_time=authority_evaluation_time,
+                    repository=document.get("repository"),
+                    work_id=document.get("id"),
+                    target_sha=document.get("target_sha"),
+                    requested_transition=to_state,
+                    code="WR-09",
+                    path=f"{prefix}.authority_proof_sha256",
+                )
+            )
 
         cycle = transition.get("correction_cycle")
         if to_state != "CORRECTING" and cycle is not None:
@@ -253,6 +562,18 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
 
     if len(correction_cycles) > 3:
         issues.append(ValidationIssue("WR-06", "$.state_history", "At most three correction cycles are permitted."))
+    if isinstance(campaign, dict):
+        correction_history = campaign.get("correction_history")
+        if isinstance(correction_history, dict) and correction_history.get("dispatches") != len(
+            correction_cycles
+        ):
+            issues.append(
+                ValidationIssue(
+                    "WR-10",
+                    "$.campaign.correction_history.dispatches",
+                    "Campaign correction dispatch count must equal append-only CORRECTING transitions.",
+                )
+            )
     final = history[-1]
     if isinstance(final, dict) and document.get("state") != final.get("to_state"):
         issues.append(ValidationIssue("WR-02", "$.state", "The record state must equal the final transition to_state."))
@@ -260,7 +581,17 @@ def record_semantic_issues(document: dict[str, Any], transitions: dict[str, set[
 
 
 def result_semantic_issues(
-    document: dict[str, Any], transitions: dict[str, set[str]]
+    document: dict[str, Any],
+    transitions: dict[str, set[str]],
+    *,
+    campaign_record: Any = None,
+    campaign_record_sha256: str | None = None,
+    campaign_record_valid: bool | None = None,
+    authority_proof: Any = None,
+    authority_proof_sha256: str | None = None,
+    authority_source_sha256: str | None = None,
+    authority_proof_valid: bool | None = None,
+    authority_evaluation_time: Any = None,
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     transition = document.get("transition")
@@ -308,6 +639,23 @@ def result_semantic_issues(
         issues.append(ValidationIssue("RES-06", "$.transition.to_state", "Transition is not allowed by the immutable schema vocabulary."))
     if (from_state, to_state) not in role_transitions(role):
         issues.append(ValidationIssue("RES-06", "$.transition.actor_role", "Role is not permitted to record this transition."))
+    if role == "CONTROLLER" and to_state in {"READY", "MERGED"}:
+        issues.extend(
+            authority_proof_issues(
+                transition.get("authority_proof_sha256"),
+                proof=authority_proof,
+                proof_sha256=authority_proof_sha256,
+                source_sha256=authority_source_sha256,
+                proof_valid=authority_proof_valid,
+                evaluation_time=authority_evaluation_time,
+                repository=document.get("repository"),
+                work_id=document.get("work_id"),
+                target_sha=document.get("target_sha"),
+                requested_transition=to_state,
+                code="RES-08",
+                path="$.transition.authority_proof_sha256",
+            )
+        )
     scope = document.get("scope_observation")
     if isinstance(scope, dict) and scope.get("allowed_scope_only") is not True:
         issues.append(ValidationIssue("RES-05", "$.scope_observation.allowed_scope_only", "Result progression requires allowed_scope_only=true."))
@@ -326,12 +674,96 @@ def result_semantic_issues(
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "PROPOSE_ONE_NEW_WORK requires exactly one proposed_id."))
         elif action == "PROPOSE_ONE_NEW_WORK" and proposed_id == document.get("work_id"):
             issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "PROPOSE_ONE_NEW_WORK requires a new proposed_id."))
-        elif action != "PROPOSE_ONE_NEW_WORK" and proposed_id is not None:
-            issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "Only PROPOSE_ONE_NEW_WORK may include proposed_id."))
+        elif action not in {"PROPOSE_ONE_NEW_WORK", "CONTINUE_CAMPAIGN"} and proposed_id is not None:
+            issues.append(ValidationIssue("RES-05", "$.next_work.proposed_id", "Only a bounded successor action may include proposed_id."))
         if action == "PROPOSE_ONE_NEW_WORK" and role != "CONTROLLER":
             issues.append(ValidationIssue("RES-05", "$.next_work.action", "Only a CONTROLLER result may propose a new Work."))
         elif action == "PROPOSE_ONE_NEW_WORK" and result_state not in NEXT_WORK_ELIGIBLE_RESULT_STATES:
             issues.append(ValidationIssue("RES-05", "$.next_work.action", "A new Work proposal requires a completed Controller result."))
+        if action == "CONTINUE_CAMPAIGN":
+            if role != "CONTROLLER":
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.action",
+                        "Only a CONTROLLER result may record campaign continuation.",
+                    )
+                )
+            if (
+                result_state != "COMPLETED"
+                or transition.get("from_state") != "POST_MERGE_SYNC"
+                or transition.get("to_state") != "COMPLETED"
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.action",
+                        "Campaign continuation requires this Work's completed post-merge transition.",
+                    )
+                )
+            completed_work_id = next_work.get("completed_work_id")
+            if completed_work_id != document.get("work_id"):
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.completed_work_id",
+                        "Campaign continuation must bind the completed Work result.",
+                    )
+                )
+            if proposed_id == document.get("work_id"):
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.proposed_id",
+                        "Campaign continuation requires a different proposed next Work.",
+                    )
+                )
+            if not isinstance(next_work.get("terminal_human_gate"), str) or not next_work[
+                "terminal_human_gate"
+            ].strip():
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.terminal_human_gate",
+                        "Campaign continuation requires a named terminal Human Gate.",
+                    )
+                )
+            correction_history = next_work.get("correction_history")
+            if isinstance(correction_history, dict) and (
+                correction_history.get("repeated_material_finding") is not False
+                or correction_history.get("unresolved_findings") is not False
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "RES-07",
+                        "$.next_work.correction_history",
+                        "Campaign continuation cannot reset or bypass repeated or unresolved findings.",
+                    )
+                )
+            issues.extend(
+                paired_campaign_issues(
+                    document,
+                    campaign_record=campaign_record,
+                    campaign_record_sha256=campaign_record_sha256,
+                    campaign_record_valid=campaign_record_valid,
+                )
+            )
+            issues.extend(
+                authority_proof_issues(
+                    next_work.get("authority_proof_sha256"),
+                    proof=authority_proof,
+                    proof_sha256=authority_proof_sha256,
+                    source_sha256=authority_source_sha256,
+                    proof_valid=authority_proof_valid,
+                    evaluation_time=authority_evaluation_time,
+                    repository=document.get("repository"),
+                    work_id=document.get("work_id"),
+                    target_sha=document.get("target_sha"),
+                    requested_transition="CONTINUE_CAMPAIGN",
+                    code="RES-10",
+                    path="$.next_work.authority_proof_sha256",
+                )
+            )
         if result_state == "COMPLETED" and action == "HUMAN_GATE":
             issues.append(ValidationIssue("RES-05", "$.next_work.action", "A completed result cannot retain a pending Human Gate."))
     limitations = document.get("limitations")
@@ -340,13 +772,222 @@ def result_semantic_issues(
     return issues
 
 
-def validate_document(document: Any, validator: Draft202012Validator, *, kind: str, transitions: dict[str, set[str]]) -> list[ValidationIssue]:
+def paired_campaign_issues(
+    result: dict[str, Any],
+    *,
+    campaign_record: Any,
+    campaign_record_sha256: str | None,
+    campaign_record_valid: bool | None,
+) -> list[ValidationIssue]:
+    next_work = result.get("next_work")
+    if not isinstance(next_work, dict) or next_work.get("action") != "CONTINUE_CAMPAIGN":
+        return []
+    if not isinstance(campaign_record, dict) or campaign_record_valid is not True:
+        return [
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.campaign_record_sha256",
+                "CONTINUE_CAMPAIGN requires a readable, schema-valid, semantically valid paired Work record.",
+            )
+        ]
+
+    issues: list[ValidationIssue] = []
+    if next_work.get("campaign_record_sha256") != campaign_record_sha256:
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.campaign_record_sha256",
+                "Campaign record SHA-256 must match the exact supplied record bytes.",
+            )
+        )
+
+    campaign = campaign_record.get("campaign")
+    if not isinstance(campaign, dict):
+        return issues + [
+            ValidationIssue("RES-09", "$.next_work", "Paired Work record has no campaign binding.")
+        ]
+
+    transition = result.get("transition") if isinstance(result.get("transition"), dict) else {}
+    identity_pairs = (
+        ("repository", result.get("repository"), campaign_record.get("repository")),
+        ("branch", result.get("branch"), campaign_record.get("branch")),
+        ("base_sha", result.get("base_sha"), campaign_record.get("base_sha")),
+        ("work_id", result.get("work_id"), campaign_record.get("id")),
+        ("target_applicable", transition.get("target_applicable"), campaign_record.get("target_applicable")),
+        ("pr_applicable", result.get("pr_applicable"), campaign_record.get("pr_applicable")),
+    )
+    for field, observed, expected in identity_pairs:
+        if observed != expected:
+            issues.append(
+                ValidationIssue(
+                    "RES-09",
+                    f"$.{field}",
+                    f"Continuation {field} must match the paired Work record.",
+                )
+            )
+    if campaign_record.get("target_applicable") is True and result.get("target_sha") != campaign_record.get(
+        "target_sha"
+    ):
+        issues.append(
+            ValidationIssue("RES-09", "$.target_sha", "Continuation target SHA must match the paired Work record.")
+        )
+    if campaign_record.get("pr_applicable") is True and result.get("pr_number") != campaign_record.get(
+        "pr_number"
+    ):
+        issues.append(
+            ValidationIssue("RES-09", "$.pr_number", "Continuation PR number must match the paired Work record.")
+        )
+    if campaign_record.get("state") != "COMPLETED":
+        issues.append(
+            ValidationIssue("RES-09", "$.next_work", "Paired current Work must be COMPLETED before continuation.")
+        )
+
+    expected_fields = {
+        "campaign_id": campaign.get("campaign_id"),
+        "completed_work_id": campaign_record.get("id"),
+        "terminal_human_gate": campaign.get("terminal_human_gate"),
+        "authority_proof_sha256": campaign.get("authority_proof_sha256"),
+        "correction_history": campaign.get("correction_history"),
+    }
+    for field, expected in expected_fields.items():
+        if next_work.get(field) != expected:
+            issues.append(
+                ValidationIssue(
+                    "RES-09",
+                    f"$.next_work.{field}",
+                    f"Continuation {field} must equal the paired campaign record.",
+                )
+            )
+    if campaign.get("current_work_id") != campaign_record.get("id"):
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.completed_work_id",
+                "Paired campaign current Work must equal the completed Work record.",
+            )
+        )
+
+    current_position = campaign.get("current_work_position")
+    expected_position = current_position + 1 if isinstance(current_position, int) else None
+    work_ids = campaign.get("work_ids")
+    if isinstance(work_ids, list):
+        expected_next = (
+            work_ids[current_position]
+            if isinstance(current_position, int) and 0 < current_position < len(work_ids)
+            else None
+        )
+        if expected_next is None:
+            issues.append(
+                ValidationIssue("RES-09", "$.next_work.proposed_id", "Ordered campaign has no immediate successor.")
+            )
+    else:
+        work_limit = campaign.get("work_limit")
+        expected_next = campaign.get("authorized_next_work_id")
+        if (
+            not isinstance(current_position, int)
+            or not isinstance(work_limit, int)
+            or expected_position is None
+            or expected_position > work_limit
+        ):
+            issues.append(
+                ValidationIssue("RES-09", "$.next_work.sequence_position", "Campaign work_limit is exhausted.")
+            )
+        if not isinstance(expected_next, str):
+            issues.append(
+                ValidationIssue(
+                    "RES-09",
+                    "$.next_work.proposed_id",
+                    "Limit-form campaign must name its immediate authorized successor in the paired record.",
+                )
+            )
+    if next_work.get("proposed_id") != expected_next:
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.proposed_id",
+                "Proposed Work must equal the paired record's immediate authorized successor.",
+            )
+        )
+    if next_work.get("sequence_position") != expected_position:
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.sequence_position",
+                "Continuation position must be exactly one after the paired current Work.",
+            )
+        )
+    correction_history = campaign.get("correction_history")
+    if isinstance(correction_history, dict) and (
+        correction_history.get("repeated_material_finding") is not False
+        or correction_history.get("unresolved_findings") is not False
+    ):
+        issues.append(
+            ValidationIssue(
+                "RES-09",
+                "$.next_work.correction_history",
+                "Paired campaign record has repeated or unresolved findings and cannot continue.",
+            )
+        )
+    return issues
+
+
+def validate_document(
+    document: Any,
+    validator: Draft202012Validator,
+    *,
+    kind: str,
+    transitions: dict[str, set[str]],
+    campaign_record: Any = None,
+    campaign_record_sha256: str | None = None,
+    campaign_record_validator: Draft202012Validator | None = None,
+    campaign_record_valid: bool | None = None,
+    authority_proof: Any = None,
+    authority_proof_sha256: str | None = None,
+    authority_source_sha256: str | None = None,
+    authority_proof_valid: bool | None = None,
+    authority_evaluation_time: Any = None,
+) -> list[ValidationIssue]:
     issues = schema_issues(document, validator)
     if isinstance(document, dict):
         if kind == "record":
-            issues.extend(record_semantic_issues(document, transitions))
+            issues.extend(
+                record_semantic_issues(
+                    document,
+                    transitions,
+                    authority_proof=authority_proof,
+                    authority_proof_sha256=authority_proof_sha256,
+                    authority_source_sha256=authority_source_sha256,
+                    authority_proof_valid=authority_proof_valid,
+                    authority_evaluation_time=authority_evaluation_time,
+                )
+            )
         else:
-            issues.extend(result_semantic_issues(document, transitions))
+            if campaign_record_valid is None and isinstance(campaign_record, dict) and campaign_record_validator:
+                campaign_record_valid = not validate_document(
+                    campaign_record,
+                    campaign_record_validator,
+                    kind="record",
+                    transitions=transitions,
+                    authority_proof=authority_proof,
+                    authority_proof_sha256=authority_proof_sha256,
+                    authority_source_sha256=authority_source_sha256,
+                    authority_proof_valid=authority_proof_valid,
+                    authority_evaluation_time=authority_evaluation_time,
+                )
+            issues.extend(
+                result_semantic_issues(
+                    document,
+                    transitions,
+                    campaign_record=campaign_record,
+                    campaign_record_sha256=campaign_record_sha256,
+                    campaign_record_valid=campaign_record_valid,
+                    authority_proof=authority_proof,
+                    authority_proof_sha256=authority_proof_sha256,
+                    authority_source_sha256=authority_source_sha256,
+                    authority_proof_valid=authority_proof_valid,
+                    authority_evaluation_time=authority_evaluation_time,
+                )
+            )
     return list(dict.fromkeys(issues))
 
 
@@ -355,6 +996,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("documents", nargs="+", help="JSON record or result files to validate.")
     parser.add_argument("--kind", choices=("record", "result"), required=True, help="Document contract to apply.")
     parser.add_argument("--schema", help="Override the schema path for the selected --kind.")
+    parser.add_argument(
+        "--campaign-record",
+        help="Exact paired Work record required for CONTINUE_CAMPAIGN result validation.",
+    )
+    parser.add_argument(
+        "--authority-proof",
+        help="Exact closed typed authority-proof bytes for authority-required progression.",
+    )
+    parser.add_argument(
+        "--authority-source",
+        help="Exact immutable Human source bytes bound by the authority proof.",
+    )
+    parser.add_argument(
+        "--evaluation-time",
+        help="Deterministic RFC 3339 time used only for expiry-bearing authority proofs.",
+    )
     return parser.parse_args()
 
 
@@ -370,6 +1027,59 @@ def main() -> int:
         print(f"ERROR: Unable to initialize validation: {exc}", file=sys.stderr)
         return 2
 
+    authority_proof: Any = None
+    authority_proof_sha256: str | None = None
+    authority_source_sha256: str | None = None
+    authority_proof_valid: bool | None = False
+    if args.authority_proof:
+        proof_path = Path(args.authority_proof)
+        try:
+            proof_bytes = proof_path.read_bytes()
+            authority_proof_sha256 = hashlib.sha256(proof_bytes).hexdigest()
+            authority_proof = json.loads(
+                proof_bytes.decode("utf-8"), object_pairs_hook=reject_duplicate_keys
+            )
+            proof_validator = build_validator(AUTHORITY_PROOF_SCHEMA)
+            authority_proof_valid = not schema_issues(authority_proof, proof_validator)
+        except (OSError, UnicodeError, ValueError, json.JSONDecodeError, SchemaError, RuntimeError):
+            authority_proof_valid = False
+    if args.authority_source:
+        try:
+            authority_source_sha256 = hashlib.sha256(
+                Path(args.authority_source).read_bytes()
+            ).hexdigest()
+        except OSError:
+            authority_source_sha256 = None
+
+    campaign_record: Any = None
+    campaign_record_sha256: str | None = None
+    campaign_record_valid: bool | None = None
+    campaign_record_validator: Draft202012Validator | None = None
+    if args.campaign_record:
+        campaign_path = Path(args.campaign_record)
+        try:
+            campaign_bytes = campaign_path.read_bytes()
+            campaign_record_sha256 = hashlib.sha256(campaign_bytes).hexdigest()
+            campaign_record = json.loads(
+                campaign_bytes.decode("utf-8"), object_pairs_hook=reject_duplicate_keys
+            )
+            record_schema = load_json(ORCHESTRATION_ROOT / "work-record.schema.json")
+            campaign_record_validator = build_validator(record_schema)
+            record_issues = validate_document(
+                campaign_record,
+                campaign_record_validator,
+                kind="record",
+                transitions=allowed_transitions(record_schema),
+                authority_proof=authority_proof,
+                authority_proof_sha256=authority_proof_sha256,
+                authority_source_sha256=authority_source_sha256,
+                authority_proof_valid=authority_proof_valid,
+                authority_evaluation_time=args.evaluation_time,
+            )
+            campaign_record_valid = not record_issues
+        except (OSError, UnicodeError, ValueError, json.JSONDecodeError, SchemaError, RuntimeError):
+            campaign_record_valid = False
+
     failed = False
     for name in args.documents:
         path = Path(name)
@@ -381,7 +1091,21 @@ def main() -> int:
             print(f"Orchestration validation: FAIL ({display_path(path)})", file=sys.stderr)
             print(f"ERROR: {code} $: {exc}", file=sys.stderr)
             continue
-        issues = validate_document(document, validator, kind=args.kind, transitions=transitions)
+        issues = validate_document(
+            document,
+            validator,
+            kind=args.kind,
+            transitions=transitions,
+            campaign_record=campaign_record,
+            campaign_record_sha256=campaign_record_sha256,
+            campaign_record_validator=campaign_record_validator,
+            campaign_record_valid=campaign_record_valid,
+            authority_proof=authority_proof,
+            authority_proof_sha256=authority_proof_sha256,
+            authority_source_sha256=authority_source_sha256,
+            authority_proof_valid=authority_proof_valid,
+            authority_evaluation_time=args.evaluation_time,
+        )
         if issues:
             failed = True
             print(f"Orchestration validation: FAIL ({display_path(path)})", file=sys.stderr)
