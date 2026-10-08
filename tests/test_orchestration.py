@@ -1643,6 +1643,241 @@ class OrchestrationValidatorTests(unittest.TestCase):
                     self.assertNotIn(str(directory_path), observed)
                     self.assertNotIn(str(SCRIPT), observed)
 
+    CURRENT_POLICY = "aca-ai-model-006-a06-2026-10"
+    CURRENT_ROUTES = {
+        "reconciliation": ("gpt-6-luna", "low", "workspace-write"),
+        "implementation_mechanical": ("gpt-6-luna", "medium", "workspace-write"),
+        "implementation_standard": ("gpt-6.1-sol", "medium", "workspace-write"),
+        "implementation_backend": ("gpt-6.1-sol", "medium", "workspace-write"),
+        "architecture": ("gpt-6.1-sol", "high", "read-only"),
+        "audit_standard": ("gpt-6.1-sol", "high", "read-only"),
+        "implementation_critical": ("gpt-6.1-sol", "high", "workspace-write"),
+        "audit_critical": ("gpt-6.1-sol", "xhigh", "read-only"),
+    }
+
+    LEGACY_ROUTES = {
+        "reconciliation": ("gpt-5.6-luna", "low", "workspace-write"),
+        "implementation_mechanical": ("gpt-5.6-luna", "medium", "workspace-write"),
+        "implementation_standard": ("gpt-5.6-luna", "medium", "workspace-write"),
+        "implementation_backend": ("gpt-5.6-terra", "medium", "workspace-write"),
+        "architecture": ("gpt-5.6-terra", "high", "read-only"),
+        "audit_standard": ("gpt-5.6-terra", "medium", "read-only"),
+        "implementation_critical": ("gpt-5.6-sol", "high", "workspace-write"),
+        "audit_critical": ("gpt-5.6-sol", "high", "read-only"),
+    }
+
+    def current_routing(self, profile):
+        model, effort, sandbox = self.CURRENT_ROUTES[profile]
+        return {
+            "profile": profile,
+            "model": model,
+            "reasoning_effort": effort,
+            "sandbox_mode": sandbox,
+            "selection_reason": "Exact bounded current Work route.",
+            "escalation_criteria": ["Return material scope or authority ambiguity to Parent."],
+        }
+
+    def routed_document(self, kind, profile):
+        if kind == "record":
+            document = copy.deepcopy(self.record)
+        elif profile.startswith("audit_"):
+            document = copy.deepcopy(self.result)
+        else:
+            document = validator_module.load_json(FIXTURES / "results/valid/implementation.json")
+            if profile in ("architecture", "reconciliation"):
+                role = "INSTRUCTION_EVIDENCE_AUTHOR" if profile == "architecture" else "CONTROLLER"
+                document["role"] = role
+                document["result_state"] = "PREFLIGHT"
+                document["transition"].update(
+                    actor_role=role, from_state="PLANNED", to_state="PREFLIGHT"
+                )
+        document["policy_version"] = self.CURRENT_POLICY
+        document["routing"] = self.current_routing(profile)
+        return document
+
+    def assert_routing_cases(self, kind, cases, *, valid):
+        schema_validator = self.record_validator if kind == "record" else self.result_validator
+        with tempfile.TemporaryDirectory() as directory:
+            paths = []
+            for name, document in cases.items():
+                with self.subTest(kind=kind, name=name):
+                    issues = validator_module.schema_issues(document, schema_validator)
+                    self.assertEqual(valid, not issues, [issue.render() for issue in issues])
+                path = Path(directory) / f"{name}.json"
+                path.write_text(json.dumps(document), encoding="utf-8")
+                paths.append(path)
+            process = subprocess.run(
+                [sys.executable, str(SCRIPT), "--kind", kind, *map(str, paths)],
+                capture_output=True, text=True, check=False,
+                env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"),
+            )
+            observed = process.stdout + process.stderr
+            self.assertEqual(0 if valid else 1, process.returncode, observed)
+            for path in paths:
+                self.assertIn(path.name, process.stdout if valid else process.stderr, observed)
+            if valid:
+                self.assertIn("Orchestration validation: PASS", observed)
+            else:
+                self.assertNotIn("Orchestration validation: PASS", observed)
+
+    def test_current_routing_accepts_every_exact_tuple_in_both_schemas_and_cli(self):
+        # Removing a current tuple, or weakening critical audit to high, breaks admission.
+        for kind in ("record", "result"):
+            self.assert_routing_cases(
+                kind,
+                {profile: self.routed_document(kind, profile) for profile in self.CURRENT_ROUTES},
+                valid=True,
+            )
+
+    def test_current_routing_profiles_and_config_match_admitted_tuples(self):
+        import tomllib
+
+        for profile, expected in self.CURRENT_ROUTES.items():
+            with self.subTest(profile=profile):
+                with (ROOT / ".codex/agents" / f"{profile}.toml").open("rb") as stream:
+                    actual = tomllib.load(stream)
+                self.assertEqual(profile, actual["name"])
+                self.assertEqual(expected, (
+                    actual["model"], actual["model_reasoning_effort"], actual["sandbox_mode"]
+                ))
+                for kind in ("record", "result"):
+                    document = self.routed_document(kind, profile)
+                    document["routing"].update(
+                        model=actual["model"], reasoning_effort=actual["model_reasoning_effort"],
+                        sandbox_mode=actual["sandbox_mode"],
+                    )
+                    schema_validator = self.record_validator if kind == "record" else self.result_validator
+                    self.assertEqual([], validator_module.schema_issues(document, schema_validator))
+        with (ROOT / ".codex/config.toml").open("rb") as stream:
+            config = tomllib.load(stream)["agents"]
+        self.assertEqual({
+            "enabled": True, "default_subagent_model": "gpt-6.1-sol",
+            "default_subagent_reasoning_effort": "medium",
+            "max_concurrent_threads_per_session": 4,
+        }, config)
+
+    def test_current_routing_rejects_substitutions_in_both_schemas_and_cli(self):
+        # Independent model/effort enums must never admit a mismatched profile tuple.
+        mutations = [
+            ("legacy-luna", "implementation_mechanical", "model", "gpt-5.6-luna"),
+            ("legacy-terra", "architecture", "model", "gpt-5.6-terra"),
+            ("legacy-sol", "audit_critical", "model", "gpt-5.6-sol"),
+            ("older-model", "implementation_standard", "model", "gpt-5.5"),
+            ("unknown-model", "implementation_standard", "model", "unknown"),
+            ("astra", "audit_critical", "model", "gpt-6-astra"),
+            ("unsanctioned-fallback", "architecture", "model", "gpt-6-sol"),
+            ("unknown-profile", "implementation_standard", "profile", "publication"),
+            ("misspelled-profile", "implementation_standard", "profile", "implementation_standrad"),
+            ("misspelled-model", "implementation_standard", "model", "gpt-6.1-slo"),
+            ("critical-audit-high", "audit_critical", "reasoning_effort", "high"),
+            ("critical-audit-medium", "audit_critical", "reasoning_effort", "medium"),
+            ("mechanical-low", "implementation_mechanical", "reasoning_effort", "low"),
+            ("standard-high", "implementation_standard", "reasoning_effort", "high"),
+            ("audit-writes", "audit_standard", "sandbox_mode", "workspace-write"),
+            ("critical-readonly", "implementation_critical", "sandbox_mode", "read-only"),
+            ("architecture-luna", "architecture", "model", "gpt-6-luna"),
+            ("critical-luna", "implementation_critical", "model", "gpt-6-luna"),
+            ("standard-audit-luna", "audit_standard", "model", "gpt-6-luna"),
+            ("critical-audit-luna", "audit_critical", "model", "gpt-6-luna"),
+            ("misspelled-effort", "architecture", "reasoning_effort", "hgh"),
+        ]
+        for kind in ("record", "result"):
+            cases = {}
+            for name, profile, key, value in mutations:
+                document = self.routed_document(kind, profile)
+                document["routing"][key] = value
+                cases[name] = document
+            self.assert_routing_cases(kind, cases, valid=False)
+
+    def test_routing_versions_pairing_and_properties_fail_closed(self):
+        for kind in ("record", "result"):
+            cases = {}
+            for profile in self.CURRENT_ROUTES:
+                crossing = self.routed_document(kind, profile)
+                crossing["policy_version"] = "aca-local-routing-2026-09"
+                cases[f"current-under-legacy-{profile}"] = crossing
+                unknown = self.routed_document(kind, profile)
+                unknown["policy_version"] = "aca-ai-model-006-a06-2026-1O"
+                cases[f"current-under-unknown-{profile}"] = unknown
+            for profile, (model, effort, sandbox) in self.LEGACY_ROUTES.items():
+                crossing = self.routed_document(kind, profile)
+                crossing["routing"].update(
+                    model=model, reasoning_effort=effort, sandbox_mode=sandbox
+                )
+                cases[f"legacy-under-current-{profile}"] = crossing
+            no_version = self.routed_document(kind, "implementation_standard")
+            no_version.pop("policy_version")
+            cases["routing-without-version"] = no_version
+            no_routing = self.routed_document(kind, "implementation_standard")
+            no_routing.pop("routing")
+            cases["version-without-routing"] = no_routing
+            for key in self.current_routing("implementation_standard"):
+                missing = self.routed_document(kind, "implementation_standard")
+                missing["routing"].pop(key)
+                cases[f"missing-{key}"] = missing
+            for level in ("routing", "document"):
+                extra = self.routed_document(kind, "implementation_standard")
+                (extra["routing"] if level == "routing" else extra)["launch_attested"] = True
+                cases[f"extra-{level}-property"] = extra
+            self.assert_routing_cases(kind, cases, valid=False)
+
+    def test_historical_routing_and_no_routing_remain_valid(self):
+        for kind in ("record", "result"):
+            cases = {"unrouted": copy.deepcopy(self.record if kind == "record" else self.result)}
+            for profile, (model, effort, sandbox) in self.LEGACY_ROUTES.items():
+                document = self.routed_document(kind, profile)
+                document["policy_version"] = "aca-local-routing-2026-09"
+                document["routing"].update(
+                    model=model, reasoning_effort=effort, sandbox_mode=sandbox
+                )
+                cases[profile] = document
+            self.assert_routing_cases(kind, cases, valid=True)
+        for definition in ("routing", "currentRouting"):
+            self.assertEqual(
+                self.record_schema["$defs"][definition], self.result_schema["$defs"][definition]
+            )
+
+    def test_current_routing_cannot_rescue_invalid_authority_or_child_lifecycle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            for kind in ("record", "result"):
+                base = (self.controller_lifecycle_record("READY") if kind == "record"
+                        else self.controller_lifecycle_result("READY"))
+                base["policy_version"] = self.CURRENT_POLICY
+                base["routing"] = self.current_routing("reconciliation")
+                work_id = base["id"] if kind == "record" else base["work_id"]
+                proof = self.authority_proof(work_id, base["target_sha"])
+                proof_bytes = self.authority_proof_bytes(proof)
+                process = self.run_authority_cli(
+                    directory_path, "valid-current", kind, copy.deepcopy(base), proof_bytes=proof_bytes
+                )
+                self.assertEqual(0, process.returncode, process.stdout + process.stderr)
+                wrong_head = copy.deepcopy(proof)
+                wrong_head["target_sha"] = "d" * 40
+                for name, kwargs in (
+                    ("missing", {"include_proof": False}),
+                    ("malformed", {"proof_bytes": b"{"}),
+                    ("wrong-head", {"proof_bytes": self.authority_proof_bytes(wrong_head)}),
+                    ("source-digest", {"source_bytes": b"changed source\n"}),
+                    ("expired", {"evaluation_time": "2026-12-31T00:00:00Z"}),
+                ):
+                    with self.subTest(kind=kind, name=name):
+                        options = {"proof_bytes": proof_bytes, **kwargs}
+                        process = self.run_authority_cli(
+                            directory_path, name, kind, copy.deepcopy(base), **options
+                        )
+                        self.assertEqual(1, process.returncode, process.stdout + process.stderr)
+                child_ready = copy.deepcopy(base)
+                transition = child_ready["state_history"][0] if kind == "record" else child_ready["transition"]
+                transition["actor_role"] = "IMPLEMENTATION"
+                if kind == "result":
+                    child_ready["role"] = "IMPLEMENTATION"
+                process = self.run_authority_cli(
+                    directory_path, "child-ready", kind, child_ready, proof_bytes=proof_bytes
+                )
+                self.assertEqual(1, process.returncode, process.stdout + process.stderr)
+
+
     def test_cli_accepts_optional_routing_metadata(self):
         document = copy.deepcopy(self.record)
         document["policy_version"] = "aca-local-routing-2026-09"
