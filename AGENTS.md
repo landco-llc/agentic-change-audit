@@ -18,10 +18,14 @@ or unusable substantive output is re-routed to a Child or stopped, not repaired
 by the Parent.
 
 Substantive instruction and evidence authoring, implementation, independent
-audit, correction, and fresh re-audit belong to separated Child contexts. An
-audit is fixed-head and read-only: a correction changes the head and therefore
-requires a new independent re-audit. No Child may mark Ready, merge, release,
-submit, publish, or deploy.
+audit, correction, fresh re-audit, tests and task-plane artifact materialization
+belong to appropriately bound Children. Formal audit requires a NEW separate
+Audit Work/context with a control-plane-only Audit Parent dispatching a
+dedicated fresh independent read-only Audit Child; producer-parent review is
+SELF_VALIDATION. A correction changes the head and requires fresh separate
+re-audit. No instruction, implementation, correction or audit Child may mark
+Ready, merge, release, submit, publish or deploy. A separately bound publication
+worker may materialize/publish only exact authorized public-safe bytes.
 
 A finite campaign may continue only under an explicit campaign binding with a
 finite ordered Work set or positive upper bound, authorized scope envelope,
@@ -40,15 +44,27 @@ authority from an audit result.
 
 Same-Work correction dispatches are capped at three, and a materially repeated
 finding after fresh re-audit stops same-line correction immediately. A commit,
-agent, context, session, PR, or campaign position does not reset that history.
+agent, model, context, session, PR, host or campaign position does not reset
+that history. Three is a ceiling, not permission to repeat a surviving root;
+stricter current DG per-root limits remain controlling.
 
-Temporary Parent model escalation is limited to a named complex controller
-judgment, must use only an accepted/current model/profile pairing already
-represented by active local routing, must record its bounded reason and
-de-escalation point, and ends immediately when that judgment ends or is handed
-to a Child. Candidate, proposed, shadow, successor, experimental, and non-active
-Astra material is not executable authority and cannot activate a model or
-widen Parent powers.
+Use applicable accepted/current DG AI-MODEL-006 and A06 through the thin
+`docs/ai-dev-ops/model_selection_policy.md` adoption reference. Normal new Work
+uses GPT-6 or newer; legacy GPT-5.6 metadata is historical validation only,
+except under the closed current DG exceptions. Source changes alone establish
+no accepted project adoption or host admission. After applicable adoption,
+Parent defaults to Sol/low/Standard; a named material control judgment may
+temporarily use medium and a named complex judgment high. Record reason,
+authority/target identity, prior/selected route, start and handback to low at a
+supported safe boundary. A critical Child does not escalate Parent. No
+unsupported hot switch, persistence, wake or scheduler capability is inferred.
+Candidate, proposed, shadow, successor, experimental and non-active Astra
+material cannot activate a model or widen Parent powers.
+
+Preserve `SELF_VALIDATION_PASS != INDEPENDENT_AUDIT_PASS`,
+`CHILD_COMPLETE != PARENT_COMPLETE`, `READY_AUTHORITY != MERGE_AUTHORITY`,
+`MODEL_CHANGE != RETRY_RESET`, `HOST_CHANGE != AUTHORITY_EXPANSION`,
+`CANDIDATE != ACTIVE` and `MAIN_RESIDENT != ACTIVE_AUTHORITY`.
 
 See `docs/ai-dev-ops/orchestration/` for the machine-readable work-record and
 work-result contracts, local routing reference, and control-state model.

@@ -12,7 +12,12 @@ or report, finding, verdict, correction instruction, or
 implementation/correction/audit/re-audit content. It does not implement, audit
 its own implementation, correct its own findings, accept risk, or grant
 Human-only authority. Routing configuration is not evidence that a scheduler,
-wake service, provider, or runtime is available.
+wake service, provider, or runtime is available. Parent delegates tests and
+substantive task-plane artifact materialization/publication. Current routes,
+Parent-low semantics, generation exceptions and Work-scoped Cloud/Local
+admission are referenced in the thin
+[model-selection addendum](../model_selection_policy.md); no route widens
+authority or establishes project activation.
 
 ## Instruction/evidence-authoring Child
 
@@ -37,10 +42,18 @@ Work.
 ## Independent audit agent
 
 The audit agent reads the exact expected head and approved evidence without
-mutation in a fresh separate context. It reports one of the permitted audit
-outcomes with evidence. If the head differs, it reports `NOT_AUDITABLE`; it
+mutation as a dedicated fresh independent Child of a control-plane-only Audit
+Parent in a NEW separate formal Audit Work/context. It owns a separate
+Result/evidence/judgment and reports a permitted outcome with provenance and
+independent reproduction or explicit limitations. Producer-parent review is
+SELF_VALIDATION regardless of model or inherited history. A delegated
+controller qualifies only with supported separate-context/control-surface
+and independently admitted Parent/Child evidence; naming it Audit Parent is
+insufficient. `SELF_VALIDATION_PASS != INDEPENDENT_AUDIT_PASS`. If the head
+differs, it reports `NOT_AUDITABLE`; it
 does not inspect a substitute head. Campaign membership and an earlier Work's
-PASS do not relax or carry forward this fixed-head boundary.
+PASS do not relax or carry forward this fixed-head boundary. The Audit Child
+never corrects, marks Ready or merges.
 
 ## Correction agent
 
@@ -53,14 +66,31 @@ fresh re-audit repeats a material finding, or on scope conflict, missing
 evidence, prohibited-scope need, or Human-only decision, the Parent stops
 same-line correction and moves the item to the named escalation or
 `HARD_GATE`. A new SHA, branch, PR, agent, model, context, session, or campaign
-position does not reset the count.
+position does not reset the count; neither does a host change. Three is a ceiling,
+not permission to retry a surviving root: stricter current DG per-root limits
+remain controlling. `MODEL_CHANGE != RETRY_RESET`.
 
 ## Fresh re-audit agent
 
-The fresh re-audit agent is independent from the correction agent. It fixes its
-review target to the new expected head and follows the independent-audit
-boundary. A prior PASS does not carry forward to a changed head. No Child role
+The fresh re-audit agent is independent from the correction agent. A NEW
+separate Audit Work/control-plane Parent dispatches its dedicated fresh
+read-only Child against the new fixed expected HEAD/tree/base/scope, following
+the independent-audit boundary. A prior PASS does not carry forward to a
+changed head. No Child role
 creates or executes Ready or merge authority.
+
+## Validation and publication workers
+
+An appropriately bound validation Child reproduces the exact-target checks,
+keeps the target read-only and writes only assigned disposable scratch.
+Producer validation is SELF_VALIDATION, with no formal independent-audit PASS.
+A separately bound mechanical publication worker may materialize/publish only
+exact authorized public-safe source bytes, verify immutable readback and
+return evidence. It neither reconstructs substantive meaning/judgment nor
+corrects the target, marks Ready, merges or acquires protected-effect authority.
+`CHILD_COMPLETE != PARENT_COMPLETE`, `READY_AUTHORITY != MERGE_AUTHORITY`,
+`HOST_CHANGE != AUTHORITY_EXPANSION`, `CANDIDATE != ACTIVE` and
+`MAIN_RESIDENT != ACTIVE_AUTHORITY` remain controlling.
 
 ## Human gate
 

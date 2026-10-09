@@ -9,7 +9,9 @@ campaign, Work, repository, base, expected head, branch, PR, scope, checks,
 routing, and evidence identities; dispatch one authorized Child role at a
 time; transport Child-authored instructions/results byte-exactly; perform
 deterministic evidence-presence and state-transition checks; account for
-correction cycles; execute eligible expected-head Ready, merge, and post-merge
+correction cycles; delegate tests and substantive task-plane artifact
+materialization/publication to appropriately bound Children/workers; execute
+eligible expected-head Ready, merge, and post-merge
 control under separately established Human delegation; and stop fail-closed.
 
 The Parent may not substantively author or revise Work objectives or
@@ -33,7 +35,12 @@ re-based or reinterpreted.
 Routing metadata identifies the selected local profile, model, reasoning effort,
 sandbox boundary, selection reason, and escalation criteria. It selects a
 bounded executor; it neither creates scope authority nor proves scheduler,
-wake, provider, or runtime capability.
+wake, provider, or runtime capability. Use the thin
+[model-selection addendum](../model_selection_policy.md) and current DG
+lifecycle evidence: new metadata uses `aca-ai-model-006-a06-2026-10`; historical
+schema validity creates no new-Work route or launch authority. Bind required
+and accepted launch selection separately from supplemental provider metadata,
+and select Cloud/Local per Work or bounded phase with current admission.
 
 ## States
 
@@ -77,9 +84,11 @@ states also require the expected-head fields prescribed by the schemas.
 
 The maximum same-Work correction dispatch count is three. A materially
 repeated finding after any fresh independent re-audit stops same-line
-correction immediately; it does not wait for cycle three. The Parent must not
+correction immediately; it does not wait for cycle three. Three is a ceiling,
+not permission for three retries on one root; stricter current DG per-root
+limits control. The Parent must not
 rephrase, split, rename, or re-route the same material finding to reset the
-counter, and a new commit, agent, context, session, PR, or campaign position
+counter, and a new commit, agent, model, context, session, PR, host or campaign position
 does not reset the Work's cumulative correction history. Scope conflict,
 missing evidence, Human-only judgment, or correction requiring prohibited
 scope also stops immediately. The Parent records the evidence and moves to the
@@ -111,7 +120,16 @@ does not claim a scheduler, wake mechanism, provider, or runtime capability.
 ## Per-Work fixed-head gates
 
 Campaign membership never relaxes fixed-head audit. Each Work/PR receives a
-fresh independent result for its own exact expected head. A correction
+fresh independent result for its own exact expected head. Formal audit uses a
+NEW separate Audit Work/context with its own control-plane-only Audit Parent
+dispatching a dedicated fresh independent read-only Audit Child. Producer
+Parent review/validation remains SELF_VALIDATION regardless of model or fresh
+subagent history. A delegated controller qualifies only with actual supported
+separate-context/control-surface and independently admitted Parent/Child
+evidence; its name alone is insufficient. Audit Child owns separate
+Result/evidence/judgment, and performs no correction, Ready or merge.
+`SELF_VALIDATION_PASS != INDEPENDENT_AUDIT_PASS` and
+`CHILD_COMPLETE != PARENT_COMPLETE`. A correction
 invalidates the prior audit for readiness, and continuation cannot originate
 from a changed or unaudited head. Before Ready, and again immediately before
 merge, the Parent freshly verifies the Work/campaign binding, expected head,
@@ -124,15 +142,22 @@ reinterpret the auditor's findings.
 
 ## Temporary Parent model escalation
 
-The Parent may temporarily escalate only its controller reasoning model for a
-named complex control judgment. The model/reasoning pair must be permitted by
-accepted/current Development Governance and represented in the active ACA
-profile set. Record the prior and escalated profiles/models, accepted/current
-policy reference/version, bounded reason, decision, start point, and explicit
-de-escalation point. De-escalate immediately when the judgment is resolved or
-handed to a Child; routine routing, byte transport, evidence-presence checks,
-and state transitions do not retain the stronger model. Candidate, proposed,
-shadow, successor, experimental, and non-active Astra material is not
-authority. If accepted/current authority cannot be verified, remain on the
-ordinary Parent profile or stop fail-closed. Model escalation never widens
-role, scope, risk, Ready, merge, release, or protected-external authority.
+After applicable accepted project adoption, Parent defaults to
+`gpt-6.1-sol` / low / Standard under accepted/current AI-MODEL-006 A06. A named
+material Parent control judgment may temporarily use medium; a named complex
+judgment high. Record the prior and selected route, applicable authority,
+bounded reason, target identity, decision boundary, start and handback.
+Return to low when resolved or handed to a Child at a new launch, supported
+re-entry or natural safe boundary; record pending handback when the runtime
+cannot safely change the bound execution. A critical Child does not escalate
+Parent. No unsupported hot switch, persistence, wake or scheduler capability
+is inferred. The default Child Sol/medium configuration does not set Parent
+reasoning.
+
+Candidate, proposed, shadow, successor, experimental and non-active Astra
+material creates no execution authority. If accepted/current authority cannot
+be verified, preserve the bound route or stop fail-closed. Model escalation
+never widens role, scope, risk, Ready, merge, release or protected-external
+authority. Preserve `MODEL_CHANGE != RETRY_RESET`,
+`HOST_CHANGE != AUTHORITY_EXPANSION`, `READY_AUTHORITY != MERGE_AUTHORITY`,
+`CANDIDATE != ACTIVE` and `MAIN_RESIDENT != ACTIVE_AUTHORITY`.

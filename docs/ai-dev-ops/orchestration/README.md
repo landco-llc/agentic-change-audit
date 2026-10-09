@@ -16,7 +16,7 @@ scheduler, wake, provider, or runtime capability.
 - [Work-result schema](work-result.schema.json): bounded result output.
 - [Current control state](current-control-state.md): initial non-mutating control snapshot.
 - [Local model-selection addendum](../model_selection_policy.md): accepted
-  local profile reference; it is not a scheduler, wake, or provider-capability
+  project routing/adoption reference; it is not a scheduler, wake, or provider-capability
   claim.
 
 Use the two JSON schemas as the canonical field contract. Historical one-Work
@@ -60,3 +60,20 @@ pull-request identity, permitted role outputs, allowed scope, blocking check
 statuses, finite continuation order and bounds, terminal-gate presence, and
 persistent-finding bypass. Optional `policy_version`, `routing`, and `campaign`
 metadata are backward-compatible; records that predate them remain valid.
+
+New routing metadata uses the exact discriminator
+`aca-ai-model-006-a06-2026-10`, selecting the eight paired current
+profile/model/effort/sandbox tuples in both schemas. The historical
+`aca-local-routing-2026-09` definition and older metadata continue offline
+validation against legacy tuples; no-routing historical records remain valid.
+Current/legacy crossings and unknown-version current tuples fail closed.
+Historical schema validity creates no normal new-Work launch authority.
+Required launch, host and admission evidence is separately bound where the
+schemas have no matching field; schema validation does not prove it.
+
+Source adoption remains candidate until exact independent audit, applicable
+acceptance, authorized merge and post-merge readback. Formal audit requires a
+NEW separate Audit Work/control-plane Parent dispatching a dedicated fresh
+read-only Audit Child; producer-parent validation is SELF_VALIDATION. Cloud
+deployment/admission is a separate receipt. See the addendum and contracts
+for current Parent-low, generation floors, host selection and retry limits.
