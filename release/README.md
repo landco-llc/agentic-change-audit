@@ -10,6 +10,39 @@ The packaging workflow is deliberately separated from release publication:
 - no workflow creates a tag, GitHub Release, approval, or merge;
 - a maintainer publishes a release only after the fixed source commit and generated artifact hashes are independently reviewed.
 
+## Preparation-only two-family design (NONACTIVE)
+
+`ACA-C02-AUDIT-HOLD-PREP-001` adds a documentation-only packaging proposal.
+Family A is the existing runtime Skill ZIP described below: one
+`agentic-change-audit/` root, the exact 24 files in
+[distribution-files.json](distribution-files.json), generated
+`PACKAGE-MANIFEST.json`, and the separate external manifest and `SHA256SUMS`.
+All existing output names, build/verify commands, and runtime boundaries remain
+unchanged.
+
+Family B is a proposed separate Skills-only Plugin ZIP named
+`agentic-change-audit-plugin-<plugin-version>.zip`, rooted at
+`agentic-change-audit/`. Its exact 28-existing-file source boundary is defined
+in the [submission packaging design](../submission/codex-plugin/README.md#preparation-only-two-package-design-nonactive):
+`.codex-plugin/plugin.json`, `NOTICE`, `README.md`, and the 25 currently bundled
+Skill files under `skills/agentic-change-audit/`. It adds no second root,
+sibling, scripts, tests, submission files, private data, or caches. The Actions
+outer transport ZIP is neither output family.
+
+No Family B builder, verifier, or submission ZIP is produced by this candidate.
+Archive/path-parser code is deferred High Risk work requiring security-specialist
+assurance and formal Critical Audit admission; neither is supplied by these
+docs. Plugin `0.1.0-dev.3` and Skill metadata `0.1.0` remain current;
+`0.1.0-rc.1` is provisional future Plugin intent requiring a separately coherent
+transition. The existing commands below remain runtime examples, not a Plugin
+version transition.
+
+An existing-tooling runtime rehearsal may use a clean exact-source binding and
+private scratch only. Its hashes and repeated-build results are preparation
+evidence, not release/submission artifacts, formal audit, or source acceptance.
+This proposal changes no pending Human identity, logo, availability, legal, or
+submission prerequisite. G1B remains `HOLD`; W021–W024 remain `NOT ACTIVATED`.
+
 ## Release outputs
 
 For version `<version>`, the build produces:
