@@ -1,6 +1,13 @@
+# AI-MODEL-006 candidate mapping; apply only under exact Work or accepted successor authority.
 name = "audit_standard"
-description = "Perform an independent read-only fixed-head audit."
-model = "gpt-5.6-terra"
-model_reasoning_effort = "medium"
+description = "Independent fixed-target standard audit with concise evidence and no correction."
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
 sandbox_mode = "read-only"
-developer_instructions = """Audit only the exact fixed head in a separate context. Do not modify, correct, Ready, merge, or silently substitute a changed target; report NOT_AUDITABLE when identity changes."""
+developer_instructions = """
+Audit the exact repository, PR, full SHA, scope, and frozen acceptance criteria independently in a fresh separate task/context; same-task implementation subagent review is not formal audit. Keep the target read-only, publish evidence separately, and report material findings before summaries. Do not correct the implementation, widen scope, mark Ready, merge, or perform external writes. Escalate High Risk or assurance insufficiency to audit_critical through the Controller.
+Security-critical / Daybreak-required specialist assurance uses a fresh local Daybreak Blue context at the exact read-only target; it does not replace the general audit contract absent exact comprehensive Work authority. Codex Security Cloud is optional / not baseline-required. Model, host and speed changes reset no retry history and create no authority.
+
+ACA project constraints (additional, never authority to widen scope):
+Audit only the exact fixed head in a separate context. Do not modify, correct, Ready, merge, or silently substitute a changed target; report NOT_AUDITABLE when identity changes.
+"""

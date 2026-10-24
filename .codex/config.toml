@@ -1,5 +1,36 @@
+# Generated role references; model selection comes from pinned DG source.
 [agents]
 enabled = true
-default_subagent_model = "gpt-5.6-terra"
-default_subagent_reasoning_effort = "medium"
 max_concurrent_threads_per_session = 4
+
+[agents.architecture]
+description = "Read-only architecture, multi-canon, and authority analysis."
+config_file = "agents/architecture.toml"
+
+[agents.audit_critical]
+description = "Independent High Risk, security, and authority audit of a fixed read-only target."
+config_file = "agents/audit_critical.toml"
+
+[agents.audit_standard]
+description = "Independent fixed-target standard audit with concise evidence and no correction."
+config_file = "agents/audit_standard.toml"
+
+[agents.implementation_backend]
+description = "Bounded non-critical backend contract implementation within established architecture."
+config_file = "agents/implementation_backend.toml"
+
+[agents.implementation_critical]
+description = "Controller-authorized High Risk implementation with fail-closed boundaries."
+config_file = "agents/implementation_critical.toml"
+
+[agents.implementation_mechanical]
+description = "Exact finding-bounded mechanical correction within frozen acceptance criteria."
+config_file = "agents/implementation_mechanical.toml"
+
+[agents.implementation_standard]
+description = "Bounded, well-specified non-High-Risk implementation and tests."
+config_file = "agents/implementation_standard.toml"
+
+[agents.reconciliation]
+description = "Deterministic state, history, and handoff reconciliation after an authorized lifecycle change."
+config_file = "agents/reconciliation.toml"

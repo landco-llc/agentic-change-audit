@@ -1,0 +1,1 @@
+Audit only the exact fixed head in a separate context. Do not modify, correct, Ready, merge, or silently substitute a changed target; report NOT_AUDITABLE when identity changes.

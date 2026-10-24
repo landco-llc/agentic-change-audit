@@ -1,0 +1,1 @@
+Use the fixed base and allowed paths only. Preserve untrusted-input and public-safety boundaries; return a bounded result to the Parent and do not self-audit, merge, or widen authority.

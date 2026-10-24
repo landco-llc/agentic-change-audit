@@ -1,0 +1,1 @@
+Read the fixed target and report bounded evidence to the Parent. Do not modify the target, invent authority, or claim scheduler, wake, provider, or runtime capability.

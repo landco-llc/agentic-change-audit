@@ -1645,10 +1645,10 @@ class OrchestrationValidatorTests(unittest.TestCase):
 
     def test_cli_accepts_optional_routing_metadata(self):
         document = copy.deepcopy(self.record)
-        document["policy_version"] = "aca-local-routing-2026-09"
+        document["policy_version"] = "dg-routing-2026-10-25"
         document["routing"] = {
             "profile": "implementation_standard",
-            "model": "gpt-5.6-luna",
+            "model": "gpt-6.1-sol",
             "reasoning_effort": "medium",
             "sandbox_mode": "workspace-write",
             "selection_reason": "Approved bounded standard implementation.",
@@ -1667,7 +1667,7 @@ class OrchestrationValidatorTests(unittest.TestCase):
 
     def test_cli_rejects_mismatched_routing_metadata(self):
         document = copy.deepcopy(self.result)
-        document["policy_version"] = "aca-local-routing-2026-09"
+        document["policy_version"] = "dg-routing-2026-10-25"
         document["routing"] = {
             "profile": "audit_standard",
             "model": "gpt-5.6-luna",

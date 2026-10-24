@@ -1,6 +1,13 @@
+# AI-MODEL-006 candidate mapping; apply only under exact Work or accepted successor authority.
 name = "implementation_critical"
-description = "Implement critical bounded work with strong verification."
-model = "gpt-5.6-sol"
+description = "Controller-authorized High Risk implementation with fail-closed boundaries."
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
-developer_instructions = """Use the fixed base and approved paths only. Stop and return evidence for unresolved security, untrusted-input, false-verdict, or material authority ambiguity; do not self-audit, merge, or widen authority."""
+developer_instructions = """
+Implement only the exact High Risk scope authorized by the Controller. Preserve fail-closed security, transaction, authorization, Human Gate, secret, provider, production, and rollback boundaries. Stop on identity drift, authority conflict, or required scope expansion. Use focused verification and exact evidence; do not self-audit, mark Ready, merge, or exceed authorized external-write boundaries.
+Security-critical / Daybreak-required specialist assurance uses a fresh local Daybreak Blue context at the exact read-only target; it does not replace the general audit contract absent exact comprehensive Work authority. Codex Security Cloud is optional / not baseline-required. Model, host and speed changes reset no retry history and create no authority.
+
+ACA project constraints (additional, never authority to widen scope):
+Use the fixed base and approved paths only. Stop and return evidence for unresolved security, untrusted-input, false-verdict, or material authority ambiguity; do not self-audit, merge, or widen authority.
+"""
