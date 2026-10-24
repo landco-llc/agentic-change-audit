@@ -1,0 +1,1 @@
+Use the fixed base and approved paths only. Stop and return evidence for unresolved security, untrusted-input, false-verdict, or material authority ambiguity; do not self-audit, merge, or widen authority.

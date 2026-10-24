@@ -44,7 +44,8 @@ agent, context, session, PR, or campaign position does not reset that history.
 
 Temporary Parent model escalation is limited to a named complex controller
 judgment, must use only an accepted/current model/profile pairing already
-represented by active local routing, must record its bounded reason and
+represented by the pinned accepted/current DG source referenced in
+`docs/ai-dev-ops/model_selection_policy.md`, must record its bounded reason and
 de-escalation point, and ends immediately when that judgment ends or is handed
 to a Child. Candidate, proposed, shadow, successor, experimental, and non-active
 Astra material is not executable authority and cannot activate a model or

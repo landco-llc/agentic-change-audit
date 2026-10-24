@@ -1,6 +1,12 @@
+# AI-MODEL-006 candidate mapping; apply only under exact Work or accepted successor authority.
 name = "implementation_backend"
-description = "Implement bounded backend or integration work with required validation."
-model = "gpt-5.6-terra"
+description = "Bounded non-critical backend contract implementation within established architecture."
+model = "gpt-6.1-sol"
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
-developer_instructions = """Use the fixed base and allowed paths only. Preserve untrusted-input and public-safety boundaries; return a bounded result to the Parent and do not self-audit, merge, or widen authority."""
+developer_instructions = """
+Implement only the Controller-authorized, non-critical backend contract within existing architecture. Stop before authentication, authorization, destructive schema work, database transaction or concurrency decisions, provider calls, production actions, secrets, or unresolved authority. Route every High Risk boundary to implementation_critical / GPT-6.1 Sol high through the Controller. Do not self-audit.
+
+ACA project constraints (additional, never authority to widen scope):
+Use the fixed base and allowed paths only. Preserve untrusted-input and public-safety boundaries; return a bounded result to the Parent and do not self-audit, merge, or widen authority.
+"""

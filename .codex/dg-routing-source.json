@@ -1,0 +1,55 @@
+{
+  "source_repository": "landco-llc/development-governance",
+  "source_commit": "93e277cb3adc9ac2fcb02f55960ceac4d287a453",
+  "source_tree": "e01cceee7c0e15f517564c92255d95ba54596b57",
+  "roles": {
+    "architecture": {
+      "source_path": ".codex/agents/architecture.toml",
+      "source_blob": "9d15fbccaa51567e1fa736defabcd090c3487a6a",
+      "local_instructions": ".codex/aca-role-instructions/architecture.txt",
+      "local_instructions_sha256": "287b335752d28209819bcf25cf7faa45166438f9d6a47fbcd9e3443d71368bc9"
+    },
+    "audit_critical": {
+      "source_path": ".codex/agents/audit_critical.toml",
+      "source_blob": "f3793eaeb075b93f27560cef3c71dad3d1cb7877",
+      "local_instructions": ".codex/aca-role-instructions/audit_critical.txt",
+      "local_instructions_sha256": "2f19893f582d8da8ec184c80d03ffe149ecf91343eaa870b5d02c15a5ffd8ee7"
+    },
+    "audit_standard": {
+      "source_path": ".codex/agents/audit_standard.toml",
+      "source_blob": "5a7cf7fffc796dbcdaca8c0265a66f65ab702804",
+      "local_instructions": ".codex/aca-role-instructions/audit_standard.txt",
+      "local_instructions_sha256": "6ad983441586f200f55ab9c01f3bc71482117ea3d64d750d44177f0e11a05bf9"
+    },
+    "implementation_backend": {
+      "source_path": ".codex/agents/implementation_backend.toml",
+      "source_blob": "746d0a7da22520673195d6d5780a83855b57994c",
+      "local_instructions": ".codex/aca-role-instructions/implementation_backend.txt",
+      "local_instructions_sha256": "fd7872a2ee811e2248da342d7d1d95db4b432016bd53b2746ac50b26cb00d1de"
+    },
+    "implementation_critical": {
+      "source_path": ".codex/agents/implementation_critical.toml",
+      "source_blob": "00732b78d6d2a80cb85846109721a1ca0fc2beb7",
+      "local_instructions": ".codex/aca-role-instructions/implementation_critical.txt",
+      "local_instructions_sha256": "02bb0ac2c47068bd724119ac3d597e66deb283458e628c08ea9598294b2a58a1"
+    },
+    "implementation_mechanical": {
+      "source_path": ".codex/agents/implementation_mechanical.toml",
+      "source_blob": "32c91ec29b0dd4af4cdef9e1545e351a15b01086",
+      "local_instructions": ".codex/aca-role-instructions/implementation_mechanical.txt",
+      "local_instructions_sha256": "d58a5aa845809bb65dfeb946fc004e02fedc55a66f6f1f379a9ad9c5d1e00c5d"
+    },
+    "implementation_standard": {
+      "source_path": ".codex/agents/implementation_standard.toml",
+      "source_blob": "dfa980db4b5172ecb6fcadd509e8e9c1d0f4804e",
+      "local_instructions": ".codex/aca-role-instructions/implementation_standard.txt",
+      "local_instructions_sha256": "d58a5aa845809bb65dfeb946fc004e02fedc55a66f6f1f379a9ad9c5d1e00c5d"
+    },
+    "reconciliation": {
+      "source_path": ".codex/agents/reconciliation.toml",
+      "source_blob": "0c716446d3542326fd533ce367242203add73ed6",
+      "local_instructions": ".codex/aca-role-instructions/reconciliation.txt",
+      "local_instructions_sha256": "08080d98bf29f3a9858577aa2e02a5ee025df57e210410840793cb58f2c27d79"
+    }
+  }
+}

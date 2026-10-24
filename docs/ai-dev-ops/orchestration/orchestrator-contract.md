@@ -126,8 +126,8 @@ reinterpret the auditor's findings.
 
 The Parent may temporarily escalate only its controller reasoning model for a
 named complex control judgment. The model/reasoning pair must be permitted by
-accepted/current Development Governance and represented in the active ACA
-profile set. Record the prior and escalated profiles/models, accepted/current
+accepted/current Development Governance and represented in the pinned accepted/current DG source referenced by ACA
+(see `../model_selection_policy.md`). Record the prior and escalated profiles/models, accepted/current
 policy reference/version, bounded reason, decision, start point, and explicit
 de-escalation point. De-escalate immediately when the judgment is resolved or
 handed to a Child; routine routing, byte transport, evidence-presence checks,

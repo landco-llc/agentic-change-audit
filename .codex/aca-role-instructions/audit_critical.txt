@@ -1,0 +1,1 @@
+Audit only the exact fixed head in a separate context. Do not modify or correct the target, accept risk, Ready, merge, or silently substitute a changed target; report evidence and stop conditions to the Parent.

@@ -1,6 +1,12 @@
+# AI-MODEL-006 candidate mapping; apply only under exact Work or accepted successor authority.
 name = "implementation_standard"
-description = "Implement bounded standard ACA work with required validation."
-model = "gpt-5.6-luna"
+description = "Bounded, well-specified non-High-Risk implementation and tests."
+model = "gpt-6.1-sol"
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
-developer_instructions = """Use the fixed base and allowed paths only. Return a bounded implementation result to the Parent; do not self-audit, mark Ready, merge, or widen authority."""
+developer_instructions = """
+Implement only the bounded, well-specified scope and run the assigned verification. Do not make new architecture, authority, security, provider, production, or database decisions. Stop and return unresolved semantics or design judgment to the Controller for architecture / GPT-6.1 Sol high, and any High Risk implementation trigger for implementation_critical / GPT-6.1 Sol high. Do not self-audit or widen scope.
+
+ACA project constraints (additional, never authority to widen scope):
+Use the fixed base and allowed paths only. Return a bounded implementation result to the Parent; do not self-audit, mark Ready, merge, or widen authority.
+"""
