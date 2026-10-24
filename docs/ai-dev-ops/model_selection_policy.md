@@ -29,12 +29,28 @@ Already-fixed executions retain their bound routes and retry history.
 role bytes plus the preserved ACA instructions in
 `.codex/aca-role-instructions/*.txt`. The manifest pins both source Git blobs
 and local instruction SHA-256 values. Do not hand-edit generic model fields.
-Run `python3 scripts/project-dg-routing.py` for offline drift, TOML, path and
-schema checks. To regenerate, obtain trusted central source bytes at the
-manifest commit and run `python3 scripts/project-dg-routing.py --source-dir
-<CENTRAL_SOURCE_DIRECTORY>`. The generator has no network or authority to
-update its own manifest. An intentional local-constraint change needs its own
-scope and attributable manifest update.
+Run `python3 scripts/project-dg-routing.py` for offline consistency, TOML,
+path and schema checks. Its `CONSISTENCY_ONLY` result explicitly leaves
+`CANONICAL_SOURCE=NOT_VERIFIED`; a mutually consistent manifest and projection
+cannot establish canonical provenance or accepted routing authority.
+
+Canonical verification requires `--accepted-source-commit <EXTERNAL_WORK_PIN>`
+obtained separately from current Work authority. The checker uses authenticated
+GitHub read-only APIs on the fixed central repository, verifies the exact commit
+and its tree, rejects incomplete tree responses, and binds the complete role
+inventory/blob membership to that trusted tree. No local JSON proof/cache is
+accepted as a provenance substitute. This establishes immutable source
+membership; acceptance/activation still belongs to external lifecycle evidence.
+Missing or forged identity/membership cannot receive canonical verification.
+
+To regenerate, obtain trusted central source bytes and run
+`python3 scripts/project-dg-routing.py --accepted-source-commit
+<EXTERNAL_WORK_PIN> --source-dir <CENTRAL_SOURCE_DIRECTORY>`.
+Regeneration requires successful trusted source verification before writing.
+No manifest or generic route update is self-authorized. An intentional local
+constraint change needs its own scope and attributable manifest update.
+Public CI and offline tests may run consistency-only without private source
+access; their success must never be reported as canonical verification.
 
 Project `.codex/config.toml` references these local role layers with paths
 relative to that declaring configuration. There are no machine-private paths

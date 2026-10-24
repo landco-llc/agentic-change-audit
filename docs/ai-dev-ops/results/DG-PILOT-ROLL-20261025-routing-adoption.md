@@ -102,3 +102,49 @@ observed checks, source/runtime statuses and surviving Gates. Ready and merge
 need distinct exact authority and all required evidence; no Child grants
 these transitions. No ordinary same-root governance-admission diagnostic loop
 is created by absent serving telemetry or unverified native reload.
+
+
+## C01: source provenance correction (same Work and finding root)
+
+The first exact-head audit of predecessor
+`3437fdffa8858004a82f2be5d9bc49fa5a9026a7` returned `BLOCKED / VALID` with High
+finding `ACA-DG-A01-F01`: the checker trusted manifest source claims, so a
+coordinated manifest/route/schema forgery could print its old PASS message.
+The original Child-authored report is preserved byte-exact at
+[PR #46 audit report](https://github.com/landco-llc/agentic-change-audit/pull/46#issuecomment-6387168126),
+full-report SHA-256
+`ee3bc5a28d82afe0790622661c4d230a38ed2cc61df3e6a899260b909c336da3`.
+Its incomplete local tests due to denied temporary-file creation remain
+historical evidence; hosted success did not waive that audit result.
+
+Cumulative correction dispatch count for this new Work/root is 1 (C01).
+This is separate from PR #44's preserved historical count 1. No retry reset,
+status rewrite, pilot waiver or Ready/merge occurs.
+
+C01 separates offline `CONSISTENCY_ONLY / CANONICAL_SOURCE=NOT_VERIFIED` from
+trusted canonical source membership. Verification requires an independently
+supplied accepted Work commit and authenticated read-only GitHub commit/tree
+membership, including complete role inventory and exact source blobs. Forged
+identity, tree or coordinated lower-assurance role/blob/schema substitutions
+cannot receive canonical verification. Regeneration refuses absent trusted
+verification before any writes. The checker never grants acceptance authority.
+No second self-trusting manifest or generic model table was introduced.
+
+Focused C01 verification passed 12 routing/provenance tests: missing/forged
+identity, absent external pin, incomplete/mismatched tree, missing role and
+coordinated lower-route/blob/schema tampering, plus the original drift/floor
+regressions. Live trusted verification succeeded for the unchanged authorized
+central commit. Canonical role bytes, manifest and local role semantics remain
+unchanged. The predecessor's 925-test success and all five hosted check passes
+apply to that predecessor; corrected-HEAD hosted results are reported separately.
+No full-suite rerun is claimed for C01. A NEW fresh independent exact-head
+re-audit is mandatory after this correction. `APP_LOADED` and
+`NATIVE_ROLE_EFFECTIVE` remain `NOT_VERIFIED`.
+
+
+A standalone supported CLI sandbox capability probe confirmed that a read-only
+base with only a separate scratch directory writable allows temporary-file
+creation while denying a unique target sentinel write. The real target was
+not modified. This is shell-profile evidence; the NEW Audit Parent/Child
+startup must still observe its own enforced boundary and supported tools.
+No sandbox bypass, trust edit or global configuration change was made.
