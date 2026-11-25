@@ -17,7 +17,7 @@ No item on this list has been completed. Nothing here may be marked done on the 
 | 7 | Terms URL review | PENDING HUMAN CHECK |
 | 8 | Availability decision | PENDING HUMAN CHECK |
 | 9 | Logo approval | PENDING HUMAN CHECK |
-| 10 | Final Skill ZIP upload | PENDING HUMAN CHECK |
+| 10 | Skills-only Plugin ZIP upload | PENDING HUMAN CHECK |
 | 11 | Submission portal draft creation | PENDING HUMAN CHECK |
 | 12 | Policy attestations | PENDING HUMAN CHECK |
 | 13 | Final submit decision | PENDING HUMAN CHECK |
@@ -36,7 +36,7 @@ No item on this list has been completed. Nothing here may be marked done on the 
 
 **Logo approval.** See [visual-assets.md](visual-assets.md). No approved asset exists.
 
-**Final Skill ZIP upload.** The bundle for submission must be built from a fixed, re-audited commit. No ZIP is produced or published by this package.
+**Skills-only Plugin ZIP upload.** The submission bundle must be built and verified from a fixed, re-audited commit under ACA-W023. Upload requires separate Human authorization.
 
 **Policy attestations.** Attestations are legal statements about the product. Only an authorized human may make them.
 

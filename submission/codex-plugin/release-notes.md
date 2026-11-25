@@ -1,21 +1,20 @@
 # Release notes — Codex Plugin submission package
 
 Plugin: `agentic-change-audit`
-Version: `0.1.0-dev.3` (development package)
+Version: `0.1.0-rc.1` (provisional pre-release)
 Display name: `ACA - Agentic Change Audit`
 
 ## Summary
 
-This records repository-side preparation material for the skills-only Agentic
-Change Audit Codex Plugin. ACA-W013 reconciles only the user-facing Plugin /
-marketplace / submission listing display name. It does not create a release or
-submission.
+This records source preparation for the Skills-only Plugin ZIP. ACA-W022 adds
+a portable manifest and source-bound packaging commands for ACA-W023. The
+Runtime Skill ZIP and Actions transport retain their existing workflows.
 
 ## What this package contains
 
-- The skills-only Plugin submission package: listing details, starter prompts,
-  positive and negative test cases, an availability recommendation, and these
-  notes.
+- The portable manifest and bundled Skill form the Skills-only Plugin ZIP. The
+  repository listing, prompt bank, QA cases, recommended availability and
+  these notes are preparation records.
 - The bundled canonical Agentic Change Audit Skill, unchanged: the Plugin ships
   the same evidence-first, agent-neutral audit workflow as the repository-root
   Skill sources.
@@ -48,7 +47,8 @@ submission.
 
 ## Status
 
-- The Plugin version is `0.1.0-dev.3`, a development identifier.
+- The Plugin version is `0.1.0-rc.1`, a provisional pre-release. The Skill
+  retains its independent version.
 - This package is repository-side preparation material only.
 - Every human-prerequisite row remains `PENDING HUMAN CHECK`.
 - Availability remains a pending Human decision.
@@ -57,6 +57,6 @@ submission.
 
 ## Not included
 
-- No final-candidate post-W013 desktop evaluation is claimed by these notes.
+- Desktop evidence is recorded solely for the fixed ACA-W010 candidate.
 - No external submission, public listing, tag, GitHub Release, final ZIP upload,
   or directory publication is performed.

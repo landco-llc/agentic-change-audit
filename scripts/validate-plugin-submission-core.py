@@ -28,6 +28,7 @@ SUPPORT_RELATIVE = "SUPPORT.md"
 PRIVACY_RELATIVE = "PRIVACY.md"
 SUBMISSION_RELATIVE = "submission/codex-plugin"
 LISTING_RELATIVE = f"{SUBMISSION_RELATIVE}/listing.json"
+PORTABLE_MANIFEST_RELATIVE = f"{SUBMISSION_RELATIVE}/portable/plugin.json"
 STARTER_PROMPTS_RELATIVE = f"{SUBMISSION_RELATIVE}/starter-prompts.json"
 TEST_CASES_RELATIVE = f"{SUBMISSION_RELATIVE}/test-cases.json"
 AVAILABILITY_RELATIVE = f"{SUBMISSION_RELATIVE}/availability.json"
@@ -48,6 +49,7 @@ REQUIRED_FILES = (
     PRIVACY_RELATIVE,
     SUBMISSION_README_RELATIVE,
     LISTING_RELATIVE,
+    PORTABLE_MANIFEST_RELATIVE,
     STARTER_PROMPTS_RELATIVE,
     TEST_CASES_RELATIVE,
     AVAILABILITY_RELATIVE,
@@ -76,6 +78,7 @@ PORTAL_STATE_SCAN_FILES = (SUBMISSION_README_RELATIVE,) + PLUGIN_README_FILES
 EXPECTED_LISTING_KEYS = {
     "submissionType",
     "pluginName",
+    "version",
     "publisher",
     "shortDescription",
     "longDescription",
@@ -96,7 +99,7 @@ EXPECTED_SKILL_KEYS = {"name", "path"}
 EXPECTED_SUBMISSION_TYPE = "skills-only"
 EXPECTED_PLUGIN_NAME = "Agentic Change Audit"
 EXPECTED_PUBLISHER = "L&Co.LLC"
-EXPECTED_SHORT_DESCRIPTION = "Audit software changes with evidence before merge or release."
+EXPECTED_SHORT_DESCRIPTION = "Evidence-first change audits"
 EXPECTED_LONG_DESCRIPTION = (
     "Agentic Change Audit reviews a fixed software change, records the checks "
     "and evidence actually available, identifies findings and required human "
@@ -116,7 +119,7 @@ EXPECTED_VERIFICATION_STATUS = "PENDING HUMAN CHECK"
 EXPECTED_LOGO_STATUS = "PENDING APPROVED ASSET"
 EXPECTED_SKILL_NAME = "agentic-change-audit"
 EXPECTED_SKILL_PATH = "plugins/agentic-change-audit/skills/agentic-change-audit"
-EXPECTED_RELEASE_STATUS = "draft-materials-only"
+EXPECTED_RELEASE_STATUS = "pre-release"
 EXPECTED_PUBLIC_DIRECTORY_STATUS = "not-submitted"
 
 URL_LISTING_KEYS = ("websiteUrl", "supportUrl", "privacyUrl", "termsUrl")
@@ -146,8 +149,8 @@ EXPECTED_NEGATIVE_COUNT = 3
 VALID_TEST_TYPES = ("positive", "negative")
 VALID_MODES = ("FULL", "FOCUSED_REAUDIT", "RELEASE", "DOCS_ONLY")
 
-EXPECTED_MANIFEST_VERSION = "0.1.0-dev.3"
-EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION = "0.1.0-dev.3"
+EXPECTED_MANIFEST_VERSION = "0.1.0-rc.1"
+EXPECTED_SUBMISSION_RELEASE_NOTES_VERSION = EXPECTED_MANIFEST_VERSION
 EXPECTED_MANIFEST_CAPABILITIES = ["Read"]
 FORBIDDEN_MANIFEST_KEYS = ("mcpServers", "apps", "hooks")
 
@@ -161,7 +164,7 @@ HUMAN_PREREQUISITE_ITEMS = (
     "Terms URL review",
     "Availability decision",
     "Logo approval",
-    "Final Skill ZIP upload",
+    "Skills-only Plugin ZIP upload",
     "Submission portal draft creation",
     "Policy attestations",
     "Final submit decision",
@@ -1159,6 +1162,7 @@ def validate_listing(root: Path, errors: list[str]) -> None:
         EXPECTED_SUBMISSION_TYPE,
     )
     check_exact(errors, "listing.json pluginName", listing.get("pluginName"), EXPECTED_PLUGIN_NAME)
+    check_exact(errors, "listing.json version", listing.get("version"), EXPECTED_MANIFEST_VERSION)
     check_exact(errors, "listing.json publisher", listing.get("publisher"), EXPECTED_PUBLISHER)
     check_exact(
         errors, "listing.json shortDescription", listing.get("shortDescription"),
@@ -2290,25 +2294,46 @@ CANONICAL_STATUS_MARKERS = {
     PLUGIN_README_RELATIVE: (
         "Development preview",
         "Agentic Change Audit marketplace",
-        "0.1.0-dev.3",
+        f"Plugin version is `{EXPECTED_MANIFEST_VERSION}`, a provisional pre-release",
         "Phase C desktop evidence is pending",
         "historical, superseded, and non-transferable",
         "English is the sole canonical language for machine semantics and exact tokens",
     ),
     SUBMISSION_README_RELATIVE: (
-        "Plugin version: `0.1.0-dev.3`",
+        f"Plugin version: `{EXPECTED_MANIFEST_VERSION}` (provisional pre-release)",
         "Marketplace identity: neutral `Agentic Change Audit marketplace`",
         "Phase C desktop evidence remains pending",
         "Earlier desktop evidence is historical, superseded, and non-transferable",
         "Translation parity is not a machine validation gate",
     ),
     RELEASE_NOTES_RELATIVE: (
-        "Version: `0.1.0-dev.3`",
+        f"Version: `{EXPECTED_MANIFEST_VERSION}` (provisional pre-release)",
         "Phase C desktop evidence remains pending",
         "historical, superseded, and non-transferable",
         "Every human-prerequisite row remains `PENDING HUMAN CHECK`",
     ),
 }
+HISTORICAL_VERSION_CLAUSES = {
+    SUBMISSION_README_RELATIVE: (
+        "ACA-W010 collected fresh desktop evidence for the pre-W013 neutral marketplace\n"
+        "identity and `0.1.0-dev.3` at fixed main\n"
+        "`26af2687d0bac87089abd975b571ace5398a1a0b`: marketplace registration,\n"
+        "discovery, installation, explicit invocation, and Git working-tree\n"
+        "non-mutation. The result was `PHASE_C_DESKTOP_VERIFICATION = PASS` and was Human\n"
+        "accepted for that binding."
+    ),
+    RELEASE_NOTES_RELATIVE: (
+        "ACA-W010 Phase C desktop verification is complete and accepted for fixed main\n"
+        "  `26af2687d0bac87089abd975b571ace5398a1a0b`, Plugin `0.1.0-dev.3`, and package\n"
+        "  SHA-256 `af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57`."
+    ),
+}
+W010_README_PACKAGE_BINDING = (
+    "Phase C desktop verification is complete and accepted. ACA-W010 verified its\n"
+    "  exact historical fixed candidate and package SHA-256\n"
+    "  `af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57`."
+)
+DOCUMENT_VERSION_PATTERN = re.compile(r"[\w-]*[0-9]+\.[0-9]+\.[0-9]+(?:[\w+-]+(?:\.[\w+-]+)*)?")
 FORBIDDEN_CURRENT_STATUS_PATTERNS = (
     (
         re.compile(
@@ -2346,6 +2371,21 @@ def validate_canonical_status_contract(root: Path, errors: list[str]) -> None:
         for marker in markers:
             if marker not in text:
                 errors.append(f"{relative} is missing canonical English marker: {marker!r}.")
+        if relative in HISTORICAL_VERSION_CLAUSES:
+            current = text
+            if relative != SUBMISSION_README_RELATIVE or W010_README_PACKAGE_BINDING in text:
+                current = text.replace(HISTORICAL_VERSION_CLAUSES[relative], "", 1)
+            version_marker = markers[0].replace("`", "")
+            visible_current = markdown_visible_text(current.replace(markers[0], version_marker))
+            for version_text in (current, visible_current):
+                if any(match.group() != EXPECTED_MANIFEST_VERSION
+                       for match in DOCUMENT_VERSION_PATTERN.finditer(version_text)):
+                    errors.append(
+                        f"{relative} has a Plugin version outside its current or fixed historical binding."
+                    )
+                    break
+            if version_marker not in " ".join(visible_current.split()):
+                errors.append(f"{relative} must display the current provisional Plugin version.")
         visible_text = markdown_visible_text(text)
         for pattern, diagnostic in FORBIDDEN_CURRENT_STATUS_PATTERNS:
             if pattern.search(visible_text):
@@ -2501,7 +2541,7 @@ def main() -> int:
     print(f"- human gates: {len(HUMAN_PREREQUISITE_ITEMS)} × {PENDING_HUMAN_CHECK}")
     print(f"- availability: {EXPECTED_AVAILABILITY_STATUS}")
     print(f"- public directory status: {EXPECTED_PUBLIC_DIRECTORY_STATUS}")
-    print(f"- Plugin version: {EXPECTED_MANIFEST_VERSION} (development)")
+    print(f"- Plugin version: {EXPECTED_MANIFEST_VERSION} (provisional pre-release)")
     print("- capabilities: Read only")
     print("- submission to OpenAI: none")
     return 0

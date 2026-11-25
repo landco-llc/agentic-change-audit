@@ -2,7 +2,9 @@
 
 [日本語](README.ja.md)
 
-This directory defines how Agentic Change Audit produces a portable Skill archive before a GitHub Release is created.
+This directory documents the Runtime Skill ZIP for GitHub Release preparation,
+the outer Actions transport ZIP, and the Skills-only Plugin ZIP for the OpenAI
+submission workflow.
 
 The packaging workflow is deliberately separated from release publication:
 
@@ -10,7 +12,7 @@ The packaging workflow is deliberately separated from release publication:
 - no workflow creates a tag, GitHub Release, approval, or merge;
 - a maintainer publishes a release only after the fixed source commit and generated artifact hashes are independently reviewed.
 
-## Release outputs
+## Runtime Skill ZIP outputs
 
 For version `<version>`, the build produces:
 
@@ -88,7 +90,7 @@ python scripts/verify-distribution.py \
   --expected-source-ref <full-40-character-commit-sha>
 ```
 
-## Workflow artifact
+## Outer Actions transport ZIP
 
 The `Package` workflow runs on pull requests, pushes to `main`, and manual dispatch.
 
@@ -105,3 +107,31 @@ Workflow artifacts are temporary review evidence. They are not GitHub Releases a
 When downloaded through the GitHub web interface or artifact API, the workflow artifact is an **outer transport ZIP** containing the three release-candidate files. Extract that wrapper first. The outer transport ZIP is not the runtime Skill archive and must never be attached to a GitHub Release. Only the inner runtime ZIP, external manifest, and `SHA256SUMS` file are candidate release assets.
 
 See [Release Checklist](RELEASE_CHECKLIST.md) before publishing.
+
+## Skills-only Plugin ZIP
+
+ACA-W023 uses the [portable Plugin source](../submission/codex-plugin/README.md#portable-package)
+from lawfully merged, post-merge-validated `main`. From the repository root
+with the validation requirements installed, use the exact full source SHA and
+a fresh output directory inside a private parent outside the checkout.
+
+```bash
+source_ref="$(git rev-parse HEAD)"
+private_parent="$(mktemp -d)"
+output_dir="$private_parent/package"
+
+python3 -B scripts/package-submission-plugin.py check-source --source-ref "$source_ref"
+python3 -B scripts/package-submission-plugin.py build --source-ref "$source_ref" --output-dir "$output_dir"
+python3 -B scripts/package-submission-plugin.py verify --source-ref "$source_ref" --output-dir "$output_dir"
+```
+
+The outputs are:
+
+- `agentic-change-audit-plugin-0.1.0-rc.1.zip`
+- `agentic-change-audit-plugin-0.1.0-rc.1.manifest.json`
+- `agentic-change-audit-plugin-0.1.0-rc.1.SHA256SUMS`
+
+For the repeat-build check, use another fresh directory and compare all three
+files byte for byte at the same source SHA. The verifier regenerates the
+expected bytes using fixed Git source. These commands perform local checks
+and writes only. Provider validation and upload require their own authorizations.

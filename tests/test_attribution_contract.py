@@ -15,7 +15,10 @@ from pathlib import Path
 CORE_TEST_PATH = Path(__file__).with_name("attribution_contract_core_tests.py")
 CORE_TEST_MODULE_NAME = "_aca_attribution_contract_core_tests"
 POST_W013_DISPLAY_NAME = "ACA - Agentic Change Audit"
+# Preserve the exact W013 listing evidence alongside the current W022 pin.
 POST_W013_LISTING_SHA256 = "50671f8b923fc07dee0aff267d4b7d8df499a12a0154ad2edb33c7a74ba71624"
+
+W022_LISTING_SHA256 = "24c998153d9d9a58d41ed3ed4f516b2519217d988591f433c0ef61f14a822c6c"
 
 
 def _load_core_tests():
@@ -38,7 +41,7 @@ _core_tests.PROHIBITED_SUBMISSION_IDENTITY_FILE_SHA256 = dict(
 )
 _core_tests.PROHIBITED_SUBMISSION_IDENTITY_FILE_SHA256[
     "submission/codex-plugin/listing.json"
-] = POST_W013_LISTING_SHA256
+] = W022_LISTING_SHA256
 
 
 def _version_scope_06_w013(self):

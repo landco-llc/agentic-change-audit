@@ -116,13 +116,13 @@ def replace_text(relative: str, text: str) -> Mutation:
         body = text.rstrip("\n")
         fixture = (
             "Agentic Change Audit marketplace\n\n"
-            "0.1.0-dev.3\n\n"
+            "0.1.0-rc.1\n\n"
             "Development preview\n\n"
             "Phase C desktop verification is complete and accepted. ACA-W010 verified\n"
-            "marketplace discovery, installation, explicit invocation, and Git working-tree\n"
-            "non-mutation for the fixed pre-reconciliation candidate at\n"
-            "`26af2687d0bac87089abd975b571ace5398a1a0b`, Plugin `0.1.0-dev.3`, and package\n"
-            "SHA-256 `af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57`.\n"
+            "  marketplace discovery, installation, explicit invocation, and Git working-tree\n"
+            "  non-mutation for the fixed pre-reconciliation candidate at\n"
+            "  `26af2687d0bac87089abd975b571ace5398a1a0b`, Plugin `0.1.0-dev.3`, and package\n"
+            "  SHA-256 `af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57`.\n"
             "Earlier desktop evidence for the previous marketplace identity/version remains\n"
             "historical, superseded, and non-transferable. ACA-W010 evidence is likewise\n"
             "fixed to its recorded candidate and does not automatically transfer to a later\n"
@@ -748,9 +748,9 @@ install_invalid_regression_cases(
             "plugin",
             replace_bytes(
                 MANIFEST,
-                b'  "version": "0.1.0-dev.3",',
+                b'  "version": "0.1.0-rc.1",',
                 b'  "version": "0.1.0-dev.99-fresh-b29",\n'
-                b'  "version": "0.1.0-dev.3",',
+                b'  "version": "0.1.0-rc.1",',
             ),
             "Duplicate JSON key",
         ),
@@ -801,7 +801,7 @@ install_invalid_regression_cases(
             append_text(
                 PLUGIN_READMES[0],
                 "Fresh D18 identifies the current Plugin version as "
-                "0.1.0-dev.30.",
+                "0.1.0-rc.10.",
             ),
             "Plugin README development-version mismatch",
         ),
@@ -1283,7 +1283,7 @@ install_invalid_regression_cases(
             "plugin",
             append_text(
                 PLUGIN_READMES[0],
-                "Marketplace registration for 0.1.0-dev.3 is verified.",
+                "Marketplace registration for 0.1.0-rc.1 is verified.",
             ),
             "Plugin README Phase C identity contradiction",
         ),
@@ -1294,7 +1294,7 @@ install_invalid_regression_cases(
             "submission",
             append_text(
                 PLUGIN_READMES[0],
-                "Explicit invocation of 0.1.0-dev.3 was successful.",
+                "Explicit invocation of 0.1.0-rc.1 was successful.",
             ),
             "Plugin README Phase C identity contradiction",
         ),
@@ -1342,7 +1342,7 @@ install_positive_cases(
         (
             "remediation_valid_01_canonical_plugin_json_and_readmes_pass",
             "plugin",
-            json_assertion(MANIFEST, ("version",), "0.1.0-dev.3"),
+            json_assertion(MANIFEST, ("version",), "0.1.0-rc.1"),
         ),
         (
             "remediation_valid_02_canonical_submission_json_passes",
@@ -1444,7 +1444,7 @@ install_invalid_regression_cases(
             "plugin",
             append_text(
                 PLUGIN_READMES[0],
-                "ACA-FRESH-RDM-033: Marketplace discovery for 0.1.0-dev.3 is"
+                "ACA-FRESH-RDM-033: Marketplace discovery for 0.1.0-rc.1 is"
                 "\nverified.",
             ),
             "Plugin README Phase C identity contradiction",
@@ -1499,7 +1499,7 @@ SECOND_REMEDIATION_ADDITIONAL_INVALID_CASES = (
     ("second_invalid_en_08", PLUGIN_READMES[0], "The current neutral identity is documented. Desktop registration has succeeded."),
     ("second_invalid_en_09", PLUGIN_READMES[0], "Earlier Desktop evidence passed but is superseded and invalid. The current Desktop gate passed."),
     ("second_invalid_en_10_adversarial", PLUGIN_READMES[0], "This fixture must reject the claim \"Desktop gate passed.\" However, the current Desktop gate passed."),
-    ("second_invalid_en_11", PLUGIN_READMES[0], "Current version 0.1.0-dev.3 uses marketplace discovery and working-tree non-mutation; both are validated."),
+    ("second_invalid_en_11", PLUGIN_READMES[0], "Current version 0.1.0-rc.1 uses marketplace discovery and working-tree non-mutation; both are validated."),
     ("second_invalid_en_12", PLUGIN_READMES[0], "The current result says \"Desktop gate passed.\""),
     ("second_invalid_en_13_adversarial", PLUGIN_READMES[0], "This document does not assert that a release passed, and the current Desktop gate passed."),
     ("second_invalid_en_14_adversarial", PLUGIN_READMES[0], "The current Desktop gate passed, and this document does not assert a release claim."),

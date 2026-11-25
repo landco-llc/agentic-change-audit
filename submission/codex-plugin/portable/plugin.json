@@ -1,0 +1,43 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agentic-change-audit",
+  "version": "0.1.0-rc.1",
+  "description": "Evidence-first audits for AI-generated and human software changes before merge, release, or deployment.",
+  "author": {
+    "name": "L&Co.LLC",
+    "url": "https://github.com/landco-llc"
+  },
+  "homepage": "https://github.com/landco-llc/agentic-change-audit",
+  "repository": "https://github.com/landco-llc/agentic-change-audit",
+  "license": "Apache-2.0",
+  "keywords": [
+    "ai-agents",
+    "agent-skills",
+    "software-audit",
+    "change-audit",
+    "code-review",
+    "release-readiness"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "ACA - Agentic Change Audit",
+        "shortDescription": "Evidence-first change audits",
+        "longDescription": "Agentic Change Audit reviews a fixed software change, records the checks and evidence actually available, identifies findings and required human checks, and returns one structured Verdict before merge, release, or deployment. It is evidence-first, agent-neutral, and read-only by default.",
+        "developerName": "L&Co.LLC",
+        "category": "Productivity",
+        "capabilities": [
+          "Read"
+        ],
+        "websiteURL": "https://github.com/landco-llc/agentic-change-audit",
+        "defaultPrompt": [
+          "Audit the current repository change without modifying files. Fix the result to the current base and target HEAD.",
+          "Audit this AI-built application as a release candidate and identify missing evidence and required human checks.",
+          "Re-audit the approved remediation against the previous findings and authorized scope."
+        ],
+        "supportURL": "https://github.com/landco-llc/agentic-change-audit/issues",
+        "privacyPolicyURL": "https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md"
+      }
+    }
+  }
+}

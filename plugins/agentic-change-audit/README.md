@@ -6,7 +6,7 @@
 
 The current user-facing Plugin and marketplace display name is
 **ACA - Agentic Change Audit**. The technical Plugin/marketplace identifier
-remains `agentic-change-audit`, and the Plugin version remains `0.1.0-dev.3`.
+remains `agentic-change-audit`, and the Plugin version is `0.1.0-rc.1`, a provisional pre-release.
 
 ## Development status
 
@@ -123,7 +123,10 @@ The audit result produced through this Plugin is not a security certification, l
 
 ## Version
 
-This Plugin uses a development version identifier, `0.1.0-dev.3`. It is not a public release or a stable Plugin version, and it does not correspond to a tagged Skill release.
+The local Codex manifest uses provisional Plugin version `0.1.0-rc.1`.
+The bundled Skill has its own version, and the Runtime Skill ZIP version is set
+independently. The [Skills-only Plugin ZIP](../../submission/codex-plugin/README.md#portable-package)
+uses a portable root manifest for the submission workflow.
 
 ## Language contract
 

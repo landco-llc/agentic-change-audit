@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
-"""Post-W010/W013 entry point for the Codex Plugin submission validator.
+"""Repository submission validation with historical and portable source bindings.
 
-The validated implementation body is preserved byte-for-byte in
-``validate-plugin-submission-core.py``. This adapter retains the accepted
-ACA-W010 Phase C contract and rebinds only the Human-approved ACA-W013
-user-facing listing name and its canonical repository-status markers.
-
-This adapter is not a general natural-language semantic layer. All other
-listing, privacy, support, capability, human-prerequisite, secret, path,
-version, and portal-state checks remain owned by the preserved core.
+This adapter is not a general natural-language semantic layer. The core checks
+the canonical English claims, and the portable helper checks exact metadata.
 """
 
 from __future__ import annotations
@@ -21,25 +15,41 @@ from pathlib import Path
 
 CORE_PATH = Path(__file__).with_name("validate-plugin-submission-core.py")
 CORE_MODULE_NAME = "_aca_validate_plugin_submission_core"
+PORTABLE_SOURCE_TOOL = Path(__file__).with_name("package-submission-plugin.py")
 POST_W010_PHASE_C_MARKER = "Phase C desktop verification is complete and accepted"
 POST_W013_DISPLAY_NAME = "ACA - Agentic Change Audit"
 
 
-def _load_core():
-    spec = importlib.util.spec_from_file_location(CORE_MODULE_NAME, CORE_PATH)
+def _load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load preserved validator core: {CORE_PATH}")
+        raise RuntimeError("Unable to load the repository submission validators.")
     module = importlib.util.module_from_spec(spec)
-    sys.modules[CORE_MODULE_NAME] = module
+    sys.modules[name] = module
     try:
         spec.loader.exec_module(module)
     except Exception:
-        sys.modules.pop(CORE_MODULE_NAME, None)
+        sys.modules.pop(name, None)
         raise
     return module
 
 
-_core = _load_core()
+_core = _load_module(CORE_MODULE_NAME, CORE_PATH)
+_portable = _load_module("_aca_package_submission_plugin", PORTABLE_SOURCE_TOOL)
+_core_validate_manifest_boundary = _core.validate_manifest_boundary
+
+
+def validate_manifest_boundary(root: Path, errors: list[str]) -> None:
+    _core_validate_manifest_boundary(root, errors)
+    try:
+        _portable.validate_metadata_at(root)
+    except _portable.PackageError as exc:
+        errors.append(str(exc))
+    except OSError:
+        errors.append("Portable metadata must come from readable regular source files.")
+
+
+_core.validate_manifest_boundary = validate_manifest_boundary
 
 # ACA-W013 changes only the public Plugin/listing display name.
 _core.EXPECTED_PLUGIN_NAME = POST_W013_DISPLAY_NAME
