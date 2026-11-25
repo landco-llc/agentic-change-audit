@@ -1,8 +1,9 @@
 {
   "submissionType": "skills-only",
   "pluginName": "ACA - Agentic Change Audit",
+  "version": "0.1.0-rc.1",
   "publisher": "L&Co.LLC",
-  "shortDescription": "Audit software changes with evidence before merge or release.",
+  "shortDescription": "Evidence-first change audits",
   "longDescription": "Agentic Change Audit reviews a fixed software change, records the checks and evidence actually available, identifies findings and required human checks, and returns one structured Verdict before merge, release, or deployment. It is evidence-first, agent-neutral, and read-only by default.",
   "category": "Productivity",
   "websiteUrl": "https://github.com/landco-llc/agentic-change-audit",
@@ -21,6 +22,6 @@
       "path": "plugins/agentic-change-audit/skills/agentic-change-audit"
     }
   ],
-  "releaseStatus": "draft-materials-only",
+  "releaseStatus": "pre-release",
   "publicDirectoryStatus": "not-submitted"
 }

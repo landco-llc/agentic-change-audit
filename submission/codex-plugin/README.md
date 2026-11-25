@@ -9,7 +9,7 @@ prerequisite.
 
 ## Current state
 
-- Plugin version: `0.1.0-dev.3` (development).
+- Plugin version: `0.1.0-rc.1` (provisional pre-release).
 - Current user-facing Plugin/listing display name:
   `ACA - Agentic Change Audit`.
 - Technical Plugin and marketplace identifier: `agentic-change-audit`.
@@ -21,7 +21,7 @@ prerequisite.
 - The earlier marketplace wording `Agentic Change Audit marketplace` belongs to
   that historical ACA-W010 binding and is not the current display name.
 - ACA-W010 evidence is candidate-bound; it is not automatically transferable to
-  the ACA-W013 display-name candidate.
+  the ACA-W013 display-name candidate or the current pre-release.
 - Every row in [human-prerequisites.md](human-prerequisites.md) remains
   `PENDING HUMAN CHECK`.
 
@@ -57,12 +57,34 @@ verification before release/submission evidence can be claimed.
 | Field | File | Notes |
 |---|---|---|
 | Submission type, listing, identity | [listing.json](listing.json) | Exact repository contract |
+| Portable Plugin manifest | [portable/plugin.json](portable/plugin.json) | Skills-only Plugin ZIP root manifest |
 | Starter prompts | [starter-prompts.json](starter-prompts.json) | Exactly five |
 | Test cases | [test-cases.json](test-cases.json) | Five positive and three negative |
 | Availability | [availability.json](availability.json) | Recommendation only |
-| Release notes | [release-notes.md](release-notes.md) | Development materials |
+| Release notes | [release-notes.md](release-notes.md) | Provisional pre-release |
 | Human prerequisites | [human-prerequisites.md](human-prerequisites.md) | Pending human checks |
 | Visual assets | [visual-assets.md](visual-assets.md) | No approved asset |
+
+## Portable package
+
+The Skills-only Plugin ZIP has one root, `agentic-change-audit/`. It contains
+`plugin.json`, the Plugin's root `NOTICE`, and the exact bundled Skill under
+`skills/agentic-change-audit/`. The ZIP's manifest copies package identity
+and three starter prompts from the local Codex manifest. The listing supplies
+the long description and public URLs.
+
+ACA-W021 verified the public [website](https://github.com/landco-llc/agentic-change-audit),
+[support](https://github.com/landco-llc/agentic-change-audit/issues) and
+[privacy](https://github.com/landco-llc/agentic-change-audit/blob/main/PRIVACY.md)
+surfaces. The [license](https://github.com/landco-llc/agentic-change-audit/blob/main/LICENSE)
+stays in the listing record as the terms pointer. Availability remains a
+pending Human decision with Japan, Taiwan and the United States as the
+proposed initial regions.
+
+ACA-W022 prepares and validates packaging source. ACA-W023 independently
+builds and verifies the [local package outputs](../../release/README.md#skills-only-plugin-zip)
+from merged, post-merge-validated source. An external manifest and checksums
+record package identity. OpenAI validation and upload are separate actions.
 
 ## Machine validation
 
@@ -73,7 +95,8 @@ python -m pip install -r requirements-validation.txt
 python scripts/validate-plugin-submission.py
 ```
 
-The validator checks exact JSON shapes and canonical English values, HTTPS
+The validator checks exact JSON shapes, portable manifest source linkage,
+canonical English values, HTTPS
 URLs, required policy boundaries, pending human prerequisites, local-path and
 secret leakage, Plugin version/capability boundaries, the English Plugin
 README, and the existing Plugin validator. It intentionally does not attempt

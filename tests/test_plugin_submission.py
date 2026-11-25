@@ -54,7 +54,8 @@ def _post_w013_listing_contract(self):
     self.assertEqual(listing["pluginName"], POST_W013_DISPLAY_NAME)
     self.assertEqual(listing["publisher"], "L&Co.LLC")
     self.assertEqual(listing["category"], "Productivity")
-    self.assertEqual(listing["releaseStatus"], "draft-materials-only")
+    self.assertEqual(listing["version"], "0.1.0-rc.1")
+    self.assertEqual(listing["releaseStatus"], "pre-release")
     self.assertEqual(listing["publicDirectoryStatus"], "not-submitted")
     self.assertEqual(listing["logoStatus"], "PENDING APPROVED ASSET")
     self.assertEqual(
@@ -179,5 +180,5 @@ class PostW013DisplayNameStateTests(_core_tests.RepoInvariantTestCase):
         manifest = _core_tests.load_json(_core_tests.MANIFEST_PATH)
         self.assertEqual(POST_W013_DISPLAY_NAME, listing["pluginName"])
         self.assertEqual("agentic-change-audit", manifest["name"])
-        self.assertEqual("0.1.0-dev.3", manifest["version"])
+        self.assertEqual("0.1.0-rc.1", manifest["version"])
         self.assertEqual(["Read"], manifest["interface"]["capabilities"])

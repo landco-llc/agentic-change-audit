@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""Post-W010/W013 entry point for the Codex Plugin validator.
-
-The validated implementation body is preserved byte-for-byte in
-``validate-codex-plugin-core.py``. This adapter keeps the accepted ACA-W010
-Phase C evidence contract and rebinds only the Human-approved ACA-W013
-user-facing display name.
-
-All manifest, Skill, capability, identity, and fail-closed submission controls
-remain owned by the preserved core.
-"""
+"""Codex Plugin validation with the fixed ACA-W010 and ACA-W013 bindings."""
 
 from __future__ import annotations
 
@@ -38,6 +29,13 @@ POST_W010_FIXED_BINDING = (
     "Plugin `0.1.0-dev.3`",
     "af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57",
 )
+POST_W010_VERSION_CLAUSE = (
+    "ACA-W010 verified\n"
+    "  marketplace discovery, installation, explicit invocation, and Git working-tree\n"
+    "  non-mutation for the fixed pre-reconciliation candidate at\n"
+    "  `26af2687d0bac87089abd975b571ace5398a1a0b`, Plugin `0.1.0-dev.3`, and package\n"
+    "  SHA-256 `af508f8284482ef0578385783f184972db786d7504f920c7597728552df50d57`."
+)
 POST_W010_PHASE_C_PENDING_PATTERN = re.compile(
     r"Phase\s+C\s+desktop\s+(?:evidence|verification).{0,48}"
     r"\b(?:pending|outstanding)\b",
@@ -61,10 +59,10 @@ def _load_core():
 
 _core = _load_core()
 
-# ACA-W013 changes only user-facing display identity. Technical slug, Skill
-# name, version, legal identity, capabilities, and policy boundaries are fixed.
+# ACA-W013 binds the user-facing display identity.
 _core.EXPECTED_DISPLAY_NAME = POST_W013_DISPLAY_NAME
 _core.EXPECTED_MARKETPLACE_DISPLAY_NAME = POST_W013_DISPLAY_NAME
+_core.HISTORICAL_README_VERSION_CLAUSE = POST_W010_VERSION_CLAUSE
 
 _core.REQUIRED_README_MARKERS = tuple(
     POST_W010_PHASE_C_MARKER

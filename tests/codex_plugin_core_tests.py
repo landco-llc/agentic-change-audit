@@ -114,7 +114,7 @@ class PluginManifestTests(unittest.TestCase):
 
     def test_plugin_manifest_contract(self):
         self.assertEqual("agentic-change-audit", self.manifest["name"])
-        self.assertEqual("0.1.0-dev.3", self.manifest["version"])
+        self.assertEqual("0.1.0-rc.1", self.manifest["version"])
         self.assertEqual("Apache-2.0", self.manifest["license"])
         self.assertEqual("./skills/", self.manifest["skills"])
         self.assertEqual(["Read"], self.manifest["interface"]["capabilities"])

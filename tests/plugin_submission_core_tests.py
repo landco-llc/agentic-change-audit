@@ -160,7 +160,8 @@ class SubmissionPackageTests(RepoInvariantTestCase):
         self.assertEqual(listing["pluginName"], "Agentic Change Audit")
         self.assertEqual(listing["publisher"], "L&Co.LLC")
         self.assertEqual(listing["category"], "Productivity")
-        self.assertEqual(listing["releaseStatus"], "draft-materials-only")
+        self.assertEqual(listing["version"], "0.1.0-rc.1")
+        self.assertEqual(listing["releaseStatus"], "pre-release")
         self.assertEqual(listing["publicDirectoryStatus"], "not-submitted")
         self.assertEqual(listing["logoStatus"], "PENDING APPROVED ASSET")
         self.assertEqual(
@@ -401,7 +402,7 @@ class SubmissionPackageTests(RepoInvariantTestCase):
     def test_manifest_runtime_boundary_unchanged(self):
         manifest = load_json(MANIFEST_PATH)
 
-        self.assertEqual(manifest["version"], "0.1.0-dev.3")
+        self.assertEqual(manifest["version"], "0.1.0-rc.1")
         self.assertEqual(manifest["interface"]["capabilities"], ["Read"])
 
         for key in submission_module.FORBIDDEN_MANIFEST_KEYS:

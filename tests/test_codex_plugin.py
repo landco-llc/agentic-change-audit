@@ -120,4 +120,4 @@ class PostW013DisplayNameTests(_core_tests.unittest.TestCase):
             marketplace["interface"]["displayName"],
         )
         self.assertEqual("agentic-change-audit", manifest["name"])
-        self.assertEqual("0.1.0-dev.3", manifest["version"])
+        self.assertEqual("0.1.0-rc.1", manifest["version"])

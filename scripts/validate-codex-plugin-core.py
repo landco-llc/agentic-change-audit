@@ -79,7 +79,7 @@ EXPECTED_PLUGIN_TOP_LEVEL = {
 }
 
 EXPECTED_NAME = "agentic-change-audit"
-EXPECTED_VERSION = "0.1.0-dev.3"
+EXPECTED_VERSION = "0.1.0-rc.1"
 EXPECTED_DESCRIPTION = (
     "Evidence-first audits for AI-generated and human software changes "
     "before merge, release, or deployment."
@@ -100,7 +100,7 @@ EXPECTED_KEYWORDS = [
 EXPECTED_SKILLS_PATH = "./skills/"
 
 EXPECTED_DISPLAY_NAME = "Agentic Change Audit"
-EXPECTED_SHORT_DESCRIPTION = "Audit software changes with evidence before merge or release."
+EXPECTED_SHORT_DESCRIPTION = "Evidence-first change audits"
 EXPECTED_LONG_DESCRIPTION = (
     "Review fixed software changes, verification evidence, remaining risks, "
     "and required human checks before merge, release, or deployment."
@@ -157,13 +157,11 @@ SEMVER_PATTERN = re.compile(
     r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
     r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
-PLUGIN_DEVELOPMENT_VERSION_PATTERN = re.compile(
-    r"(?<![0-9A-Za-z])"
-    r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
-    r"-dev\.(?:0|[1-9][0-9]*)(?:[.-][0-9A-Za-z-]+)*"
-    r"(?![0-9A-Za-z-])",
+PLUGIN_DOCUMENT_VERSION_PATTERN = re.compile(
+    r"[\w-]*[0-9]+\.[0-9]+\.[0-9]+(?:[\w+-]+(?:\.[\w+-]+)*)?",
     re.IGNORECASE,
 )
+HISTORICAL_README_VERSION_CLAUSE = ""
 README_CLAUSE_SPLIT_PATTERN = re.compile(
     r"(?:[!?;]+|\.(?=\s|$))",
     re.IGNORECASE,
@@ -1429,7 +1427,13 @@ def validate_readmes(root: Path, errors: list[str]) -> None:
                     f"identity: {name}: {marker!r}"
                 )
 
-        for match in PLUGIN_DEVELOPMENT_VERSION_PATTERN.finditer(text):
+        current_text = text
+        if HISTORICAL_README_VERSION_CLAUSE:
+            current_text = text.replace(HISTORICAL_README_VERSION_CLAUSE, "", 1)
+        version_text = "\n".join((
+            current_text, *(clause.text for clause in readme_claim_clauses(current_text)),
+        ))
+        for match in PLUGIN_DOCUMENT_VERSION_PATTERN.finditer(version_text):
             if match.group(0) != EXPECTED_VERSION:
                 errors.append(
                     "Plugin README development-version mismatch: "
