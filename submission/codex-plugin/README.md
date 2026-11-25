@@ -106,6 +106,131 @@ That result is immutable historical evidence for its exact candidate. It does
 not authorize release/submission and must not be reused as final-candidate
 evidence after the ACA-W013 display-name change.
 
+## Preparation-only two-package design (NONACTIVE)
+
+`ACA-C02-AUDIT-HOLD-PREP-001` records a documentation-only candidate. This
+section is a proposed packaging design, not an implemented archive contract,
+formal audit, accepted source, release, or submission artifact. No Family B
+builder, verifier, or submission ZIP is produced by this candidate.
+
+### Distinct output families
+
+| Family | Proposed or existing output | Boundary |
+|---|---|---|
+| A — existing runtime Skill | `agentic-change-audit-<version>.zip`, external `.manifest.json`, and `.SHA256SUMS` | One `agentic-change-audit/` root; the existing 24-file runtime allowlist plus generated `PACKAGE-MANIFEST.json` |
+| B — proposed Skills-only Plugin | `agentic-change-audit-plugin-<plugin-version>.zip` | One `agentic-change-audit/` Plugin root containing exactly the 28 existing source files specified below |
+
+Family A retains its existing commands and deterministic contract in the
+[release guide](../../release/README.md). Its external manifest and checksums
+remain separate from the runtime ZIP. The GitHub Actions outer transport ZIP
+is neither Family A nor Family B.
+
+### Family B source boundary
+
+Proposed source binding:
+`d1bfda4e703c5bc1639c55e4b7dd17c9c064f264`, tree
+`4291ab6eb0636233eeb352638f62ac044e0ca91c`. Packaging would remove only the
+source prefix `plugins/` and retain this single root:
+
+```text
+agentic-change-audit/
+  .codex-plugin/plugin.json
+  NOTICE
+  README.md
+  skills/agentic-change-audit/  (exact 25-file inventory below)
+```
+
+The bundled Skill inventory, relative to `skills/agentic-change-audit/`, is:
+
+```text
+LICENSE
+NOTICE
+README.ja.md
+README.md
+SKILL.md
+docs/legal-attribution.md
+docs/product-definition.ja.md
+docs/product-definition.md
+guides/en/installation.md
+guides/ja/installation.md
+guides/zh-Hant/installation.md
+standard/audit-invalidation.ja.md
+standard/audit-invalidation.md
+standard/change-audit-standard.ja.md
+standard/change-audit-standard.md
+standard/evidence-requirements.ja.md
+standard/evidence-requirements.md
+standard/human-check-boundary.ja.md
+standard/human-check-boundary.md
+standard/output-schema.json
+standard/verdict-criteria.ja.md
+standard/verdict-criteria.md
+templates/audit-result.json
+templates/audit-result.md
+templates/focused-reaudit-result.md
+```
+
+The proposed boundary permits only these 28 existing regular files and their
+necessary parent directories. No other root, sibling, generated package
+manifest, extra script, test, submission-preparation file, private file, or
+cache belongs in Family B. It retains a Skills-only Plugin: no MCP, apps,
+hooks, authentication, telemetry, or network client. The manifest's
+`skills: "./skills/"` resolves from the Plugin root, and the Skill directory
+remains named `agentic-change-audit` with its existing `SKILL.md`.
+
+### Public specification and unresolved metadata
+
+Official public documentation checked on **2026-10-10**:
+
+- [Package your plugin](https://developers.openai.com/plugins/build/plugins)
+  continues to support `.codex-plugin/plugin.json` compatibility manifests.
+  This design retains the existing layout; a portable-manifest migration is
+  outside this candidate.
+- [Build skills](https://developers.openai.com/plugins/build/skills) documents
+  bundled Skill folders and `SKILL.md`.
+- [Upload and submit your plugin](https://developers.openai.com/plugins/deploy/submission)
+  documents ZIP upload and separate review/publication stages. Its listing
+  limit is 30 characters each for display name and short description.
+- [Plugin submission errors](https://developers.openai.com/plugins/deploy/submission-errors)
+  documents archive/path checks and a compressed ZIP limit of 100 MB. It also
+  distinguishes upload checks from final directory submission checks.
+
+P01's dated metadata measurement is 26 characters for the current display name
+and 61 for `interface.shortDescription`: the name fits the 30-character
+submission limit; the short description exceeds it. No replacement wording is
+selected here. The public package-summary table gives 4000 characters while
+the package error reference gives 1024; the conservative future design ceiling
+is 1024 pending fresh reconciliation. These public facts do not establish
+compatibility with an authenticated or post-upload portal state, which remains
+`UNKNOWN`; they are not a submission-readiness attestation.
+
+Plugin version remains `0.1.0-dev.3`; bundled Skill metadata remains `0.1.0`.
+A future Plugin `0.1.0-rc.1` is provisional intent only and requires its own
+coherent version/metadata transition. Both rc support and short-description
+validation require work in currently excluded paths:
+`scripts/validate-codex-plugin-core.py`, `scripts/validate-codex-plugin.py`,
+`tests/test_codex_plugin.py`, and `tests/codex_plugin_core_tests.py`. Existing
+validation must not be weakened to hide those dependencies.
+
+### Deferred implementation and evidence
+
+A future archive builder/verifier and path parser are High Risk security work.
+Their implementation is deferred pending the required security-specialist
+assurance and formal Critical Audit admission, which are currently unavailable.
+Future tests must cover exact root/allowlist and manifest/content hashes,
+missing/extra/duplicate entries, malformed or corrupted ZIPs/manifests,
+absolute/backslash/traversal paths, symlinks, privacy checks, exact committed
+source provenance, version consistency, and two-build byte/hash equivalence.
+These are design requirements, not executed Family B tests.
+
+Any rehearsal using existing runtime tooling must bind a clean fixed source
+and keep temporary outputs in private scratch. It supplies preparation evidence
+only, not release/submission assets, formal audit, or acceptance. Historical
+ACA-W010 identities and evidence above retain their original exact binding.
+Developer identity, logo, availability, legal/policy choices, and every Human
+prerequisite remain pending; this design makes no portal choice or attestation.
+G1B remains `HOLD`; W021–W024 remain `NOT ACTIVATED`.
+
 ## Related documents
 
 - [Plugin README](../../plugins/agentic-change-audit/README.md)
